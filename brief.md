@@ -1,11 +1,16 @@
 # Breeze — Brief produit
 
-**Version** : 2.0 · **Date** : 2026-08-27 · **Statut** : définitif, prêt pour design et développement
+**Version** : 2.1 · **Date** : 2026-08-27 · **Statut** : définitif, prêt pour design et développement
 **Plateforme** : macOS 13 Ventura et ultérieur (Apple Silicon + Intel) · **Stack** : Electron (main + renderer) + module natif Objective-C++
 
 Ce document est la référence unique du MVP. Toute règle y figure à un seul endroit ; les autres
 sections y renvoient. Les inconnues techniques restantes sont listées en §9, chacune avec le
 comportement de repli déjà décidé : aucune ne peut bloquer le design ni le développement.
+
+La version 2.1 ne change ni l'ambition ni le périmètre. Elle ferme les points que le cadrage du cycle
+(`docs/cadrage/2026-08-27-cycle-et-negociation.md`) a mis au jour en modélisant la machine à états —
+dont neuf échappatoires qui contournaient le budget de report sans rien lui coûter. Le journal de ces
+arbitrages est en §12.
 
 ---
 
@@ -113,7 +118,14 @@ périmètre (§2). Cette table fait autorité sur toutes les valeurs par défaut
 | Raccourci `⌥⌘S` | Inactif |
 
 Un changement de durée de travail prend effet au cycle suivant. Un changement de durée de pause
-prend effet à la pause suivante. Aucun des deux ne modifie une phase déjà en cours.
+prend effet **au démarrage de la pause suivante**, y compris celle qu'un préavis a déjà annoncée mais
+qui n'a pas encore commencé — **à condition qu'elle allonge la pause**. Une durée revue à la baisse
+attend le cycle suivant : la règle d'or de §3.7 vaut ici aussi, aucun réglage qui affaiblit la
+contrainte ne s'applique à une pause déjà due. Sans elle, ramener la pause à 1 minute pendant le
+préavis annulerait neuf minutes de pause, gratuitement et indéfiniment. Un changement de plage horaire active ou de jours actifs prend effet
+**au cycle suivant** : sans cette règle, décocher le jour courant pendant un préavis effacerait la
+pause due sans rien coûter au budget de report (§3.7). Aucun de ces changements ne modifie une phase
+déjà en cours.
 
 **Le Statut d'application** — chaque application connue de Breeze porte un statut parmi trois :
 
@@ -122,6 +134,13 @@ prend effet à la pause suivante. Aucun des deux ne modifie une phase déjà en 
 | `blocked` | Recouverte par un overlay en Mode Simple | Son usage compte comme du travail |
 | `allowed` | Utilisable librement en Mode Simple | Son usage compte comme du travail |
 | `ignored` | Utilisable librement en Mode Simple | Son usage ne compte pas comme du travail |
+
+**Un statut `ignored` désactive le décompte, et c'est voulu.** Passer une application en `ignored` et
+y rester gèle la phase de travail : la pause n'est jamais due, et rien n'est débité. Ce n'est pas une
+échappatoire à fermer. `ignored` veut dire « ceci n'est pas du travail » ; qui reconfigure son outil à
+froid a fait un choix conscient, exactement comme il aurait suspendu Breeze. Le produit se défend
+contre celui qui négocie au moment où la pause arrive, pas contre celui qui décide de ce qui compte —
+§4.3 le dit déjà : la triche est rendue coûteuse et consciente, pas impossible.
 
 **Statut par défaut : `blocked`.** Une application inconnue est bloquée dès sa première apparition au
 premier plan. Un défaut permissif produirait une première pause sans effet, ce qui casse la promesse
@@ -148,7 +167,7 @@ ne sert plus qu'au décompte du travail — colonne de droite du tableau ci-dess
 ### 3.2 Machine à états
 
 ```
-   ┌──────────────────────────── arrêter, fin de plage horaire, jour inactif ──┐
+   ┌──────────────────────────────── fin de plage horaire, jour inactif ───────┐
    │                                                                           │
    ▼                                                                           │
 [INACTIF] ──démarrer──▶ [ARMÉ] ──déclencheur au premier plan──▶ [TRAVAIL] ─────┤
@@ -180,30 +199,72 @@ ne sert plus qu'au décompte du travail — colonne de droite du tableau ci-dess
 - Un cycle qui commence part d'un décompte de travail plein. Une phase de travail interrompue par la
   perte du déclencheur ou par l'inactivité est **gelée**, pas remise à zéro : au retour du
   déclencheur ou de l'utilisateur, le décompte reprend là où il s'était arrêté.
-- La sortie vers **[INACTIF]** est possible depuis n'importe quel état. Les conditions et le sort
-  d'une pause en cours sont donnés plus bas.
+- La sortie vers **[INACTIF]** a exactement **deux** causes : la fermeture de la plage horaire et le
+  passage à un jour inactif. Les deux suivent la même règle, donnée plus bas. Il n'existe **aucune
+  commande d'arrêt du cycle** : qui veut arrêter Breeze le suspend, ou le quitte — et quitter
+  l'application ne fait pas transiter le cycle, il détruit le processus (§3.10).
+- La sortie *de* **[INACTIF]** en a deux : l'ouverture de la plage horaire ou le passage à un jour
+  actif, qui ramènent en **[ARMÉ]** — sans quoi Breeze resterait inerte du soir au lendemain matin —
+  et le démarrage de l'application.
 
 **États transversaux :**
 
 - **[SUSPENDU]** — l'utilisateur a suspendu Breeze pour 15 min, 1 h, ou jusqu'au lendemain 6 h. Tout
   décompte est gelé. Pendant **[PAUSE ACTIVE]**, la suspension suit la même règle que la fin
-  anticipée de pause (§3.7) : possible après 60 s en Mode Simple, impossible en Mode Hardcore. À
-  l'expiration, Breeze repart en **[ARMÉ]** si la plage horaire l'autorise, et en **[INACTIF]**
-  sinon. Le décompte de travail repart d'une phase pleine.
+  anticipée de pause (§3.7) : possible après 60 s en Mode Simple, impossible en Mode Hardcore ; elle
+  **clôt** alors la pause, qui est comptée écourtée (§3.8). Elle est en revanche **impossible dès
+  qu'une pause est due** — pendant **[PRÉAVIS]** et pendant **[INHIBÉ]** —, sans quoi elle effacerait
+  cette pause sans débiter une minute, et l'opération serait répétable (§3.7). Une seconde commande
+  de suspension pendant une suspension **remplace** l'échéance de la première, elle ne s'y ajoute
+  pas. **Une suspension est révocable** : le popover porte « Reprendre Breeze » tant qu'elle court.
+  Reprendre plus tôt que prévu renforce la contrainte, la règle d'or de §3.7 ne s'y oppose donc pas. À l'expiration, Breeze repart en **[ARMÉ]** si la plage horaire l'autorise, et en
+  **[INACTIF]** sinon. Le décompte de travail repart d'une phase pleine.
 - **[VEILLE]** — le Mac dort ou la session est verrouillée. Tout décompte est gelé et recalculé au
-  réveil (§4.6).
+  réveil (§4.6), **budget de report compris** : une inhibition ne consomme rien pendant que la
+  machine dort.
 - **[INHIBÉ]** — une condition externe repousse la pause : appel visio, partage d'écran,
   présentation plein écran, plage d'exception horaire (§3.5). Le décompte de travail est terminé,
   mais la pause attend. L'attente consomme le budget de report du cycle (§3.7) ; budget épuisé, la
   pause démarre malgré l'inhibition. L'icône porte alors l'anneau complet du préavis, sans
   pulsation, et le popover affiche « Pause en attente » avec les minutes de budget restantes.
 
-**Fin de plage horaire pendant un cycle :**
+  Trois précisions ferment cet état :
 
-- Pendant **[TRAVAIL]** ou **[ARMÉ]** : Breeze passe en **[INACTIF]** à la fin de la plage. Le
-  décompte en cours est perdu, pas mémorisé.
-- Pendant **[PRÉAVIS]**, **[PAUSE ACTIVE]** ou **[RETOUR]** : la pause va à son terme, puis Breeze
-  passe en **[INACTIF]**. Une pause commencée n'est jamais coupée par l'horloge.
+  - **L'inhibition s'évalue en niveau, à T-0, jamais sur son front.** À l'instant où la pause devient
+    due, Breeze regarde si une condition *tient*, pas si elle vient de commencer. Une visio ouverte à
+    la minute 20 d'une phase de 50 inhibe donc bien la pause — c'est même le cas dominant, et le
+    lire en front laisserait l'overlay tomber en pleine réunion, ce que §7 (KF1) décrit comme la
+    seule occurrence qui suffit à détruire la confiance.
+  - **[INHIBÉ] porte l'ensemble des causes actives, et cet ensemble reste ouvert.** L'état tient tant
+    qu'au moins une condition tient, et cesse quand la dernière cesse — y compris une condition
+    apparue *après* T-0 : une visio qui commence à 13 h 55 prolonge l'inhibition au-delà de la
+    fermeture de la plage du déjeuner. Le budget est débité **une seule fois** pour un intervalle
+    recouvert : deux causes concurrentes ne le vident pas deux fois plus vite.
+  - **Quand T-0 est franchi sans que le processus soit vivant ou l'écran déverrouillé**, les causes
+    sont constatées **à la reprise**, et le budget débite à partir de là. Personne n'a pu observer
+    T-0 ; poser l'overlay au réveil sans regarder ferait tomber une pause Hardcore en pleine visio.
+  - **Quand la dernière condition cesse, la pause démarre**, sans préavis rejoué et sans restitution
+    du budget consommé. Rejouer 60 secondes de préavis repousserait encore la pause sans rien
+    débiter, et ré-offrirait un report que l'inhibition venait d'interdire.
+
+  **[PRÉAVIS] et [INHIBÉ] ne se composent pas.** Une condition qui commence pendant le préavis ne
+  produit rien avant T-0 : le bouton « Reporter 5 min » reste offert jusque-là, et il n'existe aucun
+  report pendant l'inhibition.
+
+**Fin de plage horaire et jour inactif — même règle :**
+
+- Pendant **[TRAVAIL]** ou **[ARMÉ]** : Breeze passe en **[INACTIF]** immédiatement. Le décompte en
+  cours est perdu, pas mémorisé.
+- Pendant **[PRÉAVIS]**, **[INHIBÉ]**, **[PAUSE ACTIVE]** ou **[RETOUR]** : la pause va à son terme,
+  puis Breeze passe en **[INACTIF]**.
+
+**Une pause commencée n'est jamais coupée par l'horloge.** C'est aussi ce qui rend inutile de border
+un « arrêt » : rien dans l'interface ne permet d'effacer une pause due, et un changement de plage
+horaire ne prend effet qu'au cycle suivant (§3.1).
+
+**Quitter l'application, en revanche, reste possible à tout instant** et détruit tout : c'est un
+refus assumé de §2, et §3.10 en donne le détail. Breeze rend la triche coûteuse et consciente, pas
+impossible — et un cycle qu'on abandonne en quittant l'application n'alimente aucun compteur.
 
 ### 3.3 Onboarding — première ouverture
 
@@ -222,7 +283,10 @@ Fenêtre classique, pas un popover : 720 × 520, non redimensionnable, centrée.
 
 Le lien « Personnaliser » remplace les trois cartes par deux champs numériques. Il accepte 5 à
 180 minutes de travail et 1 à 60 minutes de pause, la pause ne pouvant dépasser la durée de travail.
-Ces bornes valent aussi pour Réglages › Rythme.
+Ces bornes valent aussi pour Réglages › Rythme. **Au moins un jour actif est obligatoire**, et une
+plage horaire dont le début égale la fin est refusée : l'une comme l'autre enfermerait le cycle en
+[INACTIF] sans aucune sortie, exactement comme l'interrupteur de déclencheurs armé sur une liste
+vide (§3.5).
 
 **Écran 3 — Quel niveau de fermeté.** Deux cartes, chacune portant une **animation de
 prévisualisation** — une maquette de bureau miniature où l'overlay vient se poser. C'est le point de
@@ -297,7 +361,7 @@ fermé (§4.8).
 │  ◍  23:04                          │   ← anneau + temps, gros
 │     avant ta pause de 10 min       │
 ├────────────────────────────────────┤
-│  ⏸  Suspendre           15 min ▾   │
+│  ⏸  Suspendre           15 min ▾   │   ← « Reprendre Breeze » pendant une suspension
 │  ⏭  Faire une pause maintenant     │
 │  🔁 Redémarrer le cycle            │   ← repart d'une phase de travail pleine
 ├────────────────────────────────────┤
@@ -312,8 +376,12 @@ fermé (§4.8).
 
 Pendant une pause active, le sélecteur de sévérité est présent mais désactivé, avec l'explication
 « La sévérité ne change pas pendant une pause » (§3.7). Les trois actions du deuxième bloc suivent
-le tableau de §3.7 : « Faire une pause maintenant » reste toujours disponible ; « Suspendre » et
-« Redémarrer le cycle » sont désactivés pendant une pause, sauf en Mode Simple après 60 secondes.
+le tableau de §3.7, et rien d'autre : une entrée grisée porte toujours la raison de son grisement.
+« Faire une pause maintenant » est disponible depuis [ARMÉ], [TRAVAIL], [PRÉAVIS] et [INHIBÉ].
+« Suspendre » et « Redémarrer le cycle » ne le sont que depuis [ARMÉ] et [TRAVAIL] : ils sont
+désactivés dès qu'une pause est due — préavis ou inhibition — et pendant une pause, sauf en Mode
+Simple après 60 secondes de pause écoulée. Le menu du clic droit et les raccourcis globaux suivent
+exactement les mêmes règles.
 
 Pendant une pause en Mode Simple, le popover reste ouvrable et affiche le décompte de la pause à la
 place de celui du travail. Pendant une pause en Mode Hardcore, la barre de menus est masquée : le
@@ -340,6 +408,16 @@ Fenêtre Réglages, onglet **Applications**. Trois zones.
 **Zone 1 — Déclencheurs.** « Ne compter le temps de travail que si j'utilise… » avec un interrupteur
 maître, inactif par défaut. Actif, il révèle la liste des applications à cocher.
 
+**L'interrupteur ne s'arme pas sur une liste vide, et la liste ne se vide pas tant qu'il est armé.**
+Un cycle armé sans aucun déclencheur n'entrerait plus jamais en phase de travail, et rien à l'écran
+ne l'annoncerait. Cocher au moins une application est donc la condition d'activation ; décocher la
+dernière désactive l'interrupteur, avec la mention « Sans déclencheur, tout usage compte comme du
+travail ». Ces deux refus portent sur des **commandes**. Quand la liste se vide sans commande —
+la dernière application cochée est désinstallée (§3.10) —, Breeze ne touche pas au réglage de
+l'acteur : l'interrupteur reste armé, le décompte retombe sur « tout usage compte comme du travail »
+tant que la liste effective est vide, et un bandeau le dit. L'appartenance à la liste survit et est
+réappliquée si l'application revient, comme le statut. Sans cela, [ARMÉ] se figerait en silence.
+
 **Zone 2 — Comportement en pause.** Le tableau principal, une ligne par application :
 
 ```
@@ -362,11 +440,18 @@ visuel qu'en Mode Simple (§3.1).
 
 - « Ne pas interrompre pendant un appel visio » — activé par défaut
 - « Ne pas interrompre pendant un partage d'écran » — activé par défaut
-- « Ne pas interrompre pendant une présentation plein écran » — activé par défaut
+- « Ne pas interrompre pendant une présentation plein écran » — activé par défaut, sous réserve de
+  l'inconnue n° 6 de §9
 - « Ne pas interrompre entre 12 h et 14 h », plage libre — désactivé par défaut
 
 Un bandeau permanent, dans les deux sévérités : « Ces exceptions repoussent la pause de 15 minutes
 au maximum, report manuel compris. Ensuite, Breeze passe outre. »
+
+**Activer une exception, ou compléter la liste visio de §4.5, prend effet au cycle suivant** — même
+règle que la plage horaire (§3.1), et pour la même raison : sans elle, activer « ne pas interrompre
+entre 12 h et 14 h » sur l'heure courante pendant un préavis repousserait la pause due sans rien
+débiter. **Désactiver une exception prend effet immédiatement**, y compris pendant [INHIBÉ] : c'est
+un geste qui renforce la contrainte, et la règle d'or ne s'y oppose pas.
 
 ### 3.6 Comportement des overlays
 
@@ -382,6 +467,14 @@ porte la barre de menus, jamais dupliquée sur les autres.
 Elle disparaît d'elle-même à T-0. Le bouton « Reporter 5 min » est présent tant que le budget de
 report du cycle le permet, et absent sinon (§3.7). Le préavis est rejoué à chaque report, 60
 secondes avant la nouvelle échéance.
+
+**Un seul report par préavis.** Le bouton disparaît dès qu'il a été actionné : deux clics rapprochés
+ne reculent pas la pause de dix minutes. Un second report volontaire passe par le préavis rejoué,
+ce qui rend le geste conscient, et non nerveux.
+
+**Le préavis n'est jamais rejoué pour annoncer un fait déjà arrivé.** Ni au réveil d'une veille qui a
+dépassé l'échéance, ni à la fin d'une inhibition : dans les deux cas la pause démarre directement
+(§3.2, §4.6).
 
 Sans permission Notifications, le préavis passe par cette même bannière : Breeze ne dépend pas des
 notifications système pour prévenir.
@@ -418,8 +511,8 @@ Comportement :
 - **Aucune application bloquée n'a de fenêtre visible au début de la pause** : Breeze pose alors la
   bannière de pause seule, au même emplacement que le préavis, avec le décompte. Une pause sans
   aucun signal visible serait indistinguable d'une pause manquée.
-- **Terminer en avance** : après 60 secondes de pause, un bouton « Terminer la pause » apparaît sous
-  le décompte — sur l'overlay qui le porte, ou sur la bannière quand aucun overlay n'est posé. Il
+- **Terminer en avance** : après 60 secondes de pause écoulées, un bouton « Terminer la pause »
+  apparaît sous le décompte — et il disparaît dès qu'il a été actionné, comme celui du report — sur l'overlay qui le porte, ou sur la bannière quand aucun overlay n'est posé. Il
   termine la pause et enchaîne sur [RETOUR]. Ce bouton n'existe qu'en Mode Simple.
 
 #### Mode Hardcore — overlay total
@@ -463,7 +556,9 @@ Comportement :
   n'en est plus un. Chaque usage est enregistré dans le journal local et compté dans les
   statistiques (§3.8), et c'est la seule conséquence.
 - **Après une sortie d'urgence**, Breeze détruit tous les overlays et passe en [ARMÉ]. La pause est
-  comptée comme interrompue. Le cycle suivant repart avec un budget de report plein.
+  comptée comme interrompue, et le budget du cycle suivant est diminué des minutes de pause non
+  faites (§3.7). Sortir à la deuxième minute d'une pause de dix en coûte huit — la sortie reste
+  possible autant de fois qu'il le faut, mais elle rend les pauses suivantes moins négociables.
 
 #### Retour — T+0, 3 s
 
@@ -476,26 +571,98 @@ Le produit tient parce que les échappatoires sont chiffrées et non modifiables
 envie.
 
 **Le budget de report.** Chaque cycle dispose d'un budget unique de **15 minutes** de report, remis à
-plein au début de chaque phase de travail. Tout ce qui repousse une pause y puise, au premier arrivé :
-un report manuel depuis le préavis, une inhibition (§3.5). Budget épuisé, la pause démarre, quelle
-que soit la raison invoquée. Un seul plafond, donc aucun cumul possible entre mécanismes.
+plein **au démarrage du cycle**. Tout ce qui repousse une **pause due** y puise, au premier arrivé :
+un report manuel depuis le préavis, une inhibition (§3.5). Budget épuisé, la pause démarre, quelle que
+soit la raison invoquée. Un seul plafond, donc aucun cumul possible entre mécanismes.
+
+**Le budget borne le recul d'une pause due, pas la conduite du cycle.** Suspendre ou redémarrer depuis
+[TRAVAIL] remet le cycle à zéro : la pause n'était pas encore due, il n'y a rien à repousser, et rien
+n'est débité. Ces deux leviers deviennent impossibles dès qu'elle l'est, précisément pour que la
+distinction ne se transforme pas en porte de sortie.
+
+**Le budget se remet à plein au cycle, pas à la phase.** Un report accordé ramène Breeze en
+**[TRAVAIL]** ; recharger le budget à chaque entrée en phase de travail rechargerait donc celui que
+le report vient de débiter, et le report deviendrait illimité.
+
+**Les deux mécanismes ne débitent pas de la même façon :**
+
+- **Un report manuel débite cinq minutes au moment du clic**, et rien ne lui est rendu si
+  l'utilisateur commence sa pause plus tôt. Le budget est une valeur qui ne bouge qu'aux transitions,
+  ce que la persistance de §4.6 demande.
+- **Une inhibition débite le temps réellement écoulé sous elle**, à partir de l'instant où la pause
+  devient due — jamais avant. Une visio pendant la phase de travail ne coûte donc rien, puisqu'elle
+  ne repousse rien.
+
+**Une pause avortée débite le temps de pause qu'elle n'a pas servi.** Seule une pause menée jusqu'au
+bout de son décompte, ou validée par une absence (§4.6), ouvre le cycle suivant avec 15 minutes
+pleines. Toute autre fin — écourtée en Mode Simple, levée par la sortie d'urgence, close par une
+suspension ou un redémarrage acceptés — **reporte le budget restant, diminué des minutes de pause non
+faites**. Une pause de dix minutes close à la première débite neuf minutes.
+
+C'est le seul chiffrage qui ferme le chemin : sans lui, déclencher une pause depuis le préavis puis
+la terminer après 60 secondes annulerait dix minutes de pause pour le prix d'une, indéfiniment — et
+« reconduire l'entamé » n'y changerait rien, puisque rien n'aurait été débité. Avec lui, deux pauses
+avortées épuisent les quinze minutes, et la troisième pause du jour n'est plus négociable. La sortie
+d'urgence n'est toujours pas rationnée : elle coûte, elle ne se refuse jamais (§3.6).
+
+**Une phase de travail rouverte par un report ne gèle plus.** Les cinq minutes accordées s'écoulent en
+temps mural, quoi que fasse l'utilisateur. Sans cette règle, passer sur une application `ignored`
+après avoir reporté suspendrait la pause due indéfiniment, pour cinq minutes de budget — la plus
+large échappatoire du modèle.
+
+**Le quota de reports se lit contre la sévérité du moment.** Passer de Hardcore à Simple après un
+report en autorise deux de plus, dans la limite du budget : le quota borne la fréquence, le budget
+borne le total. C'est le prolongement de la règle d'or ci-dessous, qui rend tout changement de
+sévérité hors pause immédiat et applicable au cycle en cours.
 
 | Levier | Mode Simple | Mode Hardcore |
 |---|---|---|
-| Reporter depuis le préavis | 3 fois, 5 min chacune | 1 fois, 5 min |
+| Reporter depuis le préavis | 3 fois, 5 min chacune, **une seule par préavis** | 1 fois, 5 min |
 | Repousser par inhibition | Jusqu'à épuisement du budget | Jusqu'à épuisement du budget |
-| Terminer la pause en avance | Bouton visible après 60 s | Impossible, hors sortie d'urgence |
-| Déclencher une pause immédiatement | Immédiat | Immédiat |
+| Terminer la pause en avance | Bouton visible après 60 s de pause écoulée | Impossible, hors sortie d'urgence |
+| Déclencher une pause immédiatement | Immédiat depuis [ARMÉ], [TRAVAIL], [PRÉAVIS] et [INHIBÉ] | Idem |
 | Redémarrer le cycle | Immédiat hors pause ; pendant une pause, seulement après 60 s | Immédiat hors pause, impossible pendant |
 | Changer de sévérité | Immédiat hors pause, impossible pendant | Immédiat hors pause, impossible pendant |
-| Changer la durée de travail ou de pause | Au cycle ou à la pause suivante | Au cycle ou à la pause suivante |
+| Changer la durée de travail ou de pause | §3.1 | §3.1 |
 | Suspendre Breeze | Immédiat hors pause ; pendant une pause, seulement après 60 s | Immédiat hors pause, impossible pendant |
-| Quitter l'application | Immédiat | Confirmation, avec rappel du compteur de pauses interrompues |
+| Suspendre ou redémarrer quand une pause est due | **Impossible** — [PRÉAVIS] et [INHIBÉ] | **Impossible** |
+| Quitter l'application | Immédiat | Confirmation, avec rappel du compteur de pauses interrompues (§3.10) |
 
 **Règle d'or** : aucun réglage qui affaiblit la contrainte ne prend effet pendant une pause en
 cours. La sévérité, elle, ne change dans aucun sens pendant une pause : une pause se déroule toujours
 sous la sévérité avec laquelle elle a commencé. Changer de sévérité hors pause est immédiat et
 s'applique au cycle en cours.
+
+**Chaque levier a ses états d'origine, et il est sans effet ailleurs :**
+
+| Levier | Ses seuls états d'origine |
+|---|---|
+| Reporter 5 min | [PRÉAVIS], une fois par préavis |
+| Faire une pause maintenant | [ARMÉ], [TRAVAIL], [PRÉAVIS], [INHIBÉ] |
+| Suspendre Breeze, Redémarrer le cycle | [ARMÉ], [TRAVAIL] **avant tout report** — et [PAUSE ACTIVE] en Mode Simple après 60 s |
+| Reprendre Breeze | [SUSPENDU] |
+| Terminer la pause | [PAUSE ACTIVE] en Mode Simple, après 60 s, tant que l'échéance n'est pas atteinte |
+| Sortie d'urgence | [PAUSE ACTIVE] en Mode Hardcore |
+
+**Une phase de travail rouverte par un report n'est pas un état d'origine** pour la suspension ni pour
+le redémarrage. La pause est déjà due ; le report n'a fait que la déplacer. Sans cette réserve,
+reporter puis redémarrer effacerait la pause **et** rendrait les cinq minutes débitées.
+
+Aucun ne vaut depuis **[INACTIF]**, **[SUSPENDU]** ou **[VEILLE]**, où ils contourneraient la plage
+horaire et la suspension elles-mêmes, ni depuis **[RETOUR]**, où il n'y a plus rien à négocier.
+« Faire une pause maintenant » ne vaut pas non plus pendant **[PAUSE ACTIVE]** : une pause ne se
+redémarre pas. C'est vrai quelle que soit l'entrée employée : popover, menu clic droit
+ou raccourci global obéissent aux mêmes règles, et aucun levier n'est plus permissif parce qu'il
+passe par un raccourci.
+
+**Quand une échéance et une commande tombent au même instant, l'échéance l'emporte.** Une pause dont
+le décompte est arrivé à zéro est une *pause prise* ; le clic sur « Terminer la pause » parti trois
+cents millisecondes trop tard n'en fait pas une pause écourtée. Sans cet arbitrage, les compteurs de
+§3.8 mesureraient le hasard d'ordonnancement.
+
+**Les « 60 secondes » de la fin anticipée et de la suspension se comptent en temps de pause écoulé,
+gels déduits.** Un verrouillage de session de cinq minutes à la trentième seconde d'une pause ne rend
+pas le bouton disponible au déverrouillage : il reste trente secondes à faire.
 
 ### 3.8 Réglages — arborescence
 
@@ -511,11 +678,18 @@ s'applique au cycle en cours.
 - **Statistiques** — 30 derniers jours glissants, en local. Quatre compteurs et un cumul, définis
   une fois pour toutes ici :
   - **Pause prise** — allée jusqu'au bout de son décompte, ou validée par une absence (§4.6).
-  - **Pause écourtée** — terminée par le bouton « Terminer la pause » du Mode Simple.
+  - **Pause écourtée** — close par l'utilisateur avant son terme, en Mode Simple : par le bouton
+    « Terminer la pause », ou par une suspension ou un redémarrage du cycle acceptés après 60 s
+    (§3.2). Le geste change, le fait est le même.
   - **Pause interrompue** — levée par la sortie d'urgence du Mode Hardcore.
   - **Report** — chaque report accordé depuis le préavis. Les minutes prises par une inhibition ne
     comptent pas comme un report : l'utilisateur ne les a pas demandées.
-  - **Minutes de pause** — le temps réellement passé en pause, quelle qu'ait été sa fin.
+  - **Minutes de pause** — le temps réellement passé en pause, quelle qu'ait été sa fin. Une pause
+    validée par une absence (§4.6) n'a jamais commencé : elle crédite la **durée configurée**, comme
+    si elle avait été servie.
+
+  La journée des statistiques va de minuit à minuit, heure locale — pour la ligne « Aujourd'hui » du
+  popover comme pour les 30 jours glissants.
 
   La ligne « Aujourd'hui » du popover (§3.4) affiche les pauses prises et les minutes de pause
   cumulées, elles seules.
@@ -535,7 +709,9 @@ décrit de mode dégradé.
 |---|---|---|
 | **Notifications** seule | Tout | Le préavis passe par la bannière propriétaire de Breeze (§3.6). Aucune autre différence, dans les deux sévérités. |
 | **Accessibilité** seule, sévérité Hardcore | Tout | Aucune différence. Le Mode Hardcore n'utilise pas l'API Accessibilité (§4.2). |
-| **Accessibilité** seule, sévérité Simple | Le cycle, le préavis, le décompte | Breeze ne peut pas suivre les cadres de fenêtres. Il pose un **overlay unique plein écran, fermable d'un clic**, et affiche dans le popover : « Sans l'Accessibilité, ta pause est contournable. Autorise Breeze, ou passe en Hardcore. » Un badge d'avertissement reste sur l'icône jusqu'à la réparation. |
+| **Accessibilité** seule, sévérité Simple | Le cycle, le préavis, le décompte | Breeze ne peut pas suivre les cadres de fenêtres. Il pose un **overlay unique plein écran, fermable d'un clic** — le fermer clôt la pause, qui est
+comptée écourtée et débite les minutes non faites (§3.7), exactement comme le bouton « Terminer la
+pause ». Et il affiche dans le popover : « Sans l'Accessibilité, ta pause est contournable. Autorise Breeze, ou passe en Hardcore. » Un badge d'avertissement reste sur l'icône jusqu'à la réparation. |
 | **Les deux** | Le cycle en Hardcore | Cumul des deux lignes ci-dessus. |
 
 Le déclencheur intelligent (F4) repose sur `NSWorkspace` et ne demande aucune permission. Si la
@@ -552,13 +728,15 @@ du travail (§9).
 | La session est verrouillée pendant une pause | La pause est gelée ; au déverrouillage, l'overlay est reposé au premier plan et le décompte reprend |
 | Le Mac dort pendant une pause | §4.6 : une absence plus longue que le temps de pause restant valide la pause |
 | L'utilisateur est inactif plus de 3 min pendant le travail | La phase de travail est gelée (§4.5) |
-| L'utilisateur est absent, pendant le travail, plus longtemps que la durée de pause configurée | §4.6 : le cycle est validé comme pause prise et repart à zéro |
+| L'utilisateur est absent, avant que la pause ait commencé, plus longtemps que la durée de pause configurée | §4.6 : le cycle est validé comme pause prise et repart à zéro, que l'absence ait débuté en [TRAVAIL], [PRÉAVIS] ou [INHIBÉ] |
+| L'utilisateur est absent moins longtemps que ce seuil, mais l'échéance de phase est dépassée | §4.6 : l'échéance produit ce qu'elle aurait produit ; le préavis est sauté et la pause démarre au réveil |
 | Une application `blocked` est lancée pendant une pause Simple | Elle reçoit son overlay en moins de 500 ms |
 | Une application `allowed` recouvre la zone d'un overlay Simple | L'overlay qui l'intersecte est masqué tant qu'elle est au premier plan, puis reposé (§4.4) |
-| Breeze est quitté pendant une pause Hardcore | Confirmation, puis tous les overlays sont détruits et les raccourcis globaux dés-enregistrés (§4.3) |
+| Breeze est quitté pendant une pause Hardcore | Confirmation, puis tous les overlays sont détruits et les raccourcis globaux dés-enregistrés (§4.3). Au relancement, la pause est comptée interrompue (§4.6) |
+| La plage horaire se ferme pendant une pause ou un préavis | La pause va à son terme, puis [INACTIF] (§3.2) |
 | Le processus principal tombe pendant une pause | Les fenêtres d'overlay meurent avec lui. Au-delà de 3 chutes en 5 minutes, le coupe-circuit s'arme (§4.7) |
 | Deux instances de Breeze sont lancées | La seconde se termine immédiatement (§4.6) |
-| Breeze est relancé alors qu'une phase était en cours | §4.6 : l'échéance persistée décide — encore à venir, la phase reprend ; déjà passée, elle est traitée comme une absence |
+| Breeze est relancé alors qu'une phase était en cours | §4.6 : l'échéance persistée décide — encore à venir, la phase reprend ; déjà passée, elle produit ce qu'elle aurait produit. Jamais une absence : aucun signal n'a pu être mesuré pendant que le processus était mort |
 | Une application connue de Breeze est désinstallée | Sa ligne disparaît du tableau. Son statut est conservé, et réappliqué si l'application revient |
 | L'heure système change pendant un cycle | Les échéances en cours sont conservées telles quelles. Seule la plage horaire suit la nouvelle heure locale |
 | L'utilisateur enchaîne les sorties d'urgence | Aucun rationnement, aucune escalade dans le MVP. Le compteur monte, et c'est tout (§3.6) |
@@ -730,7 +908,10 @@ inverse. Le découpage de §6 applique déjà cet ordre.
   coût nul. Aucun polling.
 - **Inactivité utilisateur** : `powerMonitor.getSystemIdleTime()`. Au-delà de 3 minutes
   d'inactivité, la phase de travail est gelée — rappeler une pause à quelqu'un déjà parti n'a pas de
-  sens. Les conséquences d'une absence longue sont en §3.10 et §4.6.
+  sens. Au-delà de la durée de pause, la même absence vaut pause prise (§4.6) : le gel n'est donc pas
+  une fin, c'est le premier palier. **Le verdict est rendu au retour de l'acteur**, jamais à l'instant
+  où le seuil est franchi — c'est le seul moment où il y a quelqu'un à qui le rendre, et c'est le
+  même instant que le réveil et le déverrouillage. Les conséquences sont en §3.10 et §4.6.
 - **Détection de visio** : Breeze ne lit ni le micro ni la caméra — la permission serait indéfendable
   pour une application qui promet de ne rien capter. La détection repose sur le bundle id de
   l'application au premier plan, croisé avec une liste connue (`us.zoom.xos`,
@@ -756,19 +937,34 @@ inverse. Le découpage de §6 applique déjà cet ordre.
   seconde ne sert qu'à rafraîchir l'affichage ; tout calcul de temps restant part d'une différence
   d'échéances, jamais d'un décrément.
 - **`powerMonitor`** : sur `suspend` et `lock-screen`, geler la phase et mémoriser le reste. Sur
-  `resume` et `unlock-screen`, recalculer depuis l'horloge murale. Deux règles produit, selon la
+  `resume` et `unlock-screen`, recalculer depuis l'horloge murale. Le gel mémorise ce qu'il reste à
+  courir ; c'est toujours l'horloge murale qui tranche au réveil. Trois règles produit, selon la
   phase interrompue :
-  - Absence pendant **[TRAVAIL]** — veille, verrouillage ou inactivité — plus longue que la durée de
-    pause configurée : le cycle est validé comme pause prise et repart à zéro.
+  - Absence **avant que la pause ait commencé** — pendant [TRAVAIL], [PRÉAVIS] ou [INHIBÉ], par
+    veille, verrouillage ou inactivité — plus longue que la durée de pause configurée : le cycle est
+    validé comme pause prise et repart à zéro. Le seuil ne dépend pas de l'état où l'absence a
+    débuté : trente secondes plus tôt ou plus tard, une absence de trois heures reste une pause. Il
+    est **figé au démarrage du cycle**, pas relu au réveil : sans cela, ramener la durée de pause à
+    une minute ferait passer deux minutes d'inactivité pour une pause prise.
   - Absence pendant **[PAUSE ACTIVE]** plus longue que le temps de pause restant : la pause est
     validée, et Breeze enchaîne sur [RETOUR] au réveil.
+  - Absence **plus courte que ce seuil, mais qui dépasse l'échéance de phase** : l'échéance produit
+    ce qu'elle aurait produit si l'utilisateur était resté. Le préavis est sauté — il annoncerait un
+    fait déjà arrivé. La pause démarre au réveil **sauf si une cause d'inhibition tient à cet
+    instant** : les causes sont constatées à la reprise (§3.2), et cette vérification passe avant.
 - **Persistance** : `electron-store`, en JSON dans `~/Library/Application Support/Breeze/`, écriture
   atomique, champ `schemaVersion` et migrations. L'état du cycle est écrit à chaque transition
   d'état, jamais à chaque tick.
 - **Reprise au lancement** : Breeze relit l'état persisté et compare l'échéance de phase à l'heure
-  murale. Échéance à venir, la phase reprend là où elle s'était arrêtée. Échéance dépassée, le temps
-  écoulé est traité comme une absence, avec les deux règles ci-dessus. Un overlay n'est jamais posé
-  au lancement : une pause dont l'échéance est passée est close, pas rejouée. Sans état persisté —
+  murale. Échéance à venir, la phase reprend là où elle s'était arrêtée. Échéance dépassée, elle
+  produit ce qu'elle aurait produit. **Le temps passé sans processus ne vaut jamais absence** : aucun
+  signal d'inactivité n'a pu être mesuré pendant que Breeze était mort, et un verdict ne se rend pas
+  sur une observation que personne n'a faite. Quitter Breeze onze minutes en continuant de travailler
+  ne produit donc pas une pause prise — la pause due est simplement servie au relancement. **Un overlay n'est jamais posé
+  au lancement** — c'est ce qui empêche un défaut de reprise de poser un overlay irretirable (R4,
+  §9). Une pause est donc **close, jamais reprise** : échéance passée elle est simplement finie ;
+  échéance à venir, elle est comptée interrompue et le cycle repart en [ARMÉ], budget reconduit et
+  diminué des minutes de pause non faites (§3.7). Reprendre une pause sans son overlay rendrait contraignant un état qui ne l'est plus. Sans état persisté —
   première ouverture, ou arrêt volontaire — Breeze démarre en **[ARMÉ]** si la plage horaire
   l'autorise, et en **[INACTIF]** sinon.
 - **Instance unique** : `app.requestSingleInstanceLock()`, obligatoire. Deux instances posant chacune
@@ -788,7 +984,12 @@ inverse. Le découpage de §6 applique déjà cet ordre.
   d'accessibilité de macOS (VoiceOver, Contrôle vocal, Switch Control, Loupe), et toute application
   déclarant `public.app-category.medical` ou `public.app-category.healthcare-fitness` dans son
   Info.plist. La liste est en dur, non éditable depuis l'interface. En
-  Mode Hardcore, elle ne s'applique pas : l'overlay couvre l'écran entier (§3.1). La contrepartie
+  Mode Hardcore, elle ne s'applique pas : l'overlay couvre l'écran entier (§3.1).
+- **Une pause servie sans contrainte compte quand même.** Que l'overlay manque parce que
+  l'Accessibilité n'est pas accordée (§3.9) ou parce que le coupe-circuit l'a désactivé, la pause
+  s'écoule et alimente les compteurs de §3.8 comme les autres. Breeze dit ce qu'il ne peut pas faire
+  — badge sur l'icône, bandeau dans le popover — plutôt que de cesser de compter. Un coupe-circuit
+  qui s'arme pendant une pause en cours ne l'interrompt pas : il vaut pour le cycle suivant. La contrepartie
   d'accessibilité est portée par §5 — l'overlay Hardcore est lisible par VoiceOver et annonce le
   temps restant.
 - **Coupe-circuit** — Breeze compte les chutes du processus principal dans un fichier persistant.
@@ -980,9 +1181,10 @@ utilisateur, dans Réglages › Statistiques.
 | R1 | La propagation à chaud de l'Accessibilité n'est pas fiable sur toutes les versions cibles | Onboarding cassé | Mesure en phase 0 ; repli par relance explicite (§4.2) |
 | R2 | Le Mode Simple est instable sur les applications qui n'émettent pas les notifications AX | Fonctionnalité dégradée | Polling de secours à 4 Hz, liste des applications problématiques, repli sur l'overlay unique de §3.9 |
 | R3 | La notarisation est refusée à cause des niveaux de fenêtre ou de l'usage AX | Distribution bloquée | Soumettre un build de phase 0 à la notarisation **avant** d'écrire le produit |
-| R4 | Un bug pose un overlay Hardcore irretirable | Incident critique | Sortie d'urgence, coupe-circuit, montre de surveillance dans le processus principal (§4.7) |
+| R4 | Un bug pose un overlay Hardcore irretirable | Incident critique | Sortie d'urgence et coupe-circuit (§3.6, §4.7), et aucun overlay posé au lancement (§4.6) |
 | R5 | Le Mode Hardcore est perçu comme un logiciel malveillant | Confiance, désinstallations | Prévisualisation à l'onboarding, honnêteté sur les limites, notarisation, sortie réseau désactivable |
 | R6 | Le partage d'écran n'est pas détectable sans permission d'enregistrement | Une inhibition en moins | Repli déjà décidé : retirer l'inhibition de l'interface (§4.5) |
+| R7 | La présentation plein écran n'est pas distinguable d'une application en plein écran ordinaire | Une inhibition qui se déclenche à tort, donc du budget consommé sans raison | Mesure en phase 0 ; repli en inconnue n° 6 ci-dessous |
 
 **Les cinq inconnues de la phase 0.** Chacune se tranche par mesure, jamais par supposition. Le
 comportement de repli est déjà décidé pour chacune : aucune ne peut bloquer le design ni le
@@ -995,6 +1197,7 @@ développement.
 | 3 | Comportement de `presentationOptions` face à une application tierce déjà en plein écran natif | L'overlay Hardcore reste posé au niveau `screen-saver` ; le masquage de la barre de menus est abandonné sur ce cas, sans autre conséquence |
 | 4 | Verdict de notarisation sur un binaire portant les niveaux de fenêtre de kiosque | Aucun repli technique n'existe. Un refus arrête le produit : c'est pourquoi la soumission a lieu en phase 0, avant toute écriture de fonctionnalité |
 | 5 | `NSWorkspace` demande-t-il l'Accessibilité sur une version cible ? | Sur cette version, le déclencheur intelligent est désactivé et grisé, et tout usage compte comme du travail (§3.9) |
+| 6 | Sur quel signal constate-t-on une présentation plein écran, sans permission d'enregistrement ? | À défaut de signal fiable, l'inhibition « présentation » est retirée de l'interface, comme celle du partage d'écran. Les trois causes restantes couvrent les cas réels |
 
 ---
 
@@ -1059,7 +1262,7 @@ ouverts, contradictoires, ou décrits à deux endroits différents.
 | 33 | Le découpage de livraison s'arrêtait à la v1.1 alors que KF3 vise la v1.2 | Une phase 7 porte KF3 |
 | 34 | Les valeurs par défaut étaient éparpillées, et la plage horaire comme les jours actifs n'en avaient aucune | §3.1 porte une table qui fait autorité sur tous les défauts du produit |
 | 35 | Rien ne disait ce qu'un changement de durée fait à une phase en cours | La durée de travail s'applique au cycle suivant, la durée de pause à la pause suivante (§3.1, §3.7) |
-| 36 | Le nombre d'usages de la sortie d'urgence et ce qui suit une sortie n'étaient pas définis | Aucun rationnement — un garde-fou qu'on épuise n'en est plus un. Après une sortie, Breeze passe en [ARMÉ] et le cycle suivant a un budget plein (§3.6) |
+| 36 | Le nombre d'usages de la sortie d'urgence et ce qui suit une sortie n'étaient pas définis | Aucun rationnement — un garde-fou qu'on épuise n'en est plus un. Après une sortie, Breeze passe en [ARMÉ] ; le budget du cycle suivant est traité par l'entrée 21 de §12 |
 | 37 | Les compteurs de statistiques étaient nommés sans être définis | §3.8 définit pause prise, écourtée, interrompue et report, et dit ce qu'affiche la ligne « Aujourd'hui » |
 | 38 | Le coupe-circuit se réarmait « explicitement », sans dire où | Bouton dans Réglages › Permissions, ou 24 heures sans chute (§4.7) |
 | 39 | Le comportement au relancement, phase en cours, n'était pas décidé | §4.6 : l'échéance persistée décide, et aucun overlay n'est posé au lancement |
@@ -1076,3 +1279,66 @@ ouverts, contradictoires, ou décrits à deux endroits différents.
 | 50 | Le sort du statut d'une application désinstallée était indéterminé | Sa ligne disparaît, son statut est conservé et réappliqué si elle revient (§3.10) |
 | 51 | L'état de départ à froid, sans état persisté, n'était pas dit | [ARMÉ] si la plage horaire l'autorise, [INACTIF] sinon (§4.6) |
 | 52 | L'absence de durées dans le découpage pouvait se lire comme un oubli | §6 dit que les estimations se posent à l'entrée de chaque phase, et pourquoi |
+
+---
+
+## 12. Journal des arbitrages — de la version 2.0 à la version 2.1
+
+Ces quarante-cinq points ont été mis au jour en modélisant la machine à états du cycle, avant toute
+ligne de code, puis en éprouvant trois fois les parcours de la 2.1 elle-même. **Treize d'entre eux —
+1, 3, 9, 11, 20, 21, 22, 24, 28, 32, 33, 35 et 37 — étaient des échappatoires** : des chemins par
+lesquels l'utilisateur repoussait ou annulait une pause due sans rien coûter au budget de report, et
+de façon répétable. Le budget unique de 15 minutes annoncé en 2.0 ne tenait sur aucun d'eux.
+
+L'entrée 32 mérite d'être lue avant les autres : la première correction apportée à l'entrée 21 était
+elle-même sans effet. « Reconduire le budget entamé » ne coûte rien quand rien n'a été débité. Il a
+fallu une quantité que le modèle possède déjà — les minutes de pause non faites — pour que la règle
+morde.
+
+| # | Ce qui posait problème en 2.0 | Ce qui est décidé en 2.1 |
+|---|---|---|
+| 1 | Le budget se remettait à plein « au début de chaque phase de travail », alors qu'un report ramène en [TRAVAIL] : chaque report rechargeait le budget qu'il venait de débiter | Il se remet à plein **au démarrage du cycle** (§3.7) |
+| 2 | Rien ne disait ce qu'un report débite ni ce qu'une inhibition débite, alors que les deux puisent au même budget | Le report débite 5 min au clic, sans remboursement ; l'inhibition débite le temps réellement écoulé (§3.7) |
+| 3 | Une phase rouverte par un report pouvait geler sur une application `ignored` : la pause due était repoussée sans limite | L'échéance issue d'un report court en temps mural, sans gel (§3.7) |
+| 4 | Le quota de reports n'avait pas de sort en cas de changement de sévérité en cours de cycle | Il se lit contre la sévérité du moment ; le quota borne la fréquence, le budget borne le total (§3.7) |
+| 5 | L'inhibition n'était définie ni comme un front ni comme un niveau : une visio ouverte avant T-0 n'inhibait rien | Elle s'évalue **en niveau, à T-0** (§3.2) |
+| 6 | Le préavis et l'inhibition pouvaient se recouvrir sans règle de composition | Ils ne se composent pas ; le report reste offert jusqu'à T-0 (§3.2) |
+| 7 | Deux inhibitions concurrentes — une visio dans la plage du déjeuner — n'avaient aucune règle | [INHIBÉ] porte l'ensemble des causes ; le budget débite une seule fois pour un intervalle recouvert (§3.2) |
+| 8 | Rien ne disait ce qui se passe quand une inhibition cesse avant l'épuisement du budget | La pause démarre, sans préavis rejoué ni restitution du budget (§3.2) |
+| 9 | Suspendre ou redémarrer le cycle depuis le préavis effaçait la pause due sans débiter une minute | Les deux sont impossibles dès qu'une pause est due (§3.2, §3.7) |
+| 10 | Une pause Simple close par une suspension ou un redémarrage n'alimentait aucun des quatre compteurs | Elle est comptée **pause écourtée** (§3.8) |
+| 11 | « Prend effet à la pause suivante » ne disait pas si une pause déjà annoncée était concernée, et la plage horaire n'avait aucune règle de prise d'effet | Durée de pause dès le démarrage de la pause annoncée ; plage horaire et jours actifs au cycle suivant (§3.1) |
+| 12 | Deux commandes rejouées n'avaient pas de sort : suspendre pendant une suspension, cliquer deux fois sur « Reporter » | La seconde suspension remplace l'échéance ; un seul report par préavis (§3.2, §3.6) |
+| 13 | Les deux règles d'absence ne couvraient que [TRAVAIL] et [PAUSE ACTIVE] : une veille de trois heures pendant le préavis imposait une pause au réveil | La règle vaut pour toute absence survenue **avant que la pause ait commencé** (§4.6) |
+| 14 | Une absence trop courte pour la règle d'absence, mais qui dépassait l'échéance, n'avait pas de verdict | L'échéance produit ce qu'elle aurait produit ; le préavis est sauté (§4.6) |
+| 15 | Les « 60 s » de la fin anticipée ne disaient pas si les gels comptent | Temps de pause écoulé, gels déduits (§3.7) |
+| 16 | Une commande et une échéance qui tombent au même instant n'avaient pas d'arbitre, et deux compteurs de §3.8 en dépendaient | L'échéance l'emporte ; la commande arrivée trop tard est sans effet (§3.7) |
+| 17 | « Faire une pause maintenant », « Redémarrer le cycle » et la sortie d'urgence n'avaient aucun état d'origine déclaré | Chacun a sa liste d'états, la même quelle que soit l'entrée employée (§3.7) |
+| 18 | Le diagramme nommait une transition « arrêter » vers [INACTIF] qu'aucun écran n'offrait, et qui se lisait comme un troisième levier de négociation | Le mot désignait « Quitter Breeze ». [INACTIF] n'a que deux causes ; quitter détruit le processus et ne fait pas transiter le cycle (§3.2) |
+| 19 | Rien ne faisait sortir de [INACTIF] au retour de la plage horaire : Breeze restait inerte jusqu'au clic suivant | L'ouverture de la plage et le passage à un jour actif ramènent en [ARMÉ] (§3.2) |
+| 20 | L'interrupteur maître du déclencheur intelligent pouvait être armé sur une liste vide, figeant [ARMÉ] sans que rien ne l'annonce | Impossible dans les deux sens : pas d'activation sans déclencheur, pas de liste vidée tant qu'il est armé ; et la désinstallation de la dernière application cochée le désarme (§3.5) |
+| 21 | Déclencher une pause depuis le préavis puis l'écourter après 60 s annulait une pause de dix minutes pour le prix d'une, avec un budget qui repartait plein | Une pause avortée **débite les minutes de pause non faites** ; seule une pause menée à terme ou validée par une absence rouvre un budget plein (§3.7) |
+| 22 | Une durée de pause revue à la baisse pendant le préavis réduisait la pause due, et le seuil d'absence relu au réveil faisait passer deux minutes d'inactivité pour une pause | Une durée revue à la baisse attend le cycle suivant (§3.1) ; le seuil d'absence est figé au démarrage du cycle (§4.6) |
+| 23 | Quand T-0 était franchi pendant une veille ou une application fermée, aucune cause d'inhibition ne pouvait « tenir » : l'overlay tombait au réveil, y compris en pleine visio | Les causes sont constatées **à la reprise**, et le budget débite à partir de là (§3.2) |
+| 24 | Une pause en cours était reprise au relancement, mais sans overlay : huit minutes sans contrainte, comptées comme pause prise | Une pause n'est jamais reprise : échéance passée elle est simplement finie, échéance à venir elle est comptée interrompue (§4.6) |
+| 25 | Une cause d'inhibition apparue après T-0 n'avait pas de sort : l'ensemble des causes était-il arrêté ou ouvert ? | L'ensemble reste ouvert ; l'inhibition tient tant qu'une cause tient (§3.2) |
+| 26 | Le budget consommé par une inhibition était gelé par §3.2 et débité en temps mural par §3.7 pendant une veille | Il est gelé comme tous les décomptes (§3.2) |
+| 27 | « Suspendre » était le seul levier sans états d'origine, et §3.4 et §3.7 en donnaient deux listes différentes | Une table unique en §3.7 donne les états d'origine des quatre leviers, et §3.4 y renvoie |
+| 28 | Le paragraphe des états d'origine fusionnait « Faire une pause maintenant » et « Redémarrer le cycle », rouvrant en prose l'échappatoire n° 9 | Deux lignes distinctes dans la table de §3.7 |
+| 29 | Rien ne disait ce qu'un statut `ignored` posé pendant le travail fait au décompte, ni si le gel obtenu était une échappatoire | C'est le comportement voulu, et §3.1 le dit : `ignored` désactive le décompte, et reconfigurer son outil à froid n'est pas négocier (§3.1, §4.3) |
+| 30 | La présentation plein écran débitait le budget sans qu'aucun signal ne permette de la constater | Elle rejoint les inconnues de la phase 0, avec son repli (§9) |
+| 31 | Le bouton « Terminer la pause » pouvait être actionné deux fois, ou après que la pause avait été close autrement | Il disparaît dès qu'il a été actionné, comme celui du report (§3.6) |
+| 32 | « Reconduire le budget entamé » ne coûtait rien quand rien n'avait été débité : le chemin à soixante secondes restait ouvert | Une pause avortée débite **les minutes de pause non faites** (§3.7) |
+| 33 | Après un report, le cycle revenait en [TRAVAIL], où redémarrer effaçait la pause due **et** rendait les minutes débitées | Une phase rouverte par un report n'est pas un état d'origine pour la suspension ni le redémarrage (§3.7) |
+| 34 | [SUSPENDU] n'avait aucune sortie avant son échéance : une erreur de durée enfermait l'acteur seize heures | Une suspension est révocable ; le popover porte « Reprendre Breeze » (§3.2, §3.4) |
+| 35 | Le temps passé sans processus valait absence : quitter onze minutes en continuant de travailler donnait une pause prise et un budget plein | Le temps sans processus ne vaut jamais absence — aucun signal n'a été mesuré (§4.6) |
+| 36 | Au réveil, §4.6 faisait démarrer la pause et §3.2 constatait les inhibitions : deux verdicts au même instant | La vérification des inhibitions passe en premier (§4.6) |
+| 37 | L'overlay dégradé « fermable d'un clic » était une cinquième façon de clore une pause, sans compteur ni coût | Le fermer clôt la pause : écourtée, et débitée comme telle (§3.9) |
+| 38 | Une pause servie sans overlay — Accessibilité absente ou coupe-circuit armé — n'avait ni compteur ni statut | Elle compte comme les autres, et Breeze dit ce qu'il ne peut pas faire (§4.7) |
+| 39 | Un rythme sans aucun jour actif, ou une plage dégénérée, enfermait le cycle en [INACTIF] sans sortie | Au moins un jour actif, et une plage non dégénérée, sont exigés (§3.3) |
+| 40 | Les quatre exceptions automatiques et la liste visio n'avaient aucune règle de prise d'effet | Les activer vaut au cycle suivant, les désactiver vaut immédiatement (§3.5) |
+| 41 | La désinstallation de la dernière application déclencheuse devait désarmer l'interrupteur, à un instant que rien ne produit | L'interrupteur ne bouge pas ; le décompte retombe sur « tout usage », avec un bandeau (§3.5) |
+| 42 | La table des états d'origine, déclarée exhaustive, omettait « Reporter » et « Reprendre » | Les six leviers y figurent (§3.7) |
+| 43 | Une absence par simple inactivité n'avait pas d'instant de constat | Le verdict est rendu au retour de l'acteur (§4.5) |
+| 44 | Une pause validée par une absence n'avait jamais commencé : sa valeur en minutes n'était pas dite, et la ligne « Aujourd'hui » n'avait pas de frontière de journée | Elle crédite la durée configurée ; la journée va de minuit à minuit, heure locale (§3.8) |
+| 45 | R4 citait une « montre de surveillance » que §4.7 ne décrit nulle part | Renvoi retiré au profit des trois garde-fous réels (§9) |
