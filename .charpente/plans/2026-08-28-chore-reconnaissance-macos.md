@@ -3,8 +3,8 @@ type: plan
 titre: Reconnaissance macOS
 slug: chore-reconnaissance-macos
 cree_le: 2026-08-28T18:47:57+0000
-mis_a_jour_le: 2026-08-28T20:47:46+0000
-branche: develop
+mis_a_jour_le: 2026-08-28T21:55:24+0000
+branche: feat/system-bridge-ports-and-doubles
 statut: en_cours
 ---
 
@@ -210,7 +210,7 @@ test -d "dist/mac-universal/Breeze.app" || test -d "dist/mac/Breeze.app"
 
 ### Phase 2 — Les ports et leurs doubles
 
-**Statut : À faire**
+**Statut : Fait**
 
 JavaScript pur, aucun macOS requis. C'est le contrat que toutes les phases natives implémenteront, et
 il se fusionne avant elles : un adaptateur écrit contre un contrat non publié se réécrit.

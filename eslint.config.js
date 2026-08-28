@@ -30,4 +30,8 @@ export default [
     files: ['**/native-bridge-loader.js'],
     rules: { 'no-restricted-syntax': 'off' },
   },
+  {
+    files: ['src/modules/*/application/ports/*.port.js'],
+    rules: { 'no-unused-vars': ['error', { args: 'none' }] },
+  },
 ];

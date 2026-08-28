@@ -6,6 +6,7 @@
     "moduleResolution": "bundler",
     "checkJs": true,
     "strict": true,
+    "noImplicitAny": false,
     "noEmit": true,
     "skipLibCheck": true
   },
