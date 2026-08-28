@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breeze — système de design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --color-background:#F4F6FB;
+  --color-surface:#FBFCFE;
+  --color-surface-dim:#EDEFF4;
+  --color-surface-hover:#E2E5EE;
+  --color-surface-pressed:#D8DCE8;
+  --color-surface-skeleton:#E9ECF3;
+  --color-on-surface:#1C2130;
+  --color-on-surface-muted:#474F63;
+  --color-on-surface-faint:#868DA0;
+  --color-on-surface-disabled:#9AA1B2;
+  --color-primary:#084F9E;
+  --color-primary-hover:#073F7E;
+  --color-primary-pressed:#062F60;
+  --color-on-primary:#FBFCFE;
+  --color-primary-vivid:#0A6FDB;
+  --color-primary-container:#E3F1FD;
+  --color-on-primary-container:#075093;
+  --color-success:#095A40;
+  --color-success-container:#DEF4E9;
+  --color-on-success-container:#095A40;
+  --color-accent:#4F35A8;
+  --color-accent-container:#ECE7FB;
+  --color-on-accent-container:#4F35A8;
+  --color-warning:#6E4200;
+  --color-warning-container:#FDF0DC;
+  --color-on-warning-container:#6E4200;
+  --color-danger:#9E2036;
+  --color-danger-container:#FCE8EC;
+  --color-on-danger-container:#7E1A2C;
+  --color-border:#E6E8EF;
+  --color-border-control:#767E92;
+  --color-mesh-1:#CBE5FF; --color-mesh-1-fade:rgba(203,229,255,0);
+  --color-mesh-2:#E5DDFF; --color-mesh-2-fade:rgba(229,221,255,0);
+  --color-mesh-3:#D2F2E3; --color-mesh-3-fade:rgba(210,242,227,0);
+  --color-mesh-4:#FCE7F0; --color-mesh-4-fade:rgba(252,231,240,0);
+  --color-night-1:#1B2340;
+  --color-night-2:#0E1322;
+  --color-on-night:#EFF3FB;
+  --color-on-night-muted:#A9B4CD;
+
+  --type-family:'Instrument Sans',-apple-system,'SF Pro Text','Helvetica Neue',system-ui,sans-serif;
+  --type-display-size:32px; --type-display-weight:700; --type-display-lh:1.2; --type-display-ls:-0.02em;
+  --type-h1-size:24px; --type-h1-weight:700; --type-h1-lh:1.25; --type-h1-ls:-0.015em;
+  --type-h2-size:16px; --type-h2-weight:600; --type-h2-lh:1.3; --type-h2-ls:-0.008em;
+  --type-h3-size:14px; --type-h3-weight:600; --type-h3-lh:1.35;
+  --type-body-size:14px; --type-body-weight:400; --type-body-lh:1.45;
+  --type-caption-size:12px; --type-caption-weight:500; --type-caption-lh:1.35;
+  --type-overline-size:11px; --type-overline-weight:600; --type-overline-lh:1.3; --type-overline-ls:0.02em;
+
+  --rounded-sm:8px; --rounded-md:16px; --rounded-lg:24px; --rounded-full:999px;
+  --space-xs:4px; --space-sm:8px; --space-md:16px; --space-lg:24px; --space-xl:32px; --space-2xl:48px; --space-3xl:64px;
+  --stroke-hairline:1px; --stroke-ring:2px;
+  --motion-fast:150ms; --motion-base:200ms; --motion-slow:300ms;
+  --motion-easing:cubic-bezier(0.2, 0, 0, 1);
+
+  --glass-panel-bg:rgba(251,252,254,.62);
+  --glass-banner-bg:rgba(251,252,254,.55);
+  --glass-border:rgba(251,252,254,.78);
+  --glass-night-bg:rgba(27,35,64,.55);
+  --glass-night-border:rgba(239,243,251,.14);
+  --glass-veil-bg:rgba(251,252,254,.44);
+  --shadow-panel:0 24px 48px -20px rgba(28,33,48,.28);
+  --shadow-banner:0 8px 24px -12px rgba(28,33,48,.18);
+  --shadow-card:0 2px 8px rgba(28,33,48,.06);
+}
+[data-theme="dark"]{
+  --color-background:#12151F;
+  --color-surface:#1B1F2C;
+  --color-surface-dim:#232838;
+  --color-surface-hover:#2A3042;
+  --color-surface-pressed:#323950;
+  --color-surface-skeleton:#262C3C;
+  --color-on-surface:#E8EBF4;
+  --color-on-surface-muted:#ADB4C6;
+  --color-on-surface-faint:#6A7186;
+  --color-on-surface-disabled:#5C6377;
+  --color-primary:#7FBFF8;
+  --color-primary-hover:#92C8F9;
+  --color-primary-pressed:#A9D2FA;
+  --color-on-primary:#0A2540;
+  --color-primary-vivid:#4AA8F4;
+  --color-primary-container:#14344F;
+  --color-on-primary-container:#A8D4FA;
+  --color-success:#7FD8B8;
+  --color-success-container:#0E3D2F;
+  --color-on-success-container:#7FD8B8;
+  --color-accent:#C6B5F5;
+  --color-accent-container:#2A2350;
+  --color-on-accent-container:#C6B5F5;
+  --color-warning:#F2C280;
+  --color-warning-container:#4A2E07;
+  --color-on-warning-container:#F2C280;
+  --color-danger:#F49DAD;
+  --color-danger-container:#3A121C;
+  --color-on-danger-container:#F49DAD;
+  --color-border:#2E3444;
+  --color-border-control:#8891A6;
+  --color-mesh-1:#16283E; --color-mesh-1-fade:rgba(22,40,62,0);
+  --color-mesh-2:#241E3E; --color-mesh-2-fade:rgba(36,30,62,0);
+  --color-mesh-3:#12302A; --color-mesh-3-fade:rgba(18,48,42,0);
+  --color-mesh-4:#33202B; --color-mesh-4-fade:rgba(51,32,43,0);
+  --glass-panel-bg:rgba(27,31,44,.62);
+  --glass-banner-bg:rgba(27,31,44,.55);
+  --glass-border:rgba(232,235,244,.12);
+  --shadow-panel:0 24px 48px -20px rgba(14,19,34,.6);
+  --shadow-banner:0 8px 24px -12px rgba(14,19,34,.45);
+  --shadow-card:0 2px 8px rgba(14,19,34,.35);
+  --glass-veil-bg:rgba(27,31,44,.44);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--color-background);color:var(--color-on-surface);font-family:var(--type-family);font-size:var(--type-body-size);font-weight:var(--type-body-weight);line-height:var(--type-body-lh);-webkit-font-smoothing:antialiased}
+main{max-width:960px;margin:0 auto;padding:var(--space-xl) var(--space-lg) var(--space-3xl)}
+header.page{display:flex;align-items:center;gap:var(--space-md);margin-bottom:var(--space-xl)}
+header.page > div{display:flex;flex-direction:column;gap:var(--space-xs)}
+h1{font-size:var(--type-h1-size);font-weight:var(--type-h1-weight);line-height:var(--type-h1-lh);letter-spacing:var(--type-h1-ls);margin:0}
+h2{font-size:var(--type-h2-size);font-weight:var(--type-h2-weight);line-height:var(--type-h2-lh);letter-spacing:var(--type-h2-ls);margin:var(--space-2xl) 0 var(--space-md)}
+p.lead{color:var(--color-on-surface-muted);margin:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-md)}
+.swatch{background:var(--color-surface);border:var(--stroke-hairline) solid var(--color-border);border-radius:var(--rounded-md);overflow:hidden;box-shadow:var(--shadow-card)}
+.swatch .chipcolor{height:64px;display:flex;align-items:center;justify-content:center;font-weight:var(--type-h3-weight)}
+.swatch .meta{padding:var(--space-sm) var(--space-md) var(--space-md);display:flex;flex-direction:column;gap:var(--space-xs)}
+.name{font-size:var(--type-h3-size);font-weight:var(--type-h3-weight);line-height:var(--type-h3-lh)}
+.val{font-size:var(--type-caption-size);font-weight:var(--type-caption-weight);line-height:var(--type-caption-lh);color:var(--color-on-surface-muted);font-variant-numeric:tabular-nums}
+.typo-row{display:flex;align-items:baseline;gap:var(--space-md);padding:var(--space-sm) 0;border-bottom:var(--stroke-hairline) solid var(--color-border)}
+.typo-spec{margin-left:auto;font-size:var(--type-caption-size);color:var(--color-on-surface-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar{height:var(--space-md);background:var(--color-border-control);border-radius:var(--rounded-full)}
+.spacerow{display:flex;align-items:center;gap:var(--space-md);margin-bottom:var(--space-sm)}
+.spacerow .val{width:120px}
+.radiusbox{width:96px;height:64px;background:var(--color-surface-dim);display:grid;place-items:center;font-size:var(--type-caption-size);color:var(--color-on-surface-muted)}
+.row{display:flex;gap:var(--space-lg);flex-wrap:wrap;align-items:flex-end}
+.mesh{background:
+  radial-gradient(52% 46% at 12% 4%, var(--color-mesh-1) 0%, var(--color-mesh-1-fade) 100%),
+  radial-gradient(48% 42% at 88% 0%, var(--color-mesh-2) 0%, var(--color-mesh-2-fade) 100%),
+  radial-gradient(52% 48% at 94% 92%, var(--color-mesh-3) 0%, var(--color-mesh-3-fade) 100%),
+  radial-gradient(42% 40% at 6% 96%, var(--color-mesh-4) 0%, var(--color-mesh-4-fade) 100%),
+  var(--color-background)}
+.glass-demo{border-radius:var(--rounded-lg);padding:var(--space-sm);display:flex;flex-direction:column;gap:var(--space-sm)}
+.glass-panel{background:var(--glass-panel-bg);backdrop-filter:blur(28px) saturate(1.5);-webkit-backdrop-filter:blur(28px) saturate(1.5);border:var(--stroke-hairline) solid var(--glass-border);box-shadow:var(--shadow-panel),inset 0 1px 0 var(--glass-border);border-radius:var(--rounded-md);padding:var(--space-md)}
+.glass-banner{background:var(--glass-banner-bg);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border:var(--stroke-hairline) solid var(--glass-border);box-shadow:var(--shadow-banner),inset 0 1px 0 var(--glass-border);border-radius:var(--rounded-md);padding:var(--space-md)}
+.glass-night{background:var(--glass-night-bg);backdrop-filter:blur(30px) saturate(1.3);-webkit-backdrop-filter:blur(30px) saturate(1.3);border:var(--stroke-hairline) solid var(--glass-night-border);box-shadow:inset 0 1px 0 var(--glass-night-border);border-radius:var(--rounded-sm);padding:var(--space-md);color:var(--color-on-night)}
+.night-backdrop{background:linear-gradient(160deg,var(--color-night-1),var(--color-night-2));border-radius:var(--rounded-md);padding:var(--space-sm)}
+.glass-veil{background:var(--glass-veil-bg);backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);border-radius:var(--rounded-md);padding:var(--space-md)}
+.glass-night .sub{color:var(--color-on-night-muted);font-size:var(--type-caption-size)}
+.cardline{background:var(--color-surface);border-radius:var(--rounded-md);padding:var(--space-md);box-shadow:var(--shadow-card)}
+.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;height:40px;padding:var(--space-sm) var(--space-lg);border-radius:var(--rounded-sm);border:0;font-family:var(--type-family);font-size:var(--type-h3-size);font-weight:var(--type-h3-weight);line-height:var(--type-h3-lh);cursor:default;transition:background-color var(--motion-fast) var(--motion-easing)}
+.btn::before{content:"";position:absolute;left:0;right:0;top:calc(-1 * var(--space-xs));bottom:calc(-1 * var(--space-xs))}
+.btn:focus-visible{outline:var(--stroke-ring) solid var(--color-primary-vivid);outline-offset:var(--stroke-ring)}
+.btn-primary{background:var(--color-primary);color:var(--color-on-primary)}
+.btn-primary.is-hover{background:var(--color-primary-hover)}
+.btn-primary.is-pressed{background:var(--color-primary-pressed)}
+.btn-primary.is-focus{outline:var(--stroke-ring) solid var(--color-primary-vivid);outline-offset:var(--stroke-ring)}
+.btn-primary.is-disabled{background:var(--color-surface-dim);color:var(--color-on-surface-disabled)}
+.btn-secondary{background:var(--color-surface-dim);color:var(--color-on-surface);cursor:pointer}
+.btn-secondary.is-hover{background:var(--color-surface-hover)}
+.btn-secondary.is-pressed{background:var(--color-surface-pressed)}
+.btn-secondary.is-disabled{background:var(--color-surface-dim);color:var(--color-on-surface-disabled)}
+.btn-ghost{background:transparent;color:var(--color-primary)}
+.statecol{display:flex;flex-direction:column;align-items:center;gap:var(--space-sm)}
+.statelabel{font-size:var(--type-overline-size);font-weight:var(--type-overline-weight);line-height:var(--type-overline-lh);letter-spacing:var(--type-overline-ls);text-transform:uppercase;color:var(--color-on-surface-muted)}
+.chip{display:inline-flex;align-items:center;height:24px;padding:var(--space-xs) var(--space-sm);border-radius:var(--rounded-full);font-size:var(--type-caption-size);font-weight:var(--type-caption-weight);line-height:var(--type-caption-lh)}
+.listdemo{background:var(--color-surface);border:var(--stroke-hairline) solid var(--color-border);border-radius:var(--rounded-md);padding:var(--space-xs);max-width:480px;box-shadow:var(--shadow-card)}
+.list-row{display:flex;align-items:center;gap:var(--space-md);height:48px;padding:var(--space-xs) var(--space-sm);border-radius:var(--rounded-sm);font-size:var(--type-h3-size);font-weight:var(--type-h3-weight);line-height:var(--type-h3-lh)}
+.list-row .why{margin-left:auto;font-size:var(--type-caption-size);font-weight:var(--type-caption-weight);color:var(--color-on-surface-muted)}
+.list-row.is-hover{background:var(--color-surface-dim)}
+.list-row.is-disabled > .label{color:var(--color-on-surface-disabled)}
+.switch{position:relative;width:48px;height:24px;border-radius:var(--rounded-full);background:var(--color-border-control);transition:background-color var(--motion-base) var(--motion-easing)}
+.switch::before{content:"";position:absolute;left:0;right:0;top:calc(-1 * (var(--space-sm) + var(--space-xs)));bottom:calc(-1 * (var(--space-sm) + var(--space-xs)))}
+.switch::after{content:"";position:absolute;top:var(--space-xs);left:var(--space-xs);width:var(--space-md);height:var(--space-md);border-radius:var(--rounded-full);background:var(--color-surface);box-shadow:var(--shadow-card);transition:left var(--motion-base) var(--motion-easing)}
+.switch.on{background:var(--color-primary-vivid)}
+.switch.on::after{left:calc(100% - var(--space-xs) - var(--space-md))}
+.switch.is-locked::after{background:var(--color-surface-dim)}
+.switch.is-focus,.switch:focus-visible{outline:var(--stroke-ring) solid var(--color-primary-vivid);outline-offset:var(--stroke-ring)}
+.skeleton{height:var(--space-md);border-radius:var(--rounded-full);background:var(--color-surface-skeleton)}
+.countdown{font-size:var(--type-display-size);font-weight:var(--type-display-weight);line-height:var(--type-display-lh);letter-spacing:var(--type-display-ls);font-variant-numeric:tabular-nums}
+.twocol{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-lg)}
+.twocol ol{margin:0;padding-left:var(--space-lg);display:flex;flex-direction:column;gap:var(--space-sm)}
+.docard{background:var(--color-surface);border:var(--stroke-hairline) solid var(--color-border);border-radius:var(--rounded-md);padding:var(--space-md);box-shadow:var(--shadow-card)}
+.docard h3{margin:0 0 var(--space-sm);font-size:var(--type-h3-size);font-weight:var(--type-h3-weight);line-height:var(--type-h3-lh)}
+@media (max-width:720px){.twocol{grid-template-columns:1fr}}
+@media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+@media (prefers-reduced-transparency: reduce){
+  .glass-panel,.glass-banner{background:var(--color-surface);backdrop-filter:none;-webkit-backdrop-filter:none;border-color:var(--color-border)}
+  .glass-night{background:var(--color-night-1);backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+@media (prefers-contrast: more){
+  .swatch,.listdemo,.docard,.glass-panel,.glass-banner,.typo-row{border-color:var(--color-border-control)}
+  .glass-night{border-color:rgba(239,243,251,.45)}
+}
+</style>
+</head>
+<body>
+<main>
+  <header class="page">
+    <div>
+      <h1>Breeze — système de design</h1>
+      <p class="lead">Miroir de <code>DESIGN.md</code>, qui fait foi. Liquid glass sur fondations Material 3, thèmes clair et sombre.</p>
+    </div>
+    <button class="btn btn-secondary" style="margin-left:auto" onclick="const r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'':'dark'">Clair / Sombre</button>
+  </header>
+
+  <h2>Couleurs</h2>
+  <div class="grid">
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-background);color:var(--color-on-surface)">Aa</div><div class="meta"><span class="name">background</span><span class="val">14,8:1 clair · 15,3:1 sombre</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-surface);color:var(--color-on-surface)">Aa</div><div class="meta"><span class="name">surface / on-surface</span><span class="val">15,6:1 clair · 13,8:1 sombre</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-surface);color:var(--color-on-surface-muted)">Aa</div><div class="meta"><span class="name">on-surface-muted</span><span class="val">8,0:1 clair · 7,9:1 sombre</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-surface-dim);color:var(--color-on-surface)">Aa</div><div class="meta"><span class="name">surface-dim · hover · pressed</span><span class="val">13,9 · 12,7 · 11,7:1 clair</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-surface);color:var(--color-on-surface-faint)">◦ ◦ ◦</div><div class="meta"><span class="name">on-surface-faint</span><span class="val">3,2:1 — jamais du texte</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-primary);color:var(--color-on-primary)">Aa</div><div class="meta"><span class="name">primary / on-primary</span><span class="val">7,8:1 clair · 7,9:1 sombre</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-surface)"><span style="width:var(--space-2xl);height:var(--space-sm);border-radius:var(--rounded-full);background:var(--color-primary-vivid)"></span></div><div class="meta"><span class="name">primary-vivid</span><span class="val">non textuel — 4,8:1 clair · 6,4:1 sombre</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-primary-container);color:var(--color-on-primary-container)">Aa</div><div class="meta"><span class="name">primary-container</span><span class="val">7,1:1 clair · 8,2:1 sombre</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-success-container);color:var(--color-on-success-container)">Aa</div><div class="meta"><span class="name">success — pause servie</span><span class="val">7,2:1 clair · 7,2:1 sombre</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-accent-container);color:var(--color-on-accent-container)">Aa</div><div class="meta"><span class="name">accent — sévérité</span><span class="val">7,2:1 clair · 7,8:1 sombre</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-warning-container);color:var(--color-on-warning-container)">Aa</div><div class="meta"><span class="name">warning — réparation</span><span class="val">7,7:1 clair · 7,6:1 sombre</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:var(--color-danger-container);color:var(--color-on-danger-container)">Aa</div><div class="meta"><span class="name">danger — sortie d'urgence</span><span class="val">8,6:1 clair · 8,0:1 sombre</span></div></div>
+    <div class="swatch"><div class="chipcolor mesh"><span class="cardline" style="padding:var(--space-xs) var(--space-sm);font-size:var(--type-caption-size)">Aa sur surface</span></div><div class="meta"><span class="name">mesh-1…4</span><span class="val">décor — jamais sous du texte direct</span></div></div>
+    <div class="swatch"><div class="chipcolor" style="background:linear-gradient(160deg,var(--color-night-1),var(--color-night-2));color:var(--color-on-night)">Aa</div><div class="meta"><span class="name">night / on-night</span><span class="val">13,9:1 — identique aux deux thèmes</span></div></div>
+  </div>
+
+  <h2>Typographie</h2>
+  <div>
+    <div class="typo-row"><span style="font-size:var(--type-display-size);font-weight:var(--type-display-weight);line-height:var(--type-display-lh);letter-spacing:var(--type-display-ls);font-variant-numeric:tabular-nums">Display 32:14</span><span class="typo-spec">32 px · 700 · 1,2 · −0,02 em · tabulaire pour les décomptes</span></div>
+    <div class="typo-row"><span style="font-size:var(--type-h1-size);font-weight:var(--type-h1-weight);line-height:var(--type-h1-lh);letter-spacing:var(--type-h1-ls)">H1 — titre d'écran</span><span class="typo-spec">24 px · 700 · 1,25 · −0,015 em</span></div>
+    <div class="typo-row"><span style="font-size:var(--type-h2-size);font-weight:var(--type-h2-weight);line-height:var(--type-h2-lh);letter-spacing:var(--type-h2-ls)">H2 — titre de carte</span><span class="typo-spec">16 px · 600 · 1,3 · −0,008 em</span></div>
+    <div class="typo-row"><span style="font-size:var(--type-h3-size);font-weight:var(--type-h3-weight);line-height:var(--type-h3-lh)">H3 — levier, bouton</span><span class="typo-spec">14 px · 600 · 1,35</span></div>
+    <div class="typo-row"><span style="font-size:var(--type-body-size);font-weight:var(--type-body-weight);line-height:var(--type-body-lh)">Body — le texte qui raconte</span><span class="typo-spec">14 px · 400 · 1,45</span></div>
+    <div class="typo-row"><span style="font-size:var(--type-caption-size);font-weight:var(--type-caption-weight);line-height:var(--type-caption-lh);color:var(--color-on-surface-muted)">Caption — la raison d'un levier grisé</span><span class="typo-spec">12 px · 500 · 1,35</span></div>
+    <div class="typo-row"><span style="font-size:var(--type-overline-size);font-weight:var(--type-overline-weight);line-height:var(--type-overline-lh);letter-spacing:var(--type-overline-ls);text-transform:uppercase;color:var(--color-on-surface-muted)">Overline — axes, états</span><span class="typo-spec">11 px · 600 · 1,3 · +0,02 em · capitales</span></div>
+  </div>
+
+  <h2>Espacement</h2>
+  <div>
+    <div class="spacerow"><span class="val">xs · 4 px (micro)</span><span class="bar" style="width:var(--space-xs)"></span></div>
+    <div class="spacerow"><span class="val">sm · 8 px</span><span class="bar" style="width:var(--space-sm)"></span></div>
+    <div class="spacerow"><span class="val">md · 16 px</span><span class="bar" style="width:var(--space-md)"></span></div>
+    <div class="spacerow"><span class="val">lg · 24 px</span><span class="bar" style="width:var(--space-lg)"></span></div>
+    <div class="spacerow"><span class="val">xl · 32 px</span><span class="bar" style="width:var(--space-xl)"></span></div>
+    <div class="spacerow"><span class="val">2xl · 48 px</span><span class="bar" style="width:var(--space-2xl)"></span></div>
+    <div class="spacerow"><span class="val">3xl · 64 px</span><span class="bar" style="width:var(--space-3xl)"></span></div>
+    <div class="spacerow"><span class="val">stroke · 1 et 2 px</span><span style="width:var(--space-3xl);border-top:var(--stroke-hairline) solid var(--color-on-surface)"></span><span style="width:var(--space-3xl);border-top:var(--stroke-ring) solid var(--color-on-surface)"></span><span class="val">filet · anneau — hors suite d'espacement</span></div>
+  </div>
+
+  <h2>Rayons — concentriques</h2>
+  <div class="row">
+    <div class="statecol"><div class="radiusbox" style="border-radius:var(--rounded-sm)">sm 8</div><span class="statelabel">contrôles</span></div>
+    <div class="statecol"><div class="radiusbox" style="border-radius:var(--rounded-md)">md 16</div><span class="statelabel">cartes</span></div>
+    <div class="statecol"><div class="radiusbox" style="border-radius:var(--rounded-lg)">lg 24</div><span class="statelabel">fenêtres</span></div>
+    <div class="statecol"><div class="radiusbox" style="border-radius:var(--rounded-full);width:120px">full</div><span class="statelabel">chips, pilules</span></div>
+    <div class="statecol"><div style="border-radius:var(--rounded-lg);background:var(--color-surface-pressed);padding:var(--space-sm)"><div style="border-radius:var(--rounded-md);background:var(--color-surface-dim);padding:var(--space-sm)"><div class="radiusbox" style="border-radius:var(--rounded-sm);width:64px;height:40px;background:var(--color-surface)">8</div></div></div><span class="statelabel">24 − 8 = 16 − 8 = 8</span></div>
+  </div>
+
+  <h2>Élévation — trois verres, une ombre de carte</h2>
+  <div class="glass-demo mesh">
+    <div class="glass-panel"><strong>Panneau</strong> — fond 62 %, flou 28, saturation 1,5, liseré, ombre longue et douce. Repli opaque : surface + border.</div>
+    <div class="glass-banner"><strong>Bannière</strong> — fond 55 %, flou 18, saturation 1,4, liseré, ombre courte. Repli opaque : surface + border.</div>
+    <div class="night-backdrop"><div class="glass-night"><strong>Nuit — Hardcore</strong> · fond 55 % dérivé de night-1, flou 30, saturation 1,3, liseré on-night.<div class="sub">Texte secondaire en on-night-muted, 7,4:1. Repli opaque : night-1.</div></div></div>
+    <div class="glass-veil"><strong>Voile — Mode Simple</strong> — fond 44 %, flou 16, saturation 1,2 : le contenu reste devinable, jamais lisible. Aucun texte ne se pose sur le voile hors sa pilule.</div>
+    <div class="cardline"><strong>Carte</strong> — ombre seule, pas de verre : le plan posé qui ne flotte pas.</div>
+  </div>
+
+  <h2>Composants</h2>
+  <div class="row" style="margin-bottom:var(--space-lg)">
+    <div class="statecol"><button class="btn btn-primary">Continuer</button><span class="statelabel">repos</span></div>
+    <div class="statecol"><button class="btn btn-primary is-hover">Continuer</button><span class="statelabel">survol</span></div>
+    <div class="statecol"><button class="btn btn-primary is-pressed">Continuer</button><span class="statelabel">appui</span></div>
+    <div class="statecol"><button class="btn btn-primary is-focus">Continuer</button><span class="statelabel">focus — anneau 2 px</span></div>
+    <div class="statecol"><button class="btn btn-primary is-disabled" disabled>Continuer</button><span class="statelabel">désactivé + raison</span></div>
+  </div>
+  <div class="row" style="margin-bottom:var(--space-lg)">
+    <div class="statecol"><button class="btn btn-secondary">Passer</button><span class="statelabel">secondaire</span></div>
+    <div class="statecol"><button class="btn btn-secondary is-hover">Passer</button><span class="statelabel">survol</span></div>
+    <div class="statecol"><button class="btn btn-secondary is-pressed">Passer</button><span class="statelabel">appui</span></div>
+    <div class="statecol"><button class="btn btn-secondary is-disabled" disabled>Passer</button><span class="statelabel">désactivé</span></div>
+    <div class="statecol"><button class="btn btn-ghost">Réglage fin…</button><span class="statelabel">ghost</span></div>
+  </div>
+  <div class="row" style="margin-bottom:var(--space-lg)">
+    <span class="chip" style="background:var(--color-primary-container);color:var(--color-on-primary-container)">50 min de travail</span>
+    <span class="chip" style="background:var(--color-success-container);color:var(--color-on-success-container)">Épargnée</span>
+    <span class="chip" style="background:var(--color-accent-container);color:var(--color-on-accent-container)">Hardcore</span>
+    <span class="chip" style="background:var(--color-warning-container);color:var(--color-on-warning-container)">Permission manquante</span>
+  </div>
+  <div class="row" style="margin-bottom:var(--space-lg)">
+    <div class="statecol"><span class="switch" role="switch" tabindex="0" aria-checked="false"></span><span class="statelabel">switch off</span></div>
+    <div class="statecol"><span class="switch on" role="switch" tabindex="0" aria-checked="true"></span><span class="statelabel">switch on</span></div>
+    <div class="statecol"><span class="switch is-focus" role="switch" tabindex="0" aria-checked="false"></span><span class="statelabel">switch focus</span></div>
+    <div class="statecol"><span class="switch on is-locked" role="switch" aria-checked="true" aria-disabled="true"></span><span class="statelabel">verrouillé (resté on) + mention</span></div>
+    <div class="statecol"><span class="countdown">07:42</span><span class="statelabel">countdown tabulaire</span></div>
+    <div class="statecol"><span style="display:flex;align-items:center;gap:var(--space-sm)"><span class="skeleton" style="width:120px"></span><span style="font-size:var(--type-caption-size);font-weight:var(--type-caption-weight);color:var(--color-on-surface-muted)">Chargement…</span></span><span class="statelabel">surface-skeleton + caption</span></div>
+  </div>
+  <div class="listdemo">
+    <div class="list-row"><span class="label">Suspendre</span><span class="why">15 min · 1 h · demain 6 h</span></div>
+    <div class="list-row is-hover"><span class="label">Faire une pause maintenant</span><span class="why">état survol</span></div>
+    <div class="list-row is-disabled"><span class="label">Redémarrer le cycle</span><span class="why">Le budget ne couvre pas les 18 min à effacer — la raison reste pleine opacité</span></div>
+  </div>
+
+  <h2>Ce qu'on fait, et ce qu'on ne fait jamais</h2>
+  <div class="twocol">
+    <div class="docard"><h3>On fait</h3><ol>
+      <li>Toute couleur, distance, rayon ou durée vient de <code>DESIGN.md</code> — aucune valeur littérale dans un composant.</li>
+      <li>Tout levier désactivé porte sa raison en Caption <code>on-surface-muted</code>, pleine opacité, à côté de lui.</li>
+      <li>Tout décompte en chiffres tabulaires.</li>
+      <li>Tout verre suit l'une des recettes, valeurs et repli opaque compris.</li>
+      <li>Toute icône est un SVG au trait, grille 16/20/24, un seul style de tracé.</li>
+      <li>Toute nouvelle paire texte-fond se calcule et rejoint les deux tables avant l'emploi.</li>
+    </ol></div>
+    <div class="docard"><h3>Jamais</h3><ol>
+      <li>Jamais de noir pur ni de blanc pur — surfaces, textes, ombres comprises.</li>
+      <li>Jamais de texte porteur d'information en <code>primary-vivid</code>, <code>on-surface-faint</code> ou <code>on-surface-disabled</code>.</li>
+      <li>Jamais de texte posé directement sur le mesh ou une image.</li>
+      <li>Jamais d'emoji ni de glyphe de police en guise d'icône.</li>
+      <li>Jamais de promesse d'infaillibilité dans un texte d'interface.</li>
+      <li>Jamais un espacement hors suite, un quatrième rayon, un huitième niveau typographique.</li>
+    </ol></div>
+  </div>
+</main>
+</body>
+</html>
