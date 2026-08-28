@@ -10,3 +10,5 @@ coverage
 .junie
 .DS_Store
 *.log
+
+!build/

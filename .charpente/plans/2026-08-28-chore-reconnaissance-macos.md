@@ -3,9 +3,9 @@ type: plan
 titre: Reconnaissance macOS
 slug: chore-reconnaissance-macos
 cree_le: 2026-08-28T18:47:57+0000
-mis_a_jour_le: 2026-08-28T19:13:31+0000
+mis_a_jour_le: 2026-08-28T20:47:46+0000
 branche: develop
-statut: valide
+statut: en_cours
 ---
 
 Depuis : `.charpente/cadrage/2026-08-28-poser-une-contrainte-inevitable-sur-macos.md`
@@ -163,7 +163,7 @@ par une fenêtre Electron ni par un fichier d'emballage.
 
 ### Phase 1 — Les quatre portes et l'arborescence
 
-**Statut : À faire**
+**Statut : Fait**
 
 Le dépôt n'a qu'une porte déclarée, `pnpm run test`, et elle est `exit 1` par construction. Tant
 qu'elle l'est, aucune phase ne peut prétendre laisser les portes vertes. C'est donc la première, et
