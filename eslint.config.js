@@ -31,6 +31,15 @@ export default [
     rules: { 'no-restricted-syntax': 'off' },
   },
   {
+    files: ['src/ui/**/*.js'],
+    languageOptions: { globals: { ...globals.browser } },
+  },
+  {
+    files: ['preload.js'],
+    languageOptions: { sourceType: 'commonjs' },
+    rules: { 'no-restricted-syntax': 'off' },
+  },
+  {
     files: ['src/modules/*/application/ports/*.port.js'],
     rules: { 'no-unused-vars': ['error', { args: 'none' }] },
   },

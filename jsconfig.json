@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "module": "ES2022",
     "moduleResolution": "bundler",
     "checkJs": true,
@@ -10,5 +10,11 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.js", "test/**/*.js", "build/**/*.mjs", "main.js"]
+  "include": [
+    "src/**/*.js",
+    "src/**/*.d.ts",
+    "test/**/*.js",
+    "build/**/*.mjs",
+    "main.js"
+  ]
 }

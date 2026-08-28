@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'">
+    <title>Pause</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="./styles/tokens.css">
+    <link rel="stylesheet" href="./styles/screens.css">
+  </head>
+  <body class="overlay-body">
+    <main class="overlay" id="overlay">
+      <section class="overlay-plate stack-lg">
+        <span class="type-display num overlay-countdown" id="countdown">08:12</span>
+        <span class="type-h1 overlay-headline" id="headline">Lève-toi, étire-toi, regarde loin.</span>
+        <span class="type-body overlay-note" id="ends-at" data-pattern="La pause se termine à {time} · identique sur chaque écran">La pause se termine à 15:10</span>
+
+        <div class="row overlay-actions" id="simple-actions">
+          <button class="btn btn-secondary" id="end-break" type="button">Terminer la pause</button>
+          <span class="type-caption tone-muted" id="end-break-reason" data-pattern="Débitera les {minutes} min non faites du budget">Débitera les minutes non faites du budget</span>
+        </div>
+
+        <div class="stack-sm overlay-escape" id="hardcore-escape" hidden>
+          <span class="row overlay-escape-row">
+            <span class="kbd">esc</span>
+            <span class="type-caption" id="escape-hint">Maintiens Échap pendant 10 s pour sortir</span>
+          </span>
+          <div class="gauge overlay-escape-gauge"><div class="gauge-fill" id="escape-gauge"></div></div>
+        </div>
+      </section>
+
+      <section class="overlay-confirm" id="confirm" hidden>
+        <div class="glass-panel panel stack-lg confirm-plate">
+          <span class="type-h1">Sortir de la pause ?</span>
+          <span class="type-body tone-muted" id="confirm-note">Le décompte ne s’arrête pas.</span>
+          <div class="row">
+            <button class="btn btn-secondary" id="confirm-exit" type="button">Sortir</button>
+            <button class="btn btn-primary row-grow" id="confirm-stay" type="button">Continuer la pause</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./scripts/overlay.js"></script>
+  </body>
+</html>
