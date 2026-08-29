@@ -12,6 +12,7 @@ export class Breeze {
   #store;
   #breakSurfaces;
   #timers = new Set();
+  #listeners = new Set();
 
   constructor({ store, clock, preferences, surfaces, breakSurfaces }) {
     this.#controller = new CycleController(store, clock, preferences);
@@ -41,6 +42,7 @@ export class Breeze {
 
     this.#breakSurfaces.showFor(state);
     this.#surfaces.broadcast(STATE_CHANNEL, state);
+    this.#listeners.forEach((listener) => listener(state));
 
     return state;
   }
@@ -51,6 +53,12 @@ export class Breeze {
     }
 
     return this.tick();
+  }
+
+  onState(listener) {
+    this.#listeners.add(listener);
+
+    return () => this.#listeners.delete(listener);
   }
 
   state() {

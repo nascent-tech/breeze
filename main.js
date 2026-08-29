@@ -1,4 +1,4 @@
-import { app, ipcMain, Menu, nativeImage, Tray } from 'electron';
+import { app, ipcMain } from 'electron';
 import { join } from 'node:path';
 
 import { Breeze } from './src/app/breeze.js';
@@ -6,6 +6,7 @@ import { FileCycleStore } from './src/modules/cycle/infrastructure/file-cycle.st
 import { FilePreferencesStore } from './src/modules/cycle/infrastructure/file-preferences.store.js';
 import { SystemClock } from './src/modules/cycle/infrastructure/system-clock.js';
 import { BreakSurfaces } from './src/app/break-surfaces.js';
+import { MenuBar } from './src/app/menu-bar.js';
 import { Surfaces } from './src/app/surfaces.js';
 
 const COMMAND_CHANNEL = 'breeze:command';
@@ -66,14 +67,10 @@ function openOnboarding(surfaces) {
   onboarding.show();
 }
 
-function trayOf(surfaces, breeze) {
-  const tray = new Tray(nativeImage.createEmpty());
+function menuBarOf(surfaces, breeze) {
+  const labels = { name: 'Breeze', quit: 'Quitter Breeze', working: '{minutes} min', onBreak: 'Pause · {minutes} min' };
 
-  tray.setToolTip('Breeze');
-  tray.on('click', () => openPanel(surfaces, breeze));
-  tray.setContextMenu(Menu.buildFromTemplate([{ role: 'quit' }]));
-
-  return tray;
+  return new MenuBar(labels, () => openPanel(surfaces, breeze));
 }
 
 function handleCommands(breeze, surfaces) {
@@ -110,6 +107,13 @@ function breezeOver(surfaces, preferences) {
   });
 }
 
+function keepMenuBarPainted(surfaces, breeze) {
+  const menuBar = menuBarOf(surfaces, breeze);
+
+  global.breezeMenuBar = menuBar;
+  breeze.onState((state) => menuBar.paint(state));
+}
+
 function run() {
   const surfaces = surfacesOf();
   const preferences = new FilePreferencesStore(join(app.getPath('userData'), 'preferences.json'));
@@ -118,7 +122,7 @@ function run() {
   app.dock?.hide();
   breeze.start();
   handleCommands(breeze, surfaces);
-  global.breezeTray = trayOf(surfaces, breeze);
+  keepMenuBarPainted(surfaces, breeze);
 
   if (preferences.read().snapshot().onboardingCompleted) {
     return openPanel(surfaces, breeze);
@@ -127,5 +131,8 @@ function run() {
   openOnboarding(surfaces);
 }
 
-app.whenReady().then(run);
+app.whenReady().then(run).catch((failure) => {
+  process.stderr.write(`breeze failed to start: ${failure?.stack ?? failure}\n`);
+  app.exit(1);
+});
 app.on('window-all-closed', () => {});

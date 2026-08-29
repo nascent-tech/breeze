@@ -126,3 +126,23 @@ test('a cycle read back from its snapshot is the cycle that was written', () => 
   ok(Cycle.fromSnapshot(snapshot).snapshot().endsAt === snapshot.endsAt);
   strictEqual(Cycle.fromSnapshot(snapshot).snapshot().phase, 'notice');
 });
+
+test('the emergency exit ends a break the budget could never have paid for', () => {
+  const poor = Cycle.fromSnapshot({ ...startedAtNoon().takeBreakNow(NOON).snapshot(), budgetRemainingMinutes: 2 });
+  const escaped = poor.escapeBreak(NOON + 30000);
+
+  strictEqual(escaped.snapshot().phase, 'return');
+  strictEqual(escaped.snapshot().budgetRemainingMinutes, 0);
+});
+
+test('the emergency exit is offered from a break, and from nothing else', () => {
+  throws(() => startedAtNoon().escapeBreak(NOON), LeverUnavailable);
+});
+
+test('an escaped break never leaves the next cycle in debt', () => {
+  const escaped = startedAtNoon().takeBreakNow(NOON).escapeBreak(NOON);
+  const next = escaped.advanceTo(NOON + 3000);
+
+  ok(next.snapshot().budgetRemainingMinutes >= 0);
+  strictEqual(next.snapshot().budgetRemainingMinutes, 15);
+});
