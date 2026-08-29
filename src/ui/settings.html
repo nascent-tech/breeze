@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'">
+    <title>Réglages de Breeze</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="./styles/tokens.css">
+    <link rel="stylesheet" href="./styles/screens.css">
+  </head>
+  <body class="settings-body">
+    <nav class="settings-nav" aria-label="Sections">
+      <button class="list-row nav-item" type="button" data-tab="rhythm" aria-pressed="true">Rythme</button>
+      <button class="list-row nav-item" type="button" data-tab="applications" aria-pressed="false">Applications</button>
+      <button class="list-row nav-item" type="button" data-tab="statistics" aria-pressed="false">Statistiques</button>
+    </nav>
+
+    <main class="settings-main">
+      <section class="settings-tab" data-tab="rhythm">
+        <h1 class="type-h1">Rythme</h1>
+        <p class="type-body tone-muted">Un changement s’applique au cycle suivant — jamais à une pause déjà due ou en cours.</p>
+        <div class="card stack-sm">
+          <label class="row" for="work-minutes">
+            <span class="type-h3 row-grow">Travail</span>
+            <input class="field num" id="work-minutes" type="number" min="5" max="180" step="1" value="50">
+            <span class="type-caption tone-muted">min</span>
+          </label>
+          <div class="divider"></div>
+          <label class="row" for="pause-minutes">
+            <span class="type-h3 row-grow">Pause</span>
+            <input class="field num" id="pause-minutes" type="number" min="1" max="60" step="1" value="10">
+            <span class="type-caption tone-muted">min</span>
+          </label>
+        </div>
+        <p class="type-caption tone-muted" id="rhythm-note" data-bounds="Travail : 5 à 180 min · Pause : 1 à 60 min, jamais plus longue que le travail.">Travail : 5 à 180 min · Pause : 1 à 60 min, jamais plus longue que le travail.</p>
+        <div class="row">
+          <span class="type-h3 row-grow">Sévérité</span>
+          <span class="seg" role="group" aria-label="Sévérité">
+            <button class="seg-item" type="button" data-severity="simple" aria-pressed="true">Simple</button>
+            <button class="seg-item" type="button" data-severity="hardcore" aria-pressed="false">Hardcore</button>
+          </span>
+        </div>
+      </section>
+
+      <section class="settings-tab" data-tab="applications" hidden>
+        <h1 class="type-h1">Applications</h1>
+        <p class="type-body tone-muted">Toute application inconnue est bloquée dès sa première apparition. Ce qui affaiblit — épargner, ignorer — vaut au cycle suivant ; ce qui renforce vaut immédiatement.</p>
+        <div class="card stack-sm" id="applications">
+          <p class="type-body tone-muted" id="applications-empty">Aucune application n’a encore été vue au premier plan. Travaille quelques minutes : chaque application rencontrée s’ajoutera ici, bloquée, et tu pourras l’épargner.</p>
+        </div>
+      </section>
+
+      <section class="settings-tab" data-tab="statistics" hidden>
+        <h1 class="type-h1">Statistiques</h1>
+        <p class="type-body tone-muted">30 derniers jours, de minuit à minuit. Visibles de toi seul — rien ne quitte cette machine.</p>
+        <div class="row stat-row">
+          <span class="card stack">
+            <span class="type-display num" id="stat-served">0 %</span>
+            <span class="type-caption tone-muted">Pauses servies</span>
+          </span>
+          <span class="card stack">
+            <span class="type-display num" id="stat-cycles">0</span>
+            <span class="type-caption tone-muted">Cycles complets</span>
+          </span>
+          <span class="card stack">
+            <span class="type-display num" id="stat-postponed">0</span>
+            <span class="type-caption tone-muted">Reports</span>
+          </span>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./scripts/settings.js"></script>
+  </body>
+</html>

@@ -166,3 +166,133 @@
   width: 420px;
   text-align: left;
 }
+
+.onboarding-body {
+  margin: 0;
+  height: 100vh;
+}
+
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  height: 100%;
+  padding: var(--space-xl);
+}
+
+.onboarding-plate {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  flex: 1;
+}
+
+.step h1,
+.step p {
+  margin: 0;
+}
+
+.onboarding-footer {
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.dots {
+  display: flex;
+  gap: var(--space-sm);
+  flex: 1;
+}
+
+.dot {
+  width: var(--space-sm);
+  height: var(--space-sm);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-dim);
+}
+
+.dot[data-current="true"] {
+  background: var(--color-primary-vivid);
+}
+
+.rhythm-choice[aria-pressed="true"],
+.severity-choice[aria-pressed="true"],
+.application-choice[aria-pressed="true"] {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+.settings-body {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  margin: 0;
+  height: 100vh;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  background: var(--color-surface-dim);
+}
+
+.nav-item[aria-pressed="true"] {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+.settings-main {
+  padding: var(--space-lg);
+  overflow-y: auto;
+}
+
+.settings-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.settings-tab h1,
+.settings-tab p {
+  margin: 0;
+}
+
+.field {
+  width: 80px;
+  height: 40px;
+  padding: 0 var(--space-sm);
+  border: var(--stroke-hairline) solid var(--color-border-control);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-on-surface);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: right;
+}
+
+.field:focus-visible {
+  outline: var(--stroke-ring) solid var(--color-primary-vivid);
+  outline-offset: var(--stroke-ring);
+}
+
+.stat-row {
+  align-items: stretch;
+  gap: var(--space-md);
+}
+
+.stat-row .card {
+  flex: 1;
+  gap: var(--space-xs);
+}
+
+.list-row[disabled] .tone-muted {
+  color: var(--color-on-surface-muted);
+}

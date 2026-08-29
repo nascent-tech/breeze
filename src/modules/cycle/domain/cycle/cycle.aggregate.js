@@ -1,4 +1,5 @@
 import { BreakTooYoung } from './break-too-young.error.js';
+import { owedMinutesToEndBreakAt } from './owed-minutes.js';
 import { BudgetTooLow } from './budget-too-low.error.js';
 import { CyclePhase } from './cycle-phase.value-object.js';
 import { InvalidValue } from './invalid-value.error.js';
@@ -13,13 +14,12 @@ const NOTICE_MILLISECONDS = MINUTE;
 const RETURN_MILLISECONDS = 3000;
 const POSTPONE_MINUTES = 5;
 const EARLIEST_END_OF_BREAK_MILLISECONDS = MINUTE;
-
 function requiredInstant(value = Number.NaN) {
-  if (!Number.isFinite(value)) {
-    throw new InvalidValue('a cycle moves against a finite wall clock instant');
+  if (Number.isFinite(value)) {
+    return value;
   }
 
-  return value;
+  throw new InvalidValue('a cycle moves against a finite wall clock instant');
 }
 
 export class Cycle {
@@ -116,11 +116,22 @@ export class Cycle {
       throw new LeverUnavailable('only a running break ends early');
     }
 
-    return this.#endedBreakAt(instant, this.owedMinutesToEndBreakAt(instant));
+    return this.#endedBreakAt(instant, owedMinutesToEndBreakAt(this.snapshot(), instant));
   }
 
-  owedMinutesToEndBreakAt(now) {
-    return Math.ceil(Math.max(0, this.#state.endsAt - requiredInstant(now)) / MINUTE);
+  escapeBreak(now) {
+    const instant = requiredInstant(now);
+
+    if (!this.#state.phase.isBreak) {
+      throw new LeverUnavailable('only a running break is escaped');
+    }
+
+    return new Cycle({
+      ...this.#state,
+      phase: CyclePhase.returning(),
+      endsAt: instant + RETURN_MILLISECONDS,
+      budget: this.#state.budget.debit(owedMinutesToEndBreakAt(this.snapshot(), instant)),
+    });
   }
 
   #elapsedAt(instant) {

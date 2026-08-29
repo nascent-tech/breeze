@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { CycleStorePort } from '../application/ports/cycle-store.port.js';
@@ -21,6 +21,12 @@ export class FileCycleStore extends CycleStorePort {
   }
 
   write(snapshot) {
+    if (snapshot === null) {
+      rmSync(this.#path, { force: true });
+
+      return;
+    }
+
     mkdirSync(dirname(this.#path), { recursive: true });
     writeFileSync(this.#path, JSON.stringify(snapshot, null, 2), 'utf8');
   }

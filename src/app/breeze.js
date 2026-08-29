@@ -1,4 +1,4 @@
-import { Cycle } from '../modules/cycle/domain/cycle/cycle.aggregate.js';
+import { owedMinutesToEndBreakAt } from '../modules/cycle/domain/cycle/owed-minutes.js';
 import { CycleController } from '../modules/cycle/interface/cycle.controller.js';
 import { panelStateOf } from './panel-state.js';
 
@@ -45,8 +45,10 @@ export class Breeze {
     return state;
   }
 
-  handle(command) {
-    this.#controller.handle(command);
+  handle(command, payload) {
+    if (!this.#controller.change(command, payload)) {
+      this.#controller.handle(command);
+    }
 
     return this.tick();
   }
@@ -55,6 +57,6 @@ export class Breeze {
     const snapshot = this.#store.read();
     const now = this.#clock.nowInMilliseconds();
 
-    return panelStateOf(snapshot, now, Cycle.fromSnapshot(snapshot).owedMinutesToEndBreakAt(now));
+    return panelStateOf(snapshot, now, owedMinutesToEndBreakAt(snapshot, now));
   }
 }

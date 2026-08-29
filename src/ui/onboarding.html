@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'">
+    <title>Bienvenue dans Breeze</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="./styles/tokens.css">
+    <link rel="stylesheet" href="./styles/screens.css">
+  </head>
+  <body class="mesh onboarding-body">
+    <main class="onboarding">
+      <div class="glass-panel onboarding-plate">
+      <section class="step" data-step="welcome">
+        <h1 class="type-h1">Bienvenue dans Breeze</h1>
+        <p class="type-body tone-muted">Breeze force la pause. Il recouvre ton écran le temps d’un compte à rebours qu’un clic ne balaie pas — tu ne peux pas l’ignorer, et c’est le but.</p>
+        <p class="type-caption tone-muted">Aucun compte, aucun serveur : rien ne quitte ton Mac.</p>
+      </section>
+
+      <section class="step" data-step="rhythm" hidden>
+        <h1 class="type-h1">Choisis ton rythme</h1>
+        <p class="type-body tone-muted">Une phase de travail, puis une pause. Tu pourras affiner dans les réglages — au cycle suivant, jamais sur une pause déjà due.</p>
+        <div class="stack-sm">
+          <button class="list-row rhythm-choice" type="button" data-work="50" data-pause="10" aria-pressed="true">
+            <span class="stack row-grow">
+              <span class="type-h3">Classique</span>
+              <span class="type-caption tone-muted">50 min de travail · 10 min de pause</span>
+            </span>
+            <span class="chip">Recommandé</span>
+          </button>
+          <button class="list-row rhythm-choice" type="button" data-work="25" data-pause="5" aria-pressed="false">
+            <span class="stack row-grow">
+              <span class="type-h3">Pomodoro</span>
+              <span class="type-caption tone-muted">25 min de travail · 5 min de pause</span>
+            </span>
+          </button>
+          <button class="list-row rhythm-choice" type="button" data-work="90" data-pause="15" aria-pressed="false">
+            <span class="stack row-grow">
+              <span class="type-h3">Profond</span>
+              <span class="type-caption tone-muted">90 min de travail · 15 min de pause</span>
+            </span>
+          </button>
+        </div>
+        <p class="type-caption tone-muted">5 à 180 min de travail, 1 à 60 min de pause.</p>
+      </section>
+
+      <section class="step" data-step="severity" hidden>
+        <h1 class="type-h1">À quel point c’est strict ?</h1>
+        <p class="type-body tone-muted">Tu décides à froid ce que tu ne pourras plus négocier à chaud. La sévérité se fige dès qu’une pause est annoncée.</p>
+        <div class="stack-sm">
+          <button class="list-row severity-choice" type="button" data-severity="simple" aria-pressed="true">
+            <span class="stack row-grow">
+              <span class="type-h3">Simple</span>
+              <span class="type-caption tone-muted">Voile les applications bloquées. Le reste du Mac reste utilisable.</span>
+            </span>
+          </button>
+          <button class="list-row severity-choice" type="button" data-severity="hardcore" aria-pressed="false">
+            <span class="stack row-grow">
+              <span class="type-h3">Hardcore</span>
+              <span class="type-caption tone-muted">Couvre chaque écran en entier. Une seule sortie : maintenir Échap dix secondes.</span>
+            </span>
+          </button>
+        </div>
+        <p class="type-caption tone-muted">Aucun mode n’est infaillible — macOS te laisse toujours forcer à quitter ou éteindre. Breeze rend la triche coûteuse et consciente, jamais impossible.</p>
+      </section>
+
+      <section class="step" data-step="permissions" hidden>
+        <h1 class="type-h1">Deux permissions, aucune obligatoire</h1>
+        <p class="type-body tone-muted">macOS accorde et retire ces permissions quand tu veux ; Breeze revérifie en continu et dit ce qu’il ne peut pas faire.</p>
+        <div class="stack-sm">
+          <div class="card row">
+            <span class="stack row-grow">
+              <span class="type-h3">Accessibilité</span>
+              <span class="type-caption tone-muted">Pour suivre le cadre des fenêtres à voiler en Mode Simple. Jamais le contenu, jamais les titres, jamais le clavier.</span>
+            </span>
+            <button class="btn btn-secondary" type="button" data-grant="accessibility">Autoriser</button>
+          </div>
+          <div class="card row">
+            <span class="stack row-grow">
+              <span class="type-h3">Notifications</span>
+              <span class="type-caption tone-muted">Pour annoncer le préavis une minute avant la pause. Sans elle, Breeze affiche sa propre bannière.</span>
+            </span>
+            <button class="btn btn-secondary" type="button" data-grant="notifications">Autoriser</button>
+          </div>
+        </div>
+        <p class="type-caption tone-muted">Tu peux continuer sans rien autoriser : le Mode Simple pose alors un seul voile plein écran.</p>
+      </section>
+
+      <section class="step" data-step="applications" hidden>
+        <h1 class="type-h1">Épargne ce qu’il te faut en pause</h1>
+        <p class="type-body tone-muted">Toute application est bloquée par défaut — c’est ce qui rend la première pause réelle. Une application épargnée reste utilisable pendant la pause.</p>
+        <div class="stack-sm" id="applications"></div>
+        <p class="type-caption tone-muted">Cet écran est passable — le passer garde tout bloqué.</p>
+      </section>
+
+      <section class="step" data-step="start" hidden>
+        <h1 class="type-h1">Ton premier cycle démarre</h1>
+        <p class="type-body tone-muted" id="summary" data-pattern="{work} min de travail · {pause} min de pause · Mode {severity}">50 min de travail · 10 min de pause · Mode Simple</p>
+        <p class="type-caption tone-muted">Breeze vit dans la barre de menus, sans icône dans le Dock. Ferme cette fenêtre quand tu veux : ce que tu as choisi est conservé, le reste prend les valeurs par défaut.</p>
+      </section>
+
+      </div>
+
+      <footer class="row onboarding-footer">
+        <span class="dots" id="dots" aria-hidden="true"></span>
+        <button class="btn btn-ghost" id="skip" type="button">Passer</button>
+        <button class="btn btn-primary" id="next" type="button" data-default="Continuer" data-start="Démarrer">Continuer</button>
+      </footer>
+    </main>
+    <script type="module" src="./scripts/onboarding.js"></script>
+  </body>
+</html>
