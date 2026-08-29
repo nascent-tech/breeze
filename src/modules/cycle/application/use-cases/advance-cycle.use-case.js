@@ -1,4 +1,5 @@
 import { Cycle } from '../../domain/cycle/cycle.aggregate.js';
+import { Suspension } from '../../domain/suspension/suspension.value-object.js';
 
 export class AdvanceCycle {
   #store;
@@ -16,7 +17,13 @@ export class AdvanceCycle {
       throw new Error('no cycle is running');
     }
 
-    const moved = Cycle.fromSnapshot(kept).advanceTo(this.#clock.nowInMilliseconds()).snapshot();
+    const now = this.#clock.nowInMilliseconds();
+
+    if (kept.suspension !== undefined && Suspension.fromSnapshot(kept.suspension).holdsAt(now)) {
+      return kept;
+    }
+
+    const moved = { ...Cycle.fromSnapshot(kept).advanceTo(now).snapshot(), suspension: kept.suspension };
 
     this.#store.write(moved);
 

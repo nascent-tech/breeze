@@ -1,7 +1,7 @@
 import { clockTimeOf, countdownOf } from './format.js';
 
-const ESCAPE_HOLD_MILLISECONDS = 10000;
 const HOLD_STEP_MILLISECONDS = 100;
+const HOLD_MILLISECONDS = 10000;
 
 function element(id) {
   const found = document.getElementById(id);
@@ -30,13 +30,13 @@ function askToLeave() {
   element('confirm').hidden = false;
 }
 
-function holdToEscape() {
+function holdToEscape(holdMilliseconds) {
   let held = 0;
   const timer = setInterval(() => {
     held += HOLD_STEP_MILLISECONDS;
-    element('escape-gauge').style.width = `${Math.min(100, (held / ESCAPE_HOLD_MILLISECONDS) * 100)}%`;
+    element('escape-gauge').style.width = `${Math.min(100, (held / holdMilliseconds) * 100)}%`;
 
-    if (held >= ESCAPE_HOLD_MILLISECONDS) {
+    if (held >= holdMilliseconds) {
       clearInterval(timer);
       askToLeave();
     }
@@ -45,34 +45,47 @@ function holdToEscape() {
   return timer;
 }
 
-function wireEscape() {
-  const holding = new Set();
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && holding.size === 0) {
-      holding.add(holdToEscape());
-    }
-  });
-
-  document.addEventListener('keyup', (event) => {
-    if (event.key !== 'Escape') {
-      return;
-    }
-
+function releasing(holding) {
+  return () => {
     for (const timer of holding) {
       clearInterval(timer);
     }
 
     holding.clear();
     element('escape-gauge').style.width = '0%';
+    window.breeze.send('escapeHoldReleased');
+  };
+}
+
+function wireEscape(holdMilliseconds) {
+  const holding = new Set();
+  const release = releasing(holding);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && holding.size === 0 && element('confirm').hidden) {
+      holding.add(holdToEscape(holdMilliseconds));
+      window.breeze.send('escapeHoldStarted');
+    }
+  });
+
+  window.addEventListener('blur', release);
+
+  document.addEventListener('keyup', (event) => {
+    if (event.key === 'Escape') {
+      release();
+    }
   });
 }
 
 element('end-break').addEventListener('click', () => window.breeze.send('endBreak'));
-element('confirm-exit').addEventListener('click', () => window.breeze.send('escapeBreak'));
+element('confirm-exit').addEventListener('click', () => window.breeze.send('escapeHoldReleased'));
 element('confirm-stay').addEventListener('click', () => {
   element('confirm').hidden = true;
 });
 
-wireEscape();
-window.breeze.onState(paint);
+window.breeze.onState((state) => {
+  paint(state);
+  element('escape-hint').textContent = (element('escape-hint').dataset.pattern ?? '')
+    .replace('{seconds}', String(state.escapeHoldSeconds));
+});
+wireEscape(HOLD_MILLISECONDS);

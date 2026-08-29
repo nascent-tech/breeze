@@ -51,6 +51,16 @@ export class Surfaces {
     }
   }
 
+  nameOf(webContents) {
+    for (const [name, window] of this.#windows) {
+      if (!window.isDestroyed() && window.webContents.id === webContents.id) {
+        return name;
+      }
+    }
+
+    return '';
+  }
+
   isOpen(name) {
     const known = this.#windows.get(name);
 
@@ -65,6 +75,14 @@ export class Surfaces {
     }
   }
 
+  #forget(window) {
+    for (const [name, known] of [...this.#windows]) {
+      if (known === window) {
+        this.#windows.delete(name);
+      }
+    }
+  }
+
   #built(page, options) {
     const window = new BrowserWindow({
       show: false,
@@ -72,6 +90,9 @@ export class Surfaces {
       webPreferences: { preload: this.#preloadPath, sandbox: true, contextIsolation: true, nodeIntegration: false },
     });
 
+    window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    window.webContents.on('will-navigate', (event) => event.preventDefault());
+    window.on('closed', () => this.#forget(window));
     window.loadFile(fileURLToPath(page));
 
     return window;

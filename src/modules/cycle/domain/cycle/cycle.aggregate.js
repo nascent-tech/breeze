@@ -2,7 +2,7 @@ import { BreakTooYoung } from './break-too-young.error.js';
 import { owedMinutesToEndBreakAt } from './owed-minutes.js';
 import { BudgetTooLow } from './budget-too-low.error.js';
 import { CyclePhase } from './cycle-phase.value-object.js';
-import { InvalidValue } from './invalid-value.error.js';
+import { requiredInstant, snapshotOf, stateFrom } from './cycle-snapshot.js';
 import { LeverUnavailable } from './lever-unavailable.error.js';
 import { PostponeBudget } from './postpone-budget.value-object.js';
 import { PostponeQuotaExhausted } from './postpone-quota-exhausted.error.js';
@@ -14,14 +14,6 @@ const NOTICE_MILLISECONDS = MINUTE;
 const RETURN_MILLISECONDS = 3000;
 const POSTPONE_MINUTES = 5;
 const EARLIEST_END_OF_BREAK_MILLISECONDS = MINUTE;
-function requiredInstant(value = Number.NaN) {
-  if (Number.isFinite(value)) {
-    return value;
-  }
-
-  throw new InvalidValue('a cycle moves against a finite wall clock instant');
-}
-
 export class Cycle {
   #state;
 
@@ -29,8 +21,10 @@ export class Cycle {
     this.#state = Object.freeze(state);
   }
 
-  static start({ rhythm = Rhythm.classic(), severity = Severity.simple(), now, ordinal = 1 }) {
-    const startedAt = requiredInstant(now);
+  static start(opening) {
+    const { rhythm = Rhythm.classic(), severity = Severity.simple() } = opening;
+    const { ordinal = 1, budget = PostponeBudget.full() } = opening;
+    const startedAt = requiredInstant(opening.now);
 
     return new Cycle({
       rhythm,
@@ -38,40 +32,19 @@ export class Cycle {
       phase: CyclePhase.work(),
       endsAt: startedAt + rhythm.workMinutes * MINUTE,
       startedAt,
-      budget: PostponeBudget.full(),
+      budget,
       postponesTaken: 0,
       ordinal,
+      breakServed: false,
     });
   }
 
   static fromSnapshot(snapshot) {
-    return new Cycle({
-      rhythm: Rhythm.of(snapshot.rhythm),
-      severity: Severity.fromName(snapshot.severity),
-      phase: CyclePhase.fromName(snapshot.phase),
-      endsAt: requiredInstant(snapshot.endsAt),
-      startedAt: requiredInstant(snapshot.startedAt),
-      budget: PostponeBudget.of(snapshot.budgetRemainingMinutes),
-      postponesTaken: snapshot.postponesTaken,
-      ordinal: snapshot.ordinal,
-    });
+    return new Cycle(stateFrom(snapshot));
   }
 
   snapshot() {
-    const { rhythm, severity, phase, budget } = this.#state;
-
-    return Object.freeze({
-      rhythm: { workMinutes: rhythm.workMinutes, pauseMinutes: rhythm.pauseMinutes },
-      severity: severity.name,
-      phase: phase.name,
-      endsAt: this.#state.endsAt,
-      startedAt: this.#state.startedAt,
-      budgetRemainingMinutes: budget.remainingMinutes,
-      budgetFullMinutes: budget.fullMinutes,
-      postponesTaken: this.#state.postponesTaken,
-      postponeQuota: severity.postponeQuota,
-      ordinal: this.#state.ordinal,
-    });
+    return snapshotOf(this.#state);
   }
 
   advanceTo(now) {
@@ -116,6 +89,10 @@ export class Cycle {
       throw new LeverUnavailable('only a running break ends early');
     }
 
+    if (!this.#state.severity.equals(Severity.simple())) {
+      throw new LeverUnavailable('the hardcore mode offers no button to end a break');
+    }
+
     return this.#endedBreakAt(instant, owedMinutesToEndBreakAt(this.snapshot(), instant));
   }
 
@@ -141,17 +118,38 @@ export class Cycle {
   }
 
   #successorAt(instant) {
-    const { phase, rhythm, severity, ordinal, endsAt } = this.#state;
+    const { phase, endsAt } = this.#state;
     const successors = new Map([
       ['work', () => this.#moved(CyclePhase.notice(), endsAt)],
       ['notice', () => this.#openedBreakAt(instant)],
-      ['break', () => this.#moved(CyclePhase.returning(), instant + RETURN_MILLISECONDS)],
-      ['return', () => Cycle.start({ rhythm, severity, now: instant, ordinal: ordinal + 1 })],
+      ['break', () => this.#servedBreakAt(instant)],
+      ['return', () => this.#nextCycleFrom(instant)],
       ['inactive', () => this],
     ]);
     const successor = successors.get(phase.name) ?? (() => this);
 
     return successor();
+  }
+
+  #servedBreakAt(instant) {
+    return new Cycle({
+      ...this.#state,
+      phase: CyclePhase.returning(),
+      endsAt: instant + RETURN_MILLISECONDS,
+      breakServed: true,
+    });
+  }
+
+  #nextCycleFrom(instant) {
+    const { rhythm, severity, ordinal, budget, breakServed } = this.#state;
+
+    return Cycle.start({
+      rhythm,
+      severity,
+      now: instant,
+      ordinal: ordinal + 1,
+      budget: breakServed ? PostponeBudget.full() : budget,
+    });
   }
 
   #endedBreakAt(instant, owedMinutes) {

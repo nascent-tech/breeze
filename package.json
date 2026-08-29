@@ -18,6 +18,7 @@
   "main": "main.js",
   "license": "MIT",
   "scripts": {
+    "start": "electron .",
     "typecheck": "tsc --checkJs --noEmit -p jsconfig.json",
     "lint": "eslint .",
     "test": "node build/run-tests.mjs",

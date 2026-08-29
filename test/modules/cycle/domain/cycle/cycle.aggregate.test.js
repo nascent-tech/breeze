@@ -139,10 +139,30 @@ test('the emergency exit is offered from a break, and from nothing else', () => 
   throws(() => startedAtNoon().escapeBreak(NOON), LeverUnavailable);
 });
 
-test('an escaped break never leaves the next cycle in debt', () => {
+test('an escaped break never leaves the next cycle in debt, and never refills it either', () => {
   const escaped = startedAtNoon().takeBreakNow(NOON).escapeBreak(NOON);
   const next = escaped.advanceTo(NOON + 3000);
 
   ok(next.snapshot().budgetRemainingMinutes >= 0);
+  strictEqual(next.snapshot().budgetRemainingMinutes, 5);
+});
+
+test('only a break served to its term reopens a full budget', () => {
+  const served = startedAtNoon().takeBreakNow(NOON).advanceTo(NOON + 10 * MINUTE);
+  const next = served.advanceTo(NOON + 10 * MINUTE + 3000);
+
   strictEqual(next.snapshot().budgetRemainingMinutes, 15);
+});
+
+test('a break shortened by hand does not refill the budget of the cycle it opens', () => {
+  const shortened = startedAtNoon().takeBreakNow(NOON).endBreak(NOON + 2 * MINUTE);
+  const next = shortened.advanceTo(NOON + 2 * MINUTE + 3000);
+
+  strictEqual(next.snapshot().budgetRemainingMinutes, 7);
+});
+
+test('the hardcore mode offers no button to end a break', () => {
+  const onBreak = startedAtNoon(Severity.hardcore()).takeBreakNow(NOON);
+
+  throws(() => onBreak.endBreak(NOON + 2 * MINUTE), LeverUnavailable);
 });

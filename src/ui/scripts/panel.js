@@ -43,6 +43,14 @@ function paintBudget(state) {
   element('budget-gauge').style.width = `${(budgetRemainingMinutes / budgetFullMinutes) * 100}%`;
 }
 
+function paintSuspension(state) {
+  const held = state.suspension !== undefined;
+
+  element('suspend-label').textContent = phased('suspend-label', held ? 'held' : 'idle');
+  element('suspend-terms').hidden = held;
+  element('resume').hidden = !held;
+}
+
 function paintSeverity(state) {
   element('severity-chip').textContent = state.severity === 'simple' ? 'Simple' : 'Hardcore';
 
@@ -61,6 +69,7 @@ function paint(state) {
   paintLevers(state);
   paintBudget(state);
   paintSeverity(state);
+  paintSuspension(state);
 }
 
 function wire() {
@@ -70,7 +79,13 @@ function wire() {
   element('postpone').addEventListener('click', () => window.breeze.send('postpone'));
   element('restart').addEventListener('click', () => window.breeze.send('restart'));
   element('open-settings').addEventListener('click', () => window.breeze.send('openSettings'));
+  element('resume').addEventListener('click', () => window.breeze.send('resume'));
+
   element('quit').addEventListener('click', () => window.breeze.send('quit'));
+
+  for (const term of document.querySelectorAll('[data-term]')) {
+    term.addEventListener('click', () => window.breeze.send('suspend', term.getAttribute('data-term')));
+  }
 
   for (const item of document.querySelectorAll('[data-severity]')) {
     item.addEventListener('click', () => window.breeze.send('setSeverity', item.getAttribute('data-severity')));

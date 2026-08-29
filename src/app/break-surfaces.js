@@ -22,6 +22,7 @@ export class BreakSurfaces {
   #surfaces;
   #pages;
   #state = {};
+  #shownPhase = '';
 
   constructor(surfaces, pages) {
     this.#surfaces = surfaces;
@@ -31,6 +32,15 @@ export class BreakSurfaces {
   showFor(state) {
     this.#state = state;
 
+    if (state.phase === this.#shownPhase) {
+      return;
+    }
+
+    this.#shownPhase = state.phase;
+    this.#openFor(state);
+  }
+
+  #openFor(state) {
     if (state.phase === 'notice') {
       return this.#openNotice();
     }

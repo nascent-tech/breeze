@@ -24,9 +24,12 @@ function primaryOffer(snapshot, owedMinutes) {
   return { offered: snapshot.budgetRemainingMinutes >= owedMinutes, owedMinutes };
 }
 
+const ESCAPE_HOLD_SECONDS = 10;
+
 export function panelStateOf(snapshot, now, owedMinutes) {
   return {
     ...snapshot,
+    escapeHoldSeconds: ESCAPE_HOLD_SECONDS,
     remainingMilliseconds: Math.max(0, snapshot.endsAt - now),
     postpone: postponeOffer(snapshot),
     primaryLever: primaryOffer(snapshot, owedMinutes),

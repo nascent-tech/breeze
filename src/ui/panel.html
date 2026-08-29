@@ -2,9 +2,8 @@
 <html lang="fr">
   <head>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; img-src 'self' data:">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; font-src 'self'; script-src 'self'; img-src 'self' data:">
     <title>Breeze</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="./styles/tokens.css">
     <link rel="stylesheet" href="./styles/screens.css">
   </head>
@@ -48,10 +47,15 @@
                 data-budget="Le budget ne couvre pas 5 min de plus">Seulement pendant le préavis</span>
         </button>
         <div class="divider"></div>
-        <button class="list-row" id="suspend" type="button">
-          <span class="type-h3 row-grow">Suspendre</span>
-          <span class="type-caption tone-muted text-end">15 min · 1 h · demain 6 h</span>
-        </button>
+        <div class="list-row">
+          <span class="type-h3 row-grow" id="suspend-label" data-idle="Suspendre" data-held="Suspendu">Suspendre</span>
+          <span class="seg" role="group" aria-label="Suspendre Breeze" id="suspend-terms">
+            <button class="seg-item" type="button" data-term="quarterHour" aria-pressed="false">15 min</button>
+            <button class="seg-item" type="button" data-term="hour" aria-pressed="false">1 h</button>
+            <button class="seg-item" type="button" data-term="tomorrowMorning" aria-pressed="false">demain 6 h</button>
+          </span>
+          <button class="btn btn-secondary" id="resume" type="button" hidden>Reprendre</button>
+        </div>
         <div class="divider"></div>
         <button class="list-row" id="restart" type="button">
           <span class="type-h3 row-grow">Redémarrer le cycle</span>

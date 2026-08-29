@@ -36,7 +36,11 @@ export class Breeze {
   }
 
   tick() {
-    this.#controller.handle('advance');
+    try {
+      this.#controller.handle('advance');
+    } catch (failure) {
+      process.stderr.write(`breeze could not advance its cycle: ${String(failure)}\n`);
+    }
 
     const state = this.state();
 

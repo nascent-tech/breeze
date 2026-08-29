@@ -2,9 +2,8 @@
 <html lang="fr">
   <head>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; font-src 'self'; script-src 'self'">
     <title>Pause</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="./styles/tokens.css">
     <link rel="stylesheet" href="./styles/screens.css">
   </head>
@@ -23,7 +22,7 @@
         <div class="stack-sm overlay-escape" id="hardcore-escape" hidden>
           <span class="row overlay-escape-row">
             <span class="kbd">esc</span>
-            <span class="type-caption" id="escape-hint">Maintiens Échap pendant 10 s pour sortir</span>
+            <span class="type-caption" id="escape-hint" data-pattern="Maintiens Échap pendant {seconds} s pour sortir">Maintiens Échap pendant 10 s pour sortir</span>
           </span>
           <div class="gauge overlay-escape-gauge"><div class="gauge-fill" id="escape-gauge"></div></div>
         </div>

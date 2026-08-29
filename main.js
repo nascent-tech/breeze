@@ -3,9 +3,12 @@ import { join } from 'node:path';
 
 import { Breeze } from './src/app/breeze.js';
 import { FileCycleStore } from './src/modules/cycle/infrastructure/file-cycle.store.js';
+import { KeptCycleStore } from './src/modules/cycle/infrastructure/kept-cycle.store.js';
 import { FilePreferencesStore } from './src/modules/cycle/infrastructure/file-preferences.store.js';
 import { SystemClock } from './src/modules/cycle/infrastructure/system-clock.js';
 import { BreakSurfaces } from './src/app/break-surfaces.js';
+import { surfaceMaySend } from './src/app/commands.js';
+import { EscapeHold } from './src/app/escape-hold.js';
 import { MenuBar } from './src/app/menu-bar.js';
 import { Surfaces } from './src/app/surfaces.js';
 
@@ -41,6 +44,14 @@ function openPanel(surfaces, breeze) {
   return panel;
 }
 
+function refusalOf(failure) {
+  const named = failure instanceof Error ? failure.name : 'Unknown';
+
+  process.stderr.write(`breeze refused a command: ${named}\n`);
+
+  return named;
+}
+
 function openSettings(surfaces, breeze) {
   const settings = surfaces.open(SETTINGS, {
     page: new URL('./src/ui/settings.html', import.meta.url),
@@ -73,21 +84,65 @@ function menuBarOf(surfaces, breeze) {
   return new MenuBar(labels, () => openPanel(surfaces, breeze));
 }
 
-function handleCommands(breeze, surfaces) {
-  ipcMain.handle(COMMAND_CHANNEL, (_event, { command, payload }) => {
-    if (command === 'quit') {
-      return app.quit();
-    }
+function answerEscape({ breeze, hold, command }) {
+  if (command === 'escapeHoldStarted') {
+    hold.start();
 
-    if (command === 'openSettings') {
-      return openSettings(surfaces, breeze);
-    }
+    return { ok: true };
+  }
 
-    if (command === 'completeOnboarding') {
-      surfaces.close(ONBOARDING);
-    }
+  if (!hold.isPaid()) {
+    hold.release();
 
-    return breeze.handle(command, payload);
+    return { ok: false, reason: 'HoldNotPaid' };
+  }
+
+  hold.release();
+
+  return { ok: true, state: breeze.handle('escapeBreak') };
+}
+
+function answer({ breeze, surfaces, hold, command, payload }) {
+  if (command === 'escapeHoldStarted' || command === 'escapeHoldReleased') {
+    return answerEscape({ breeze, hold, command });
+  }
+
+  if (command === 'quit') {
+    app.quit();
+
+    return { ok: true };
+  }
+
+  if (command === 'openSettings') {
+    openSettings(surfaces, breeze);
+
+    return { ok: true };
+  }
+
+  if (command === 'completeOnboarding') {
+    breeze.handle(command, payload);
+    surfaces.close(ONBOARDING);
+
+    return { ok: true, state: openPanel(surfaces, breeze) && breeze.state() };
+  }
+
+  return { ok: true, state: breeze.handle(command, payload) };
+}
+
+function answered(asked) {
+  try {
+    return answer(asked);
+  } catch (failure) {
+    return { ok: false, reason: refusalOf(failure) };
+  }
+}
+
+function handleCommands(breeze, surfaces, hold) {
+  ipcMain.handle(COMMAND_CHANNEL, (event, { command, payload }) => {
+    const allowed = surfaceMaySend(surfaces.nameOf(event.sender), command);
+    const asked = { breeze, surfaces, hold, command, payload };
+
+    return allowed ? answered(asked) : { ok: false, reason: 'NotOfferedHere' };
   });
 }
 
@@ -100,7 +155,7 @@ function breezeOver(surfaces, preferences) {
 
   return new Breeze({
     breakSurfaces: new BreakSurfaces(surfaces, pages),
-    store: new FileCycleStore(join(userData, 'cycle.json')),
+    store: new KeptCycleStore(new FileCycleStore(join(userData, 'cycle.json'))),
     preferences,
     clock: new SystemClock(),
     surfaces,
@@ -121,7 +176,7 @@ function run() {
 
   app.dock?.hide();
   breeze.start();
-  handleCommands(breeze, surfaces);
+  handleCommands(breeze, surfaces, new EscapeHold(new SystemClock()));
   keepMenuBarPainted(surfaces, breeze);
 
   if (preferences.read().snapshot().onboardingCompleted) {

@@ -3,27 +3,37 @@ import { ChangePreferences } from '../application/use-cases/change-preferences.u
 import { EndBreak } from '../application/use-cases/end-break.use-case.js';
 import { EscapeBreak } from '../application/use-cases/escape-break.use-case.js';
 import { PostponeBreak } from '../application/use-cases/postpone-break.use-case.js';
+import { RestartCycle } from '../application/use-cases/restart-cycle.use-case.js';
 import { StartOrResumeCycle } from '../application/use-cases/start-or-resume-cycle.use-case.js';
+import { SuspendBreeze } from '../application/use-cases/suspend-breeze.use-case.js';
 import { TakeBreakNow } from '../application/use-cases/take-break-now.use-case.js';
+
+function levers(store, clock) {
+  const useCases = new Map();
+
+  useCases.set('advance', new AdvanceCycle(store, clock));
+  useCases.set('postpone', new PostponeBreak(store, clock));
+  useCases.set('takeBreakNow', new TakeBreakNow(store, clock));
+  useCases.set('endBreak', new EndBreak(store, clock));
+  useCases.set('escapeBreak', new EscapeBreak(store, clock));
+  useCases.set('restart', new RestartCycle(store, clock));
+
+  return useCases;
+}
 
 export class CycleController {
   #useCases;
   #preferences;
   #start;
   #changes;
-  #store;
+  #suspension;
 
   constructor(store, clock, preferences) {
     this.#preferences = preferences;
-    this.#useCases = new Map();
-    this.#useCases.set('advance', new AdvanceCycle(store, clock));
-    this.#useCases.set('postpone', new PostponeBreak(store, clock));
-    this.#useCases.set('takeBreakNow', new TakeBreakNow(store, clock));
-    this.#useCases.set('endBreak', new EndBreak(store, clock));
-    this.#useCases.set('escapeBreak', new EscapeBreak(store, clock));
+    this.#useCases = levers(store, clock);
     this.#start = new StartOrResumeCycle(store, clock);
     this.#changes = new ChangePreferences(preferences, store);
-    this.#store = store;
+    this.#suspension = new SuspendBreeze(store, clock);
   }
 
   start() {
@@ -35,7 +45,8 @@ export class CycleController {
       ['setSeverity', () => this.#changes.setSeverity(payload)],
       ['setRhythm', () => this.#changes.setRhythm(payload)],
       ['completeOnboarding', () => this.#completeOnboarding(payload)],
-      ['restart', () => this.#restart()],
+      ['suspend', () => this.#suspension.suspend(payload)],
+      ['resume', () => this.#suspension.resume()],
     ]);
 
     changes.get(command)?.();
@@ -43,16 +54,11 @@ export class CycleController {
     return changes.has(command);
   }
 
-  #restart() {
-    this.#store.write(null);
-    this.start();
-  }
-
   #completeOnboarding(payload) {
     this.#changes.setRhythm(payload.rhythm);
     this.#changes.setSeverity(payload.severity);
     this.#changes.spare(payload.spared);
-    this.#restart();
+    this.start();
   }
 
   handle(command) {
