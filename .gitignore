@@ -11,4 +11,4 @@ coverage
 .DS_Store
 *.log
 
-!build/
+.claude

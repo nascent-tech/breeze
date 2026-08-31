@@ -1,1 +1,0 @@
-cmd_Release/breeze_bridge.node := c++ -bundle -arch x86_64 -arch arm64 -undefined dynamic_lookup -Wl,-search_paths_first -mmacosx-version-min=13.0 -arch arm64 -L./Release -stdlib=libc++  -o Release/breeze_bridge.node Release/obj.target/breeze_bridge/src/breeze_bridge.o Release/obj.target/breeze_bridge/src/foreground_app.o -framework Cocoa
