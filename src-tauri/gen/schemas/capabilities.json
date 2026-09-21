@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Le panneau lit l'instantané du cycle et lui envoie ses commandes.","local":true,"windows":["panel"],"permissions":["core:default"]}}
+{"default":{"identifier":"default","description":"Le panneau lit l'instantané du cycle et lui envoie ses commandes.","local":true,"windows":["panel"],"permissions":["core:default"]},"overlay":{"identifier":"overlay","description":"Les surfaces de pause lisent l'instantané du cycle. Elles n'envoient aucune commande.","local":true,"windows":["overlay-*"],"permissions":["core:default"]}}

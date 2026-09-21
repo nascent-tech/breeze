@@ -317,3 +317,50 @@ Verdict Fable : **code mergeable tel quel** ; le seul point bloquant était **do
 RAS confirmés : `wall()` implémenté par contrat de port (pas YAGNI) ; seam `Arc<dyn ClockPort>` correct
 (concret confiné à `run()`) ; `unwrap_or(0)` de `wall()` non paniquant ; `ClockJump::Backward` hors
 périmètre de l'adaptateur sans état. Dette hôte : `src-tauri/src/lib.rs` ~254 lignes (>200), à découper.
+
+## Palier 13 (overlay plein écran — imposer la pause) — conception + revue Fable
+
+**Le cœur du produit devient réel** : en `BreakActive`, l'`Enforcer` (inchangé) fait couvrir chaque
+écran par une **fenêtre Tauri plein écran always-on-top**. Conception tranchée par Fable (sources
+Tauri 2.11 vérifiées), implémentée, puis revue d'implémentation Fable.
+
+Livré : `src-tauri/src/bridge/{mod,monitor_cache,tauri_displays,tauri_overlay}.rs`, `capabilities/
+overlay.json` (glob `overlay-*`), `ui/overlay.html`+`overlay.js` (écran de pause « glace », décompte
+via `get_snapshot`, sévérité par `?kind=`), câblage `spawn_ticker` (reçoit l'`AppHandle`), retrait de
+`breeze-bridge-null` de l'hôte. `TauriOverlay` : `SurfaceId`+label générés sync, création/destruction
+**fire-and-forget** via `run_on_main_thread` (jamais de panique). `MonitorCache` rafraîchi **hors du
+verrou scheduler** — invariant anti-interblocage (getter Tauri bloquant sous verrou ↔ commande sync
+main-thread). Identité d'écran = hachage FNV `(name, x, y)` (fonction pure `hash_display`, 3 tests).
+`capability() = PlainFullscreen` (une fenêtre Tauri est échappable Cmd+Tab/Cmd+Q — honnête §10.5).
+
+**Revue Fable — 1 Majeur corrigé** :
+- **M1** — placement/taille étaient en **physique**, que les setters Tauri reconvertissent avec le
+  scale factor **de la fenêtre** (écran principal), pas du moniteur cible → en **DPI mixte** (MacBook
+  Retina ×2 + externe ×1) la fenêtre atterrit décalée et l'écran externe reste découvert. Corrigé :
+  `monitor.position()/size().to_logical(monitor.scale_factor())` + `.position()/.inner_size()`
+  **logiques** sur le builder (la conception disait « physique » et se trompait ; le code lui était
+  fidèle). Preuve dans les sources tao (`window.rs:728-760`, conversion au scale de la fenêtre).
+- RAS confirmés : invariant anti-interblocage tient ; FIFO build→destroy (le build sync sur main
+  thread précède toujours son destroy → aucune fenêtre orpheline) ; `HashMap` (SurfaceId non Ord) OK ;
+  `withGlobalTauri` + glob `overlay-*` → `__TAURI__` présent ; `transparent` + `macos-private-api` OK.
+
+**Non vérifiable en runtime par l'agent** (validation humaine sur machine, dite dans la PR) : création
+effective de la fenêtre plein écran multi-écran, translucidité réelle du voile, fermeture sans
+fantôme, comportement face à une app tierce en plein écran natif. Aperçu HTML des deux surfaces :
+vérifié (voile clair translucide, hardcore ink opaque).
+
+**Dette consignée** :
+- **ACL applicatif (sécu, défense en profondeur)** : faute d'`AppManifest` dans `build.rs`, les
+  commandes mutantes (`suspend`/`resume`/`set_severity`/`set_rhythm`/`quit`) sont invocables depuis
+  **toute** fenêtre locale, overlay compris — la description d'`overlay.json` est une intention, pas
+  une contrainte. Risque réel nul aujourd'hui (contenu `tauri://localhost` propre, CSP `default-src
+  'self'`, l'overlay ne les invoque pas). Correctif à un palier durcissement : `tauri_build::Attributes
+  ::new().app_manifest(AppManifest::new().commands(&["get_snapshot","suspend","resume","set_severity",
+  "set_rhythm","quit"]))` puis `default.json` = `core:default`+`allow-*` toutes commandes, `overlay.json`
+  = `core:default`+`allow-get-snapshot` seul.
+- **Écran disparu entre `cover_display` et `build_surface`** → `build_surface` `return Ok(())` sans
+  créer ; l'`Enforcer` garde `covered[display]` et ne re-couvre pas si l'écran revient dans la même
+  pause. À résoudre avec un port `lost_surfaces()` réconcilié contre `displays()` à chaque poll.
+- **Durcissement `Layered`** (non échappable, `CGShieldingWindowLevel`, masque Dock/menubar) : palier
+  natif dédié (objc2/unsafe isolé ou plugin), + geste Échap 10 s (§8.5) & commande `abort_break`, +
+  re-raise périodique Windows/X11 (`BestEffort`).

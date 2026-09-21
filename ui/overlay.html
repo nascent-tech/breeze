@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="fr" data-kind="veil">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Breeze — pause</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        user-select: none;
+        cursor: default;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        color: var(--ink);
+      }
+      /* Voile : laisse deviner, ne laisse pas lire. La fenêtre Tauri est transparente. */
+      html[data-kind="veil"] body {
+        background: rgba(251, 252, 254, 0.84);
+      }
+      /* Hardcore : fond opaque, identique sur tous les écrans (§8.5). */
+      html[data-kind="hardcore"] body {
+        background: var(--ink);
+        color: #fbfcfe;
+      }
+      #card {
+        width: 360px;
+        border-radius: 28px;
+        padding: 36px 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+      }
+      html[data-kind="hardcore"] #card {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.12);
+        box-shadow: none;
+      }
+      .ring-wrap {
+        position: relative;
+        display: grid;
+        place-items: center;
+      }
+      .ring-center {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+      #countdown {
+        font-size: 56px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+      .muted {
+        color: var(--ink-3);
+      }
+      html[data-kind="hardcore"] .muted {
+        color: rgba(251, 252, 254, 0.6);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="card" class="glass">
+      <span class="t-title" id="phase-title">Pause en cours</span>
+      <div class="ring-wrap">
+        <svg width="220" height="220" viewBox="0 0 220 220">
+          <circle cx="110" cy="110" r="96" fill="none" stroke="rgba(28,33,48,.08)" stroke-width="10"></circle>
+          <circle
+            id="ring-arc"
+            cx="110"
+            cy="110"
+            r="96"
+            fill="none"
+            stroke="#16B37E"
+            stroke-width="10"
+            stroke-linecap="round"
+            stroke-dasharray="0 603.2"
+            transform="rotate(-90 110 110)"
+          ></circle>
+        </svg>
+        <div class="ring-center">
+          <span class="num" id="countdown">—:—</span>
+          <span class="t-micro muted" id="ring-sub">TIENS BON</span>
+        </div>
+      </div>
+      <span class="t-caption muted" id="hint">Rien à faire. Regarde ailleurs.</span>
+    </div>
+    <script src="overlay.js"></script>
+  </body>
+</html>
