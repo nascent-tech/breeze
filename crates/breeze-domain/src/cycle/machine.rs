@@ -1,6 +1,6 @@
 use crate::clock::Instant;
 use crate::command_error::CommandError;
-use crate::constants::{NOTICE, RETURN_HOLD};
+use crate::constants::{IDLE_FREEZE, NOTICE, RETURN_HOLD};
 use crate::cycle::break_mode::BreakMode;
 use crate::cycle::countdown::Countdown;
 use crate::cycle::state::CycleState;
@@ -14,6 +14,7 @@ pub struct Cycle {
     rhythm: Rhythm,
     severity: Severity,
     pending_severity: Option<Severity>,
+    last_activity: Instant,
     outcomes: Vec<BreakOutcome>,
 }
 
@@ -27,6 +28,7 @@ impl Cycle {
             rhythm,
             severity,
             pending_severity: None,
+            last_activity: now,
             outcomes: Vec::new(),
         }
     }
@@ -45,6 +47,37 @@ impl Cycle {
 
     pub fn outcomes(&self) -> &[BreakOutcome] {
         &self.outcomes
+    }
+
+    pub fn observe_activity(&mut self, at: Instant) {
+        self.last_activity = at;
+        if let CycleState::Working {
+            countdown: Countdown::Frozen { remaining },
+        } = self.state
+        {
+            self.state = CycleState::Working {
+                countdown: Countdown::Running {
+                    deadline: at.plus(remaining),
+                },
+            };
+        }
+    }
+
+    pub fn freeze_if_idle(&mut self, now: Instant) {
+        let CycleState::Working {
+            countdown: Countdown::Running { deadline },
+        } = self.state
+        else {
+            return;
+        };
+        if now.elapsed_since(self.last_activity) < IDLE_FREEZE {
+            return;
+        }
+        self.state = CycleState::Working {
+            countdown: Countdown::Frozen {
+                remaining: deadline.elapsed_since(now),
+            },
+        };
     }
 
     pub fn tick(&mut self, now: Instant) {
