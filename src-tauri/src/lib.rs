@@ -5,7 +5,6 @@ use breeze_bridge_common::SqliteStore;
 use breeze_bridge_null::{NullDisplays, NullOverlay};
 use breeze_domain::constants::{MINUTES_PER_DAY, SECONDS_PER_MINUTE};
 use breeze_domain::{ActiveDays, CommandError, Cycle, Instant, Minutes, Rhythm, Severity};
-use breeze_ports::{PersistedState, PersistencePort};
 use core::time::Duration;
 use dto::{to_dto, SnapshotDto};
 use std::sync::{Arc, Mutex};
@@ -17,12 +16,11 @@ const TICK: Duration = Duration::from_millis(250);
 const DEFAULT_WORK: u16 = 50;
 const DEFAULT_PAUSE: u16 = 10;
 
-type Persistence = Arc<dyn PersistencePort + Send + Sync>;
+type Persistence = Arc<dyn breeze_ports::PersistencePort + Send + Sync>;
 
 struct AppState {
     scheduler: Arc<Mutex<Scheduler>>,
     started: SystemInstant,
-    rhythm: Rhythm,
     persistence: Persistence,
 }
 
@@ -54,15 +52,16 @@ fn lock(scheduler: &Mutex<Scheduler>) -> std::sync::MutexGuard<'_, Scheduler> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>, rhythm: Rhythm) {
-    let (served, severity) = {
+fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>) {
+    let (rhythm, severity, served) = {
         let scheduler = lock(scheduler);
         (
-            scheduler.snapshot().served_breaks,
+            scheduler.configured_rhythm(),
             scheduler.chosen_severity(),
+            scheduler.snapshot().served_breaks,
         )
     };
-    let state = PersistedState {
+    let state = breeze_ports::PersistedState {
         work_minutes: rhythm.work().count(),
         pause_minutes: rhythm.pause().count(),
         severity,
@@ -76,7 +75,15 @@ fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>, rhythm: R
 #[tauri::command]
 fn get_snapshot(state: tauri::State<'_, AppState>) -> SnapshotDto {
     let now = now_since(state.started);
-    to_dto(lock(&state.scheduler).snapshot(), now, &state.rhythm)
+    let (snapshot, active, configured) = {
+        let scheduler = lock(&state.scheduler);
+        (
+            scheduler.snapshot(),
+            scheduler.active_rhythm(),
+            scheduler.configured_rhythm(),
+        )
+    };
+    to_dto(snapshot, now, &active, &configured)
 }
 
 #[tauri::command]
@@ -89,7 +96,7 @@ fn suspend(state: tauri::State<'_, AppState>, minutes: u64) -> Result<(), String
     lock(&state.scheduler)
         .suspend(now, resume_at)
         .map_err(refusal)?;
-    save_state(&state.persistence, &state.scheduler, state.rhythm);
+    save_state(&state.persistence, &state.scheduler);
     Ok(())
 }
 
@@ -97,7 +104,7 @@ fn suspend(state: tauri::State<'_, AppState>, minutes: u64) -> Result<(), String
 fn resume(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let now = now_since(state.started);
     lock(&state.scheduler).resume(now).map_err(refusal)?;
-    save_state(&state.persistence, &state.scheduler, state.rhythm);
+    save_state(&state.persistence, &state.scheduler);
     Ok(())
 }
 
@@ -107,7 +114,28 @@ fn set_severity(state: tauri::State<'_, AppState>, severity: String) -> Result<(
     lock(&state.scheduler)
         .change_severity(parsed)
         .map_err(refusal)?;
-    save_state(&state.persistence, &state.scheduler, state.rhythm);
+    save_state(&state.persistence, &state.scheduler);
+    Ok(())
+}
+
+#[tauri::command]
+fn set_rhythm(
+    state: tauri::State<'_, AppState>,
+    work_minutes: u16,
+    pause_minutes: u16,
+) -> Result<(), String> {
+    let current = lock(&state.scheduler).configured_rhythm();
+    let rhythm = Rhythm::new(
+        Minutes(work_minutes),
+        Minutes(pause_minutes),
+        current.schedule(),
+        current.active_days(),
+    )
+    .map_err(|_| "invalid-rhythm".to_owned())?;
+    lock(&state.scheduler)
+        .change_rhythm(rhythm)
+        .map_err(refusal)?;
+    save_state(&state.persistence, &state.scheduler);
     Ok(())
 }
 
@@ -120,7 +148,6 @@ fn spawn_ticker(
     scheduler: Arc<Mutex<Scheduler>>,
     started: SystemInstant,
     persistence: Persistence,
-    rhythm: Rhythm,
 ) {
     thread::spawn(move || {
         let mut overlay = NullOverlay;
@@ -134,7 +161,7 @@ fn spawn_ticker(
                 .served_breaks;
             if served != last_served {
                 last_served = served;
-                save_state(&persistence, &scheduler, rhythm);
+                save_state(&persistence, &scheduler);
             }
         }
     });
@@ -150,7 +177,7 @@ fn default_rhythm() -> Rhythm {
     .expect("the default rhythm is within bounds")
 }
 
-fn restore_rhythm(saved: Option<PersistedState>) -> (Rhythm, Severity) {
+fn restore_rhythm(saved: Option<breeze_ports::PersistedState>) -> (Rhythm, Severity) {
     let Some(saved) = saved else {
         return (default_rhythm(), Severity::Simple);
     };
@@ -179,7 +206,8 @@ fn open_store(app: &tauri::App) -> SqliteStore {
     }
 }
 
-fn load_saved(store: &SqliteStore) -> Option<PersistedState> {
+fn load_saved(store: &SqliteStore) -> Option<breeze_ports::PersistedState> {
+    use breeze_ports::PersistencePort;
     match store.load() {
         Ok(saved) => saved,
         Err(error) => {
@@ -201,16 +229,10 @@ pub fn run() {
                 Instant::EPOCH,
             ))));
             let persistence: Persistence = Arc::new(store);
-            spawn_ticker(
-                Arc::clone(&scheduler),
-                started,
-                Arc::clone(&persistence),
-                rhythm,
-            );
+            spawn_ticker(Arc::clone(&scheduler), started, Arc::clone(&persistence));
             app.manage(AppState {
                 scheduler,
                 started,
-                rhythm,
                 persistence,
             });
             Ok(())
@@ -220,6 +242,7 @@ pub fn run() {
             suspend,
             resume,
             set_severity,
+            set_rhythm,
             quit
         ])
         .build(tauri::generate_context!())
@@ -227,7 +250,7 @@ pub fn run() {
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 if let Some(state) = app.try_state::<AppState>() {
-                    save_state(&state.persistence, &state.scheduler, state.rhythm);
+                    save_state(&state.persistence, &state.scheduler);
                 }
             }
         });

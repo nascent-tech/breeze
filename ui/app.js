@@ -75,6 +75,14 @@ function paintLevers(phase) {
   el("resume-box").style.display = phase === "Suspended" ? "flex" : "none";
   const coldChoice = phase === "Working" || phase === "Inactive";
   el("severity-row").style.opacity = coldChoice ? "1" : "0.4";
+  el("rhythm-row").style.opacity = coldChoice ? "1" : "0.4";
+}
+
+function paintRhythm(snap) {
+  for (const item of document.querySelectorAll("#rhythm-seg .seg-item")) {
+    const on = Number(item.dataset.work) === snap.work_minutes && Number(item.dataset.pause) === snap.pause_minutes;
+    item.classList.toggle("on", on);
+  }
 }
 
 const REFUSALS = {
@@ -82,6 +90,7 @@ const REFUSALS = {
   "not-suspendable": "Rien à suspendre ici.",
   "not-suspended": "Breeze n’est pas suspendu.",
   "unknown-severity": "Sévérité inconnue.",
+  "invalid-rhythm": "Rythme hors bornes — la pause ne peut pas dépasser le travail.",
 };
 
 let hintTimer = null;
@@ -109,6 +118,7 @@ function render(snap) {
   el("countdown").textContent = formatClock(snap.remaining_secs);
   el("ring-sub").textContent = ringSub(snap);
   paintSeverity(snap.severity);
+  paintRhythm(snap);
   paintLevers(snap.phase);
 
   const served = snap.served_breaks || 0;
@@ -135,6 +145,11 @@ async function send(command, args) {
 function wireControls() {
   for (const item of document.querySelectorAll("#severity-seg .seg-item")) {
     item.addEventListener("click", () => send("set_severity", { severity: item.dataset.sev }));
+  }
+  for (const item of document.querySelectorAll("#rhythm-seg .seg-item")) {
+    item.addEventListener("click", () =>
+      send("set_rhythm", { workMinutes: Number(item.dataset.work), pauseMinutes: Number(item.dataset.pause) })
+    );
   }
   for (const item of document.querySelectorAll("[data-suspend]")) {
     item.addEventListener("click", () => {

@@ -181,3 +181,37 @@ démarrage, effacé à la fermeture propre → un démarrage retrouvant le drape
 `tick` à chaque `poll` ; `is_armed()` lu **à l'entrée en pause seulement** ; swap vers `NullOverlay`
 avec réinitialisation de la carte `covered` de l'exécuteur (dette palier 2) ; priorité sur la dette
 de posture ; pause servie sans overlay comptée `Served` ; champ dans le DTO ; « Réarmer » → `reset()`.
+
+## Palier 9 (réglage du rythme §10.3) — revue Fable, corrections appliquées
+
+Verdict initial : sain, **1 Majeur** bloquant. **Appliqués** :
+- **Majeur** — `change_rhythm` acceptait un changement pendant PRÉAVIS / PAUSE ACTIVE / RETOUR
+  (brief 06:221-222 + décision 9 : « impossibles à changer », sans exception). Désormais il retourne
+  `Result<(), CommandError>` avec la garde `break_is_due()` → `BreakDue`, miroir de `change_severity`.
+  Propagé dans `Scheduler::change_rhythm` et la commande hôte `set_rhythm` (refus `break-due` affiché).
+  Test `a_rhythm_change_is_refused_while_a_break_is_due` ajouté.
+- **Mineur** — `set_rhythm` repart du `configured_rhythm()` courant pour `schedule`/`active_days` au
+  lieu de forcer `None`/`everyday()` : pas de perte silencieuse le jour où la portée horaire entrera.
+- **Mineur** — code de refus `invalid-rhythm` traduit côté UI.
+- **Nit** — `change_rhythm` normalise (`(rhythm != self.rhythm).then_some(...)`), comme la sévérité.
+- **Tests** — pause en cours **pinnée** sur l'ancien rythme (deadline vérifiée, pas juste la variante) ;
+  `configured == rhythm == 25/5` après consommation du pending ; DTO avec `active != configured`
+  (l'anneau suit l'actif, le réglage montre le configuré) — la raison d'être des deux paramètres de
+  `to_dto`.
+
+**Règle du sens — tranché (Fable, RAS)** : le rythme se change **sans notion de sens**, dans les deux
+sens au cycle suivant (brief 06:215-219, 04:37-38 ; l'application de la règle du sens à la durée est
+une option **écartée**, décision 7). Ne pas distinguer durcissement/affaiblissement.
+
+**Sécurité — RAS** : bornes `Rhythm::new` (travail 5..=180, pause 1..=60, pause≤travail), entrée `u16`
+(désérialisation Tauri rejette hors-type avant le code), boucle `tick` bornée. Pas de cycle de 0 min,
+pas de DoS. La commande ne touche ni réseau ni chemin.
+
+Dette **consignée** :
+- **Persistance du configuré** (RAS aujourd'hui) : `save_state` persiste `configured_rhythm()` — juste
+  tant qu'un redémarrage crée un cycle neuf (`Cycle::start(..., Instant::EPOCH)`), qui *est* un cycle
+  suivant. Deviendra faux avec la **persistance d'échéance** (§10.1, décision 14) : il faudra persister
+  actif **et** pending séparément, sinon un pending s'appliquerait en plein cycle repris.
+- **`chosen_severity` vs `configured_rhythm`** : deux mots pour « choisi, appliqué au prochain cycle ».
+  Uniformiser sur `configured_*` quand la sévérité sera retouchée (nit, non bloquant).
+- **`machine.rs` > 200 lignes** (258 avec ce palier) : à découper (dette déjà notée).

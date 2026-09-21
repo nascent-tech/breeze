@@ -1,6 +1,6 @@
 use crate::enforcer::Enforcer;
 use crate::snapshot::CycleSnapshot;
-use breeze_domain::{CommandError, Countdown, Cycle, CycleState, Instant, Severity};
+use breeze_domain::{CommandError, Countdown, Cycle, CycleState, Instant, Rhythm, Severity};
 use breeze_ports::{DisplayEnumerationPort, OverlaySurfacesPort};
 
 pub struct Scheduler {
@@ -45,6 +45,18 @@ impl Scheduler {
 
     pub fn chosen_severity(&self) -> Severity {
         self.cycle.chosen_severity()
+    }
+
+    pub fn change_rhythm(&mut self, rhythm: Rhythm) -> Result<(), CommandError> {
+        self.cycle.change_rhythm(rhythm)
+    }
+
+    pub fn configured_rhythm(&self) -> Rhythm {
+        self.cycle.configured_rhythm()
+    }
+
+    pub fn active_rhythm(&self) -> Rhythm {
+        self.cycle.rhythm()
     }
 
     pub fn next_wake(&self) -> Option<Instant> {

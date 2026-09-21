@@ -94,6 +94,8 @@
         let i = 0;
         let remaining = phases[0][1];
         let served = 0;
+        let workMinutes = 50;
+        let pauseMinutes = 10;
         function snapshot() {
           const phase = phases[i][0];
           const total = phases[i][1];
@@ -106,6 +108,8 @@
             break_in_secs: breakIn,
             severity: "Simple",
             served_breaks: served,
+            work_minutes: workMinutes,
+            pause_minutes: pauseMinutes,
           };
           remaining -= 0.5;
           if (remaining <= 0) {
@@ -116,7 +120,16 @@
           return dto;
         }
         window.__TAURI__ = {
-          core: { invoke: async (cmd) => (cmd === "get_snapshot" ? snapshot() : null) },
+          core: {
+            invoke: async (cmd, args) => {
+              if (cmd === "get_snapshot") return snapshot();
+              if (cmd === "set_rhythm") {
+                workMinutes = args.workMinutes;
+                pauseMinutes = args.pauseMinutes;
+              }
+              return null;
+            },
+          },
         };
       })();
     </script>
@@ -171,6 +184,14 @@
           <span class="seg" id="severity-seg">
             <span class="seg-item on" data-sev="Simple">Simple</span>
             <span class="seg-item" data-sev="Hardcore">Hardcore</span>
+          </span>
+        </div>
+        <div id="rhythm-row" style="display: flex; align-items: center; gap: 10px">
+          <span class="t-label" style="flex: 1">Rythme</span>
+          <span class="seg" id="rhythm-seg">
+            <span class="seg-item" data-work="25" data-pause="5">25/5</span>
+            <span class="seg-item on" data-work="50" data-pause="10">50/10</span>
+            <span class="seg-item" data-work="90" data-pause="15">90/15</span>
           </span>
         </div>
         <div class="stat-box">

@@ -12,6 +12,7 @@ use core::time::Duration;
 pub struct Cycle {
     state: CycleState,
     rhythm: Rhythm,
+    pending_rhythm: Option<Rhythm>,
     severity: Severity,
     pending_severity: Option<Severity>,
     last_activity: Instant,
@@ -26,6 +27,7 @@ impl Cycle {
                 countdown: Countdown::Running { deadline },
             },
             rhythm,
+            pending_rhythm: None,
             severity,
             pending_severity: None,
             last_activity: now,
@@ -43,6 +45,22 @@ impl Cycle {
 
     pub fn chosen_severity(&self) -> Severity {
         self.pending_severity.unwrap_or(self.severity)
+    }
+
+    pub fn change_rhythm(&mut self, rhythm: Rhythm) -> Result<(), CommandError> {
+        if self.break_is_due() {
+            return Err(CommandError::BreakDue);
+        }
+        self.pending_rhythm = (rhythm != self.rhythm).then_some(rhythm);
+        Ok(())
+    }
+
+    pub fn configured_rhythm(&self) -> Rhythm {
+        self.pending_rhythm.unwrap_or(self.rhythm)
+    }
+
+    pub fn rhythm(&self) -> Rhythm {
+        self.rhythm
     }
 
     pub fn outcomes(&self) -> &[BreakOutcome] {
@@ -202,12 +220,15 @@ impl Cycle {
     }
 
     fn enter_next_work(&mut self, from: Instant) -> bool {
+        if let Some(rhythm) = self.pending_rhythm.take() {
+            self.rhythm = rhythm;
+        }
+        if let Some(severity) = self.pending_severity.take() {
+            self.severity = severity;
+        }
         let Some(deadline) = from.checked_plus(self.rhythm.work().as_duration()) else {
             return false;
         };
-        if let Some(pending) = self.pending_severity.take() {
-            self.severity = pending;
-        }
         self.state = CycleState::Working {
             countdown: Countdown::Running { deadline },
         };
