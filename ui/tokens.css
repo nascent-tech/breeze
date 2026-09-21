@@ -1,0 +1,191 @@
+/* Breeze — système visuel « liquid glass » × Material 3
+   Source : design/Fondations.dc.html. Grille 4 px · rayons 26/16/12/10 · Instrument Sans.
+   La police est embarquée localement : Breeze ne fait aucune sortie réseau (brief §10.6). */
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("fonts/instrument-sans.woff2") format("woff2");
+}
+:root {
+  --ink: #1c2130;
+  --ink-2: #525a6e;
+  --ink-3: #868da0;
+  --primary: #0a6fdb;
+  --primary-bright: #1b9df5;
+  --primary-deep: #075093;
+  --primary-tint: #e3f1fd;
+  --mint: #0e7a57;
+  --mint-tint: #def4e9;
+  --mint-bright: #16b37e;
+  --violet: #6d4fd4;
+  --violet-tint: #ece7fb;
+  --warn: #8f5600;
+  --warn-tint: #fdf0dc;
+  --danger: #c22943;
+  --danger-tint: #fce8ec;
+  --outline: rgba(28, 33, 48, 0.08);
+  --outline-2: rgba(28, 33, 48, 0.15);
+  --surface: #fbfcfe;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: "Instrument Sans", -apple-system, "SF Pro Text", "Helvetica Neue",
+    system-ui, sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.t-display {
+  font-size: 32px;
+  line-height: 38px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.t-title {
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+}
+.t-body {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.t-label {
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.t-caption {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.t-micro {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+}
+
+.mesh {
+  background:
+    radial-gradient(52% 46% at 12% 4%, #cbe5ff 0%, rgba(203, 229, 255, 0) 100%),
+    radial-gradient(48% 42% at 88% 0%, #e5ddff 0%, rgba(229, 221, 255, 0) 100%),
+    radial-gradient(52% 48% at 94% 92%, #d2f2e3 0%, rgba(210, 242, 227, 0) 100%),
+    radial-gradient(42% 40% at 4% 96%, #fce7f0 0%, rgba(252, 231, 240, 0) 100%),
+    #f4f6fb;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.62);
+  -webkit-backdrop-filter: blur(28px) saturate(1.5);
+  backdrop-filter: blur(28px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 24px 48px -20px rgba(28, 33, 48, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.divider {
+  height: 1px;
+  background: var(--outline);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  border: 0;
+  cursor: default;
+  white-space: nowrap;
+}
+.btn-secondary {
+  background: rgba(28, 33, 48, 0.055);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--outline);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.chip-neutral {
+  background: rgba(28, 33, 48, 0.06);
+  color: var(--ink-2);
+}
+.chip-violet {
+  background: var(--violet-tint);
+  color: var(--violet);
+}
+.seg {
+  display: inline-flex;
+  background: rgba(28, 33, 48, 0.06);
+  border-radius: 10px;
+  padding: 2px;
+  gap: 2px;
+}
+.seg-item {
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  line-height: 16px;
+  cursor: default;
+}
+.seg-item.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(28, 33, 48, 0.14);
+}
+.rowitem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 12px;
+}
+.menubar {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  backdrop-filter: blur(24px) saturate(1.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}

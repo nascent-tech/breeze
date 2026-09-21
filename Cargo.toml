@@ -5,6 +5,7 @@ members = [
     "crates/breeze-ports",
     "crates/breeze-app",
     "crates/breeze-bridge-null",
+    "src-tauri",
 ]
 
 [workspace.package]

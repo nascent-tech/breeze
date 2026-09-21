@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Le panneau lit l'instantané du cycle.",
+  "windows": ["panel"],
+  "permissions": ["core:default"]
+}

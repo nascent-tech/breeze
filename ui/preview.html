@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Breeze — aperçu design</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <style>
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+      #desktop {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+      #panel {
+        position: absolute;
+        top: 38px;
+        left: 12px;
+        right: 12px;
+        border-radius: 18px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .leaf-badge {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        flex: none;
+        transition: background 0.4s ease;
+      }
+      .ring-wrap {
+        display: grid;
+        place-items: center;
+        padding: 2px 0;
+      }
+      .ring-center {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+      }
+      #countdown {
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .levers {
+        display: flex;
+        flex-direction: column;
+        background: rgba(255, 255, 255, 0.5);
+        border-radius: 14px;
+        padding: 2px;
+      }
+      .stat-box {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.5);
+        border-radius: 14px;
+        padding: 12px 14px;
+      }
+      .footer {
+        display: flex;
+        align-items: center;
+        padding: 0 2px;
+      }
+      .muted {
+        color: var(--ink-3);
+      }
+      .chev {
+        opacity: 0.6;
+      }
+    </style>
+    <script>
+      // Aperçu design uniquement : un hôte simulé, hors de l'app livrée.
+      // Cycle compressé pour voir tous les états en ~25 s.
+      (function () {
+        const phases = [
+          ["Working", 8],
+          ["Notice", 4],
+          ["Break", 8],
+          ["Returning", 3],
+        ];
+        let i = 0;
+        let remaining = phases[0][1];
+        let served = 0;
+        function snapshot() {
+          const phase = phases[i][0];
+          const total = phases[i][1];
+          const breakIn =
+            phase === "Working" ? remaining + 60 : phase === "Notice" ? remaining : 0;
+          const dto = {
+            phase,
+            remaining_secs: remaining,
+            total_secs: total,
+            break_in_secs: breakIn,
+            severity: "Simple",
+            served_breaks: served,
+          };
+          remaining -= 0.5;
+          if (remaining <= 0) {
+            if (phase === "Break") served += 1;
+            i = (i + 1) % phases.length;
+            remaining = phases[i][1];
+          }
+          return dto;
+        }
+        window.__TAURI__ = {
+          core: { invoke: async (cmd) => (cmd === "get_snapshot" ? snapshot() : null) },
+        };
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="desktop" class="mesh">
+      <div class="menubar" style="justify-content: flex-end">
+        <span class="num" id="menubar-clock" style="font-size: 12.5px">—</span>
+      </div>
+      <div id="panel" class="glass">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <div class="leaf-badge" id="leaf-badge" style="background: var(--primary-tint)">
+            <svg width="17" height="17" viewBox="0 0 24 24">
+              <path id="leaf-path" fill="#0A6FDB" d="M20.2 3.8C11.5 4 5.6 8.9 4.3 15.4c-.5 2.6.9 5 3.2 5 8.8 0 12.9-8 12.7-16.6Z"></path>
+            </svg>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column">
+            <span class="t-title" id="phase-title">Travail en cours</span>
+            <span class="t-caption muted" id="phase-sub">Cycle de la journée</span>
+          </div>
+          <span class="chip chip-neutral" id="severity-chip">Simple</span>
+        </div>
+        <div class="ring-wrap" style="position: relative">
+          <svg width="128" height="128" viewBox="0 0 128 128">
+            <circle cx="64" cy="64" r="54" fill="rgba(255,255,255,.65)"></circle>
+            <circle cx="64" cy="64" r="54" fill="none" stroke="rgba(28,33,48,.08)" stroke-width="8"></circle>
+            <circle id="ring-arc" cx="64" cy="64" r="54" fill="none" stroke="#1B9DF5" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 339.3" transform="rotate(-90 64 64)"></circle>
+          </svg>
+          <div class="ring-center">
+            <span class="num" id="countdown">—:—</span>
+            <span class="t-micro muted" id="ring-sub">PAUSE À —</span>
+          </div>
+        </div>
+        <div class="levers" id="levers">
+          <div class="rowitem">
+            <span class="t-label" style="flex: 1">Suspendre</span>
+            <span class="t-caption muted">15&nbsp;min · 1&nbsp;h · demain 6&nbsp;h</span>
+            <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#868DA0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+          </div>
+        </div>
+        <div id="severity-row" style="display: flex; align-items: center; gap: 10px">
+          <span class="t-label" style="flex: 1">Sévérité</span>
+          <span class="seg" id="severity-seg">
+            <span class="seg-item on" data-sev="Simple">Simple</span>
+            <span class="seg-item" data-sev="Hardcore">Hardcore</span>
+          </span>
+        </div>
+        <div class="stat-box">
+          <div style="display: flex; align-items: center">
+            <span class="t-caption" style="flex: 1; color: var(--ink)">Aujourd’hui</span>
+            <span class="t-caption" id="today-line">0 pause servie</span>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="t-caption" style="flex: 1; color: var(--ink)">Réglages…</span>
+          <span class="t-caption" id="quit">Quitter Breeze</span>
+        </div>
+      </div>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
