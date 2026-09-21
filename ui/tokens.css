@@ -141,6 +141,50 @@ a{color:var(--primary);text-decoration:none} a:hover{color:var(--primary-deep)}
 .swatch{border-radius:12px;height:64px;box-shadow:inset 0 0 0 1px rgba(28,33,48,.08)}
 
 /* --- additions dépôt (hors artefact) --- */
-:root { --mint-bright: #16b37e; }
+:root {
+  --mint-bright: #16b37e;
+  /* Contour de contrôle lisible : ~3,2:1 sur surface, contre 1,35:1 de --outline-2
+     (revue Fable §6 — un radio/commutateur éteint doit rester visible). */
+  --outline-control: rgba(28, 33, 48, 0.42);
+}
 .chip-violet { background: var(--violet-tint); color: var(--violet); }
 .seg-item { cursor: default; }
+
+/* Anneau de focus au clavier — --primary (4,75:1) au lieu de --primary-bright (2,85:1). */
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.focusring { outline-color: var(--primary); }
+
+/* Bouton primaire : haut du dégradé assombri pour tenir 4,5:1 avec le texte blanc
+   (revue Fable §8 — #1687E8 ne donnait que 3,61:1). */
+.btn-primary { background: linear-gradient(180deg, #1178D8 0%, #0A5FBE 100%); }
+.btn-primary.hover { background: linear-gradient(180deg, #1580E4 0%, #0B65CC 100%); }
+
+/* Contrôles rendus visibles à l'état neutre. */
+.switch { background: var(--outline-control); }
+.checkbox { box-shadow: inset 0 0 0 1.5px var(--outline-control); }
+
+/* Boutons et actions accessibles construits en <button> : neutralise le style natif. */
+button.btn { font: inherit; }
+button.navitem,
+button.seg-item,
+button.rhythm-opt,
+button.sev-opt,
+button.rowitem,
+.day-toggle { background: none; border: 0; margin: 0; font: inherit; color: inherit; text-align: left; width: 100%; }
+
+/* Jour actif : marque non chromatique en plus de la teinte (revue Fable §7 — l'état
+   ne doit jamais reposer sur la seule couleur). */
+.day-toggle { cursor: default; }
+.day-toggle .chip { width: 38px; justify-content: center; box-shadow: inset 0 0 0 1.5px transparent; }
+.day-toggle[aria-pressed="true"] .chip { box-shadow: inset 0 0 0 1.5px var(--primary); }
+.day-toggle[aria-pressed="false"] .chip { color: var(--ink-3); text-decoration: line-through; }
+
+/* Repli sans transparence pour le verre (accessibilité : transparence réduite). */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-soft {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
