@@ -1,8 +1,10 @@
+mod absence;
 mod break_mode;
 mod countdown;
 mod machine;
 mod state;
 
+pub use absence::{absence_verdict, Absence, AbsenceVerdict};
 pub use break_mode::BreakMode;
 pub use countdown::Countdown;
 pub use machine::Cycle;

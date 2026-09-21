@@ -32,12 +32,14 @@ donc 5 pauses — c'est vérifié par un test compté (`replaying_whole_cycles_c
 
 **Le contrat qui borne ce comportement** : un grand écart de temps (veille/réveil, session
 verrouillée, processus relancé) **ne doit jamais** arriver au domaine comme un `tick` brut.
-C'est le chemin d'**absence du §10.4**, que `crates/breeze-domain/src/session.rs`
-(`AbsenceVerdict`) portera au palier suivant : il traduit un écart en `ValidatedByAbsence`
-ou en reprise d'échéance, avant que la boucle nominale ne crédite quoi que ce soit. Le
-planificateur (`breeze-app`) tient ce contrat : il tick à la seconde, et route les écarts
-par l'absence. Tant que `session.rs` n'existe pas, aucun appelant réel ne fournit de grand
-saut — le test le fait pour documenter le comportement, pas pour l'autoriser en production.
+C'est le chemin d'**absence du §10.4**, que `crates/breeze-domain/src/cycle/absence.rs`
+(`AbsenceVerdict`) porte au palier absence (Fable a tranché `cycle/absence.rs` plutôt que
+`session.rs` : « session » est le vocabulaire du système/adaptateur, le domaine nomme le fait
+« absence » §4/§10.4 et la règle porte sur `CycleState`). Il traduit un écart en
+`ValidatedByAbsence` ou en reprise d'échéance, avant que la boucle nominale ne crédite quoi que ce
+soit. Le planificateur (`breeze-app`) tiendra ce contrat quand un `SessionSignalsPort` fournira les
+écarts. Tant que cet appelant n'existe pas, aucun grand saut ne parvient au domaine — les tests
+documentent le comportement, ils ne l'autorisent pas en production.
 
 ## Reporté aux paliers porteurs (nits D4, sans dette cachée)
 
@@ -215,3 +217,63 @@ Dette **consignée** :
 - **`chosen_severity` vs `configured_rhythm`** : deux mots pour « choisi, appliqué au prochain cycle ».
   Uniformiser sur `configured_*` quand la sévérité sera retouchée (nit, non bloquant).
 - **`machine.rs` > 200 lignes** (258 avec ce palier) : à découper (dette déjà notée).
+
+## Palier 10 (verdict d'absence §10.4) — conception Fable, implémentée
+
+Conception **tranchée par Fable** avant le code (la logique la plus promesse-critique). Décisions :
+- **Foyer** `crates/breeze-domain/src/cycle/absence.rs` (pas `session.rs`, cf. amende du contrat M2).
+- **Types** : `Absence { began_at: Instant, lasted: Duration }` (écart mural cumulé, machine vivante —
+  la cause ne compte pas) ; `AbsenceVerdict { Nothing, CycleValidated, BreakServed, BreakStartsAtWake,
+  PhaseContinues { remaining } }`. Le verdict est un **descripteur** : la machine rejoue la transition
+  nominale (`enter_next_work`/`enter_break`/`enter_returning`) plutôt que forker la logique.
+- **Fonction pure** `absence_verdict(state, rhythm, absence)` — pas de `now` : elle ne lit que des
+  durées et `began_at`. Le rythme est l'**actif** (§10.3 : une phase court sous ses réglages). L'`now`
+  de réveil vit dans `Cycle::return_from_absence(absence, now)`, qui possède `outcomes`/`pending_*`.
+- **Seuils stricts `>`** (« plus long/plus court que »). À l'égalité, `PhaseContinues{0}` → le tick
+  nominal fait la transition au réveil (préavis vécu, pause servie par la boucle).
+- **Table (§10.4)** : Working/Notice, `L>pause` → `CycleValidated` (crédite `ValidatedByAbsence`,
+  repart en [TRAVAIL], pending consommés) ; `L>restant` (préavis franchi) → `BreakStartsAtWake`
+  (préavis **absorbé**, [PAUSE] au réveil) ; sinon `PhaseContinues{restant-L}` (mural). BreakActive/
+  Returning **gelés** : `L>restant` → `BreakServed` (crédite `Served` via `enter_returning`) ; sinon
+  `PhaseContinues{restant entier}` (poussé du gap, pas `restant-L`). `Working{Frozen}` n'a pas
+  d'échéance → connaît **seulement** cas 1, ce qui rend l'interrogation continue sûre sous inactivité.
+  Inactive/Suspended → `Nothing` (Suspendu suit §10.1, exclu du §10.4).
+- **Pas de double crédit** : `BreakServed` ne vient que de [PAUSE ACTIVE] ; [RETOUR] (déjà crédité
+  `Served` à son entrée) ne fait que `PhaseContinues{restant}`. `return_from_absence` ne touche pas
+  `last_activity` (le réveil réel enchaîne `observe_activity(now)`, contrat palier 7).
+
+**Câblage : domaine + tests seulement.** Pas de `Scheduler`. Trois manques amont : `SessionSignalsPort`
+(aucun signal veille/verrouillage/inactivité), `ClockPort` (aucune source de `lasted` qui compte la
+veille — macOS `mach_continuous_time`, Linux `CLOCK_BOOTTIME`, Windows `QueryUnbiasedInterruptTime`),
+et `lasted` doit être immunisé contre un `ClockJump::Backward` (changement d'heure ≠ absence, §10.6).
+`tests/absence.rs` : 21 tests (table complète par fonction pure — `Frozen`/`Due` construits
+directement — plus 4 d'intégration : crédit unique, ré-ancrage, consommation du pending).
+
+Dette : `machine.rs` **291 lignes** (> 200) — le découpage devient prioritaire à son palier.
+
+### Palier 10 — revue d'implémentation Fable, corrections appliquées
+
+Verdict : mergeable après 2 Majeurs (autour du code, pas un bug livré) + mineurs. **Appliqués** :
+- **Majeur (couverture)** — deux preuves ajoutées : `a_short_work_absence_keeps_the_original_deadline`
+  (l'invariant « l'échéance fait autorité » §10.4:232 — après ré-ancrage, l'échéance murale est
+  **la même** qu'avant l'écart) et `a_validated_cycle_applies_the_pending_severity` (le
+  `CycleValidated` consomme aussi `pending_severity`, pas seulement `pending_rhythm`). Plus la
+  concurrence des seuils `a_work_absence_past_the_pause_wins_over_a_crossed_deadline` (cas 1 > cas 3).
+- **Mineur** — `reanchor` : le joker `other => other` remplacé par un bras **exhaustif**
+  (Inactive/Suspended/Frozen/Due) : une future variante casserait la compilation au lieu d'un silence.
+- **Mineur** — ordre du crédit aligné : `ValidatedByAbsence` n'est poussé que si `enter_next_work`
+  a réussi (comme `enter_returning` pousse `Served` après son `checked_plus`).
+- **Mineur** — écart nul → `Nothing` en tête d'`absence_verdict` (un gap nul n'observe rien) ;
+  `remaining.saturating_sub(lasted)` retire la dépendance à l'ordre des branches ; frontières
+  `L == pause` testées sur Running (→ PhaseContinues) et Notice (→ BreakStartsAtWake).
+
+**Majeur (contrat d'ordonnancement) — consigné, à honorer par l'appelant** : au réveil,
+`return_from_absence` doit être appelé **avant** tout `tick(now)`, et `absence.began_at` doit
+appartenir à la phase courante (≥ début de phase). Sinon un `tick` post-réveil peut faire avancer le
+cycle (Working→Notice→BreakActive) avant le verdict, qui lirait alors la mauvaise phase et imposerait
+une pause entière au lieu de valider le cycle. Le domaine ne peut pas le vérifier sans mémoriser le
+début de phase (on ne l'ajoute pas pour ça) ; c'est le futur `Scheduler`/`SessionSignalsPort` qui tient
+le contrat. **Injoignable aujourd'hui** (pas d'appelant, `Instant` monotone ne compte pas la veille) ;
+le devient avec `ClockPort` (boot time). **Débordement** : `return_from_absence` rend son verdict même
+si un `checked_plus` d'`Instant` échoue (état alors inchangé) — injoignable par construction
+(`Instant` adossé à `Duration`, ≈ 5,8·10¹¹ ans), noté une fois ici.

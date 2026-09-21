@@ -1,6 +1,7 @@
 use crate::clock::Instant;
 use crate::command_error::CommandError;
 use crate::constants::{IDLE_FREEZE, NOTICE, RETURN_HOLD};
+use crate::cycle::absence::{absence_verdict, Absence, AbsenceVerdict};
 use crate::cycle::break_mode::BreakMode;
 use crate::cycle::countdown::Countdown;
 use crate::cycle::state::CycleState;
@@ -156,6 +157,51 @@ impl Cycle {
             }
         }
         Ok(())
+    }
+
+    pub fn return_from_absence(&mut self, absence: Absence, now: Instant) -> AbsenceVerdict {
+        let verdict = absence_verdict(self.state, self.rhythm, absence);
+        match verdict {
+            AbsenceVerdict::Nothing => {}
+            AbsenceVerdict::CycleValidated => {
+                if self.enter_next_work(now) {
+                    self.outcomes.push(BreakOutcome::ValidatedByAbsence);
+                }
+            }
+            AbsenceVerdict::BreakServed => {
+                self.enter_returning(now);
+            }
+            AbsenceVerdict::BreakStartsAtWake => {
+                self.enter_break(now);
+            }
+            AbsenceVerdict::PhaseContinues { remaining } => self.reanchor(remaining, now),
+        }
+        verdict
+    }
+
+    fn reanchor(&mut self, remaining: Duration, now: Instant) {
+        let Some(deadline) = now.checked_plus(remaining) else {
+            return;
+        };
+        self.state = match self.state {
+            CycleState::Working {
+                countdown: Countdown::Running { .. },
+            } => CycleState::Working {
+                countdown: Countdown::Running { deadline },
+            },
+            CycleState::Notice { .. } => CycleState::Notice { deadline },
+            CycleState::BreakActive { severity, mode, .. } => CycleState::BreakActive {
+                deadline,
+                severity,
+                mode,
+            },
+            CycleState::Returning { .. } => CycleState::Returning { deadline },
+            CycleState::Inactive
+            | CycleState::Suspended { .. }
+            | CycleState::Working {
+                countdown: Countdown::Frozen { .. } | Countdown::Due { .. },
+            } => self.state,
+        };
     }
 
     fn break_is_due(&self) -> bool {
