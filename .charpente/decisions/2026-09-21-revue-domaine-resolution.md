@@ -96,3 +96,27 @@ Dette nommée, à câbler à son palier :
 - **Capability** : `core:default` est large ; les commandes locales n'en ont pas besoin — à réduire.
 - **`ChangeSeverity`/`Suspend`** : le segmented et « Suspendre » sont affichés mais pas encore
   câblés à des commandes (le domaine ne porte pas encore la suspension).
+
+## Palier 4 (suspension + commandes) — revue Fable, dette consignée
+
+Verdict : corrections avant merge (0 Critique, 3 Majeurs). **Appliqués** :
+- **M1** — la règle du sens §10.3 sur la sévérité (brief 06:213 « Hardcore→Simple : cycle suivant ;
+  Simple→Hardcore : immédiat ») : `pending_severity` diffère l'affaiblissement au cycle suivant,
+  appliqué dans `enter_next_work`. Test `weakening_the_severity_waits_for_the_next_cycle`.
+- **M3 (partiel)** — renouvellement de suspension (§10.1 « une seconde suspension remplace
+  l'échéance ») : `suspend` depuis `Suspended` remplace le terme. Test `suspending_again_replaces_the_term`.
+- Mineurs — leviers offerts en [TRAVAIL] seul (plus en [INACTIF]), refus affiché à l'utilisateur
+  (table française des codes, §D1), description de capability à jour.
+
+Dette **décidée** (reportée à son palier porteur, tranché par moi) :
+- **M2 — durées de suspension typées + « demain 6 h » côté hôte** : exige l'**horloge murale
+  locale**, qui n'existe pas encore (`ClockPort` est déféré au palier macOS, et Fable note que
+  `resume_at` monotone dérive déjà avec la veille — dette héritée du palier 3). Décision : la
+  commande garde `minutes` **bornée côté hôte à ≤ 1 jour** (invariant de sécurité §13 « aucune
+  suspension sans terme » tenu), et l'UI n'émet que 15 / 60 / aube. Le refactor en
+  `SuspensionTerm { FifteenMinutes, OneHour, UntilDawn }` + calcul d'aube local arrive avec `ClockPort`.
+- **M3 — verdict de dépassement / chaîne** : `InterruptionDoor::SuspensionOverrun` et le crédit
+  d'une pause avalée par une suspension entrent avec le **palier absence/ledger** (`session.rs`,
+  §10.4), avec le reste des sorts de pause.
+- Nits reportés : refus en `enum Refusal: Serialize` plutôt que `String` ; `quit` via
+  `QuitRequested` quand la persistance arrivera ; rôles/clavier ARIA sur les `seg-item`.

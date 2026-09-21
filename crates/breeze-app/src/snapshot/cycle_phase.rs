@@ -5,4 +5,5 @@ pub enum CyclePhase {
     Notice,
     Break,
     Returning,
+    Suspended,
 }

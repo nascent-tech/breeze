@@ -1,6 +1,6 @@
 use crate::enforcer::Enforcer;
 use crate::snapshot::CycleSnapshot;
-use breeze_domain::{Countdown, Cycle, CycleState, Instant};
+use breeze_domain::{CommandError, Countdown, Cycle, CycleState, Instant, Severity};
 use breeze_ports::{DisplayEnumerationPort, OverlaySurfacesPort};
 
 pub struct Scheduler {
@@ -31,6 +31,18 @@ impl Scheduler {
         CycleSnapshot::of(&self.cycle)
     }
 
+    pub fn suspend(&mut self, now: Instant, resume_at: Instant) -> Result<(), CommandError> {
+        self.cycle.suspend(now, resume_at)
+    }
+
+    pub fn resume(&mut self, now: Instant) -> Result<(), CommandError> {
+        self.cycle.resume(now)
+    }
+
+    pub fn change_severity(&mut self, severity: Severity) -> Result<(), CommandError> {
+        self.cycle.change_severity(severity)
+    }
+
     pub fn next_wake(&self) -> Option<Instant> {
         deadline_of(self.cycle.state())
     }
@@ -43,7 +55,11 @@ fn deadline_of(state: CycleState) -> Option<Instant> {
         }
         | CycleState::Notice { deadline }
         | CycleState::BreakActive { deadline, .. }
-        | CycleState::Returning { deadline } => Some(deadline),
+        | CycleState::Returning { deadline }
+        | CycleState::Suspended {
+            resume_at: deadline,
+            ..
+        } => Some(deadline),
         _ => None,
     }
 }

@@ -1,12 +1,14 @@
 #![forbid(unsafe_code)]
 
 pub mod clock;
+pub mod command_error;
 pub mod constants;
 pub mod cycle;
 pub mod outcome;
 pub mod settings;
 
 pub use clock::{ClockJump, Instant, WallClock};
+pub use command_error::CommandError;
 pub use cycle::{BreakMode, Countdown, Cycle, CycleState};
 pub use outcome::{BreakOutcome, InterruptionDoor};
 pub use settings::{
