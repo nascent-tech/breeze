@@ -1,9 +1,11 @@
-use breeze_app::{CyclePhase, CycleSnapshot, Scheduler};
+mod dto;
+
+use breeze_app::Scheduler;
 use breeze_bridge_null::{NullDisplays, NullOverlay};
-use breeze_domain::constants::{NOTICE, RETURN_HOLD};
-use breeze_domain::{ActiveDays, Cycle, Instant, Minutes, Rhythm, Severity};
+use breeze_domain::constants::{MINUTES_PER_DAY, SECONDS_PER_MINUTE};
+use breeze_domain::{ActiveDays, CommandError, Cycle, Instant, Minutes, Rhythm, Severity};
 use core::time::Duration;
-use serde::Serialize;
+use dto::{to_dto, SnapshotDto};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant as SystemInstant;
@@ -14,17 +16,6 @@ struct AppState {
     scheduler: Arc<Mutex<Scheduler>>,
     started: SystemInstant,
     rhythm: Rhythm,
-    severity: Severity,
-}
-
-#[derive(Serialize)]
-struct SnapshotDto {
-    phase: String,
-    remaining_secs: u64,
-    total_secs: u64,
-    break_in_secs: u64,
-    severity: String,
-    served_breaks: u32,
 }
 
 fn now_since(started: SystemInstant) -> Instant {
@@ -32,68 +23,64 @@ fn now_since(started: SystemInstant) -> Instant {
     Instant::at_millis(millis)
 }
 
-fn phase_name(phase: CyclePhase) -> &'static str {
-    match phase {
-        CyclePhase::Inactive => "Inactive",
-        CyclePhase::Working => "Working",
-        CyclePhase::Notice => "Notice",
-        CyclePhase::Break => "Break",
-        CyclePhase::Returning => "Returning",
+fn parse_severity(name: &str) -> Option<Severity> {
+    match name {
+        "Simple" => Some(Severity::Simple),
+        "Hardcore" => Some(Severity::Hardcore),
+        _ => None,
     }
 }
 
-fn phase_total(phase: CyclePhase, rhythm: &Rhythm) -> Duration {
-    match phase {
-        CyclePhase::Working => rhythm.work().as_duration(),
-        CyclePhase::Notice => NOTICE,
-        CyclePhase::Break => rhythm.pause().as_duration(),
-        CyclePhase::Returning => RETURN_HOLD,
-        CyclePhase::Inactive => Duration::ZERO,
+fn refusal(error: CommandError) -> String {
+    match error {
+        CommandError::BreakDue => "break-due",
+        CommandError::NotSuspendable => "not-suspendable",
+        CommandError::NotSuspended => "not-suspended",
     }
+    .to_owned()
 }
 
-fn severity_name(severity: Severity) -> String {
-    match severity {
-        Severity::Simple => "Simple".to_owned(),
-        Severity::Hardcore => "Hardcore".to_owned(),
-    }
-}
-
-fn seconds_until_break(phase: CyclePhase, remaining: u64) -> u64 {
-    match phase {
-        CyclePhase::Working => remaining.saturating_add(NOTICE.as_secs()),
-        CyclePhase::Notice => remaining,
-        _ => 0,
-    }
-}
-
-fn to_dto(
-    snapshot: CycleSnapshot,
-    now: Instant,
-    rhythm: &Rhythm,
-    severity: Severity,
-) -> SnapshotDto {
-    let remaining = snapshot
-        .deadline
-        .map_or(0, |deadline| deadline.elapsed_since(now).as_secs());
-    SnapshotDto {
-        phase: phase_name(snapshot.phase).to_owned(),
-        remaining_secs: remaining,
-        total_secs: phase_total(snapshot.phase, rhythm).as_secs(),
-        break_in_secs: seconds_until_break(snapshot.phase, remaining),
-        severity: severity_name(severity),
-        served_breaks: snapshot.served_breaks,
-    }
+fn lock(scheduler: &Mutex<Scheduler>) -> std::sync::MutexGuard<'_, Scheduler> {
+    scheduler
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 #[tauri::command]
 fn get_snapshot(state: tauri::State<'_, AppState>) -> SnapshotDto {
     let now = now_since(state.started);
-    let scheduler = state
-        .scheduler
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    to_dto(scheduler.snapshot(), now, &state.rhythm, state.severity)
+    to_dto(lock(&state.scheduler).snapshot(), now, &state.rhythm)
+}
+
+#[tauri::command]
+fn suspend(state: tauri::State<'_, AppState>, minutes: u64) -> Result<(), String> {
+    let now = now_since(state.started);
+    let capped = minutes.clamp(1, u64::from(MINUTES_PER_DAY));
+    let resume_at = now.plus(Duration::from_secs(
+        capped.saturating_mul(SECONDS_PER_MINUTE),
+    ));
+    lock(&state.scheduler)
+        .suspend(now, resume_at)
+        .map_err(refusal)
+}
+
+#[tauri::command]
+fn resume(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let now = now_since(state.started);
+    lock(&state.scheduler).resume(now).map_err(refusal)
+}
+
+#[tauri::command]
+fn set_severity(state: tauri::State<'_, AppState>, severity: String) -> Result<(), String> {
+    let parsed = parse_severity(&severity).ok_or_else(|| "unknown-severity".to_owned())?;
+    lock(&state.scheduler)
+        .change_severity(parsed)
+        .map_err(refusal)
+}
+
+#[tauri::command]
+fn quit(app: tauri::AppHandle) {
+    app.exit(0);
 }
 
 fn spawn_ticker(scheduler: Arc<Mutex<Scheduler>>, started: SystemInstant) {
@@ -103,10 +90,7 @@ fn spawn_ticker(scheduler: Arc<Mutex<Scheduler>>, started: SystemInstant) {
         loop {
             thread::sleep(TICK);
             let now = now_since(started);
-            let mut guard = scheduler
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            guard.poll(now, &mut overlay, &displays);
+            lock(&scheduler).poll(now, &mut overlay, &displays);
         }
     });
 }
@@ -114,56 +98,27 @@ fn spawn_ticker(scheduler: Arc<Mutex<Scheduler>>, started: SystemInstant) {
 pub fn run() {
     let rhythm = Rhythm::new(Minutes(50), Minutes(10), None, ActiveDays::everyday())
         .expect("the default rhythm is within bounds");
-    let severity = Severity::Simple;
     let started = SystemInstant::now();
     let scheduler = Arc::new(Mutex::new(Scheduler::new(Cycle::start(
         rhythm,
-        severity,
+        Severity::Simple,
         Instant::EPOCH,
     ))));
     spawn_ticker(Arc::clone(&scheduler), started);
 
-    let state = AppState {
-        scheduler,
-        started,
-        rhythm,
-        severity,
-    };
-
     tauri::Builder::default()
-        .manage(state)
-        .invoke_handler(tauri::generate_handler![get_snapshot])
+        .manage(AppState {
+            scheduler,
+            started,
+            rhythm,
+        })
+        .invoke_handler(tauri::generate_handler![
+            get_snapshot,
+            suspend,
+            resume,
+            set_severity,
+            quit
+        ])
         .run(tauri::generate_context!())
         .expect("error while running the Breeze desktop host");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn rhythm() -> Rhythm {
-        Rhythm::new(Minutes(50), Minutes(10), None, ActiveDays::everyday()).unwrap()
-    }
-
-    #[test]
-    fn a_fresh_working_cycle_reports_break_after_work_plus_notice() {
-        let r = rhythm();
-        let snapshot = CycleSnapshot::of(&Cycle::start(r, Severity::Simple, Instant::EPOCH));
-        let dto = to_dto(snapshot, Instant::EPOCH, &r, Severity::Simple);
-        assert_eq!(dto.phase, "Working");
-        assert_eq!(dto.total_secs, r.work().as_duration().as_secs());
-        assert_eq!(
-            dto.break_in_secs,
-            r.work().as_duration().as_secs() + NOTICE.as_secs()
-        );
-        assert_eq!(dto.severity, "Simple");
-    }
-
-    #[test]
-    fn the_reported_severity_is_the_configured_one_even_while_working() {
-        let r = rhythm();
-        let snapshot = CycleSnapshot::of(&Cycle::start(r, Severity::Hardcore, Instant::EPOCH));
-        let dto = to_dto(snapshot, Instant::EPOCH, &r, Severity::Hardcore);
-        assert_eq!(dto.severity, "Hardcore");
-    }
 }

@@ -151,10 +151,19 @@
           </div>
         </div>
         <div class="levers" id="levers">
-          <div class="rowitem">
+          <div class="rowitem" style="gap: 8px">
             <span class="t-label" style="flex: 1">Suspendre</span>
-            <span class="t-caption muted">15&nbsp;min · 1&nbsp;h · demain 6&nbsp;h</span>
-            <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#868DA0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+            <span class="seg">
+              <span class="seg-item" data-suspend="15">15&nbsp;min</span>
+              <span class="seg-item" data-suspend="60">1&nbsp;h</span>
+              <span class="seg-item" data-suspend="dawn">demain 6&nbsp;h</span>
+            </span>
+          </div>
+        </div>
+        <div class="levers" id="resume-box" style="display: none">
+          <div class="rowitem">
+            <span class="t-label" style="flex: 1">Suspendu</span>
+            <span class="seg"><span class="seg-item on" id="resume-btn">Reprendre</span></span>
           </div>
         </div>
         <div id="severity-row" style="display: flex; align-items: center; gap: 10px">

@@ -5,7 +5,7 @@ use breeze_domain::{BreakOutcome, Countdown, Cycle, CycleState, Instant, Severit
 pub struct CycleSnapshot {
     pub phase: CyclePhase,
     pub deadline: Option<Instant>,
-    pub severity: Option<Severity>,
+    pub severity: Severity,
     pub served_breaks: u32,
 }
 
@@ -16,27 +16,26 @@ impl CycleSnapshot {
             .iter()
             .filter(|outcome| matches!(outcome, BreakOutcome::Served))
             .count();
-        let (phase, deadline, severity) = project(cycle.state());
+        let (phase, deadline) = project(cycle.state());
         CycleSnapshot {
             phase,
             deadline,
-            severity,
+            severity: cycle.severity(),
             served_breaks: u32::try_from(served).unwrap_or(u32::MAX),
         }
     }
 }
 
-fn project(state: CycleState) -> (CyclePhase, Option<Instant>, Option<Severity>) {
+fn project(state: CycleState) -> (CyclePhase, Option<Instant>) {
     match state {
-        CycleState::Inactive => (CyclePhase::Inactive, None, None),
+        CycleState::Inactive => (CyclePhase::Inactive, None),
         CycleState::Working {
             countdown: Countdown::Running { deadline },
-        } => (CyclePhase::Working, Some(deadline), None),
-        CycleState::Working { .. } => (CyclePhase::Working, None, None),
-        CycleState::Notice { deadline } => (CyclePhase::Notice, Some(deadline), None),
-        CycleState::BreakActive {
-            deadline, severity, ..
-        } => (CyclePhase::Break, Some(deadline), Some(severity)),
-        CycleState::Returning { deadline } => (CyclePhase::Returning, Some(deadline), None),
+        } => (CyclePhase::Working, Some(deadline)),
+        CycleState::Working { .. } => (CyclePhase::Working, None),
+        CycleState::Notice { deadline } => (CyclePhase::Notice, Some(deadline)),
+        CycleState::BreakActive { deadline, .. } => (CyclePhase::Break, Some(deadline)),
+        CycleState::Returning { deadline } => (CyclePhase::Returning, Some(deadline)),
+        CycleState::Suspended { resume_at, .. } => (CyclePhase::Suspended, Some(resume_at)),
     }
 }

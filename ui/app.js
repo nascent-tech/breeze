@@ -1,9 +1,12 @@
-// Breeze panel — renders the CycleSnapshot the Tauri host projects.
-// The view holds no product logic: every number comes from get_snapshot.
+// Breeze panel — renders the CycleSnapshot the Tauri host projects, and sends
+// the panel's levers back as commands. The view holds no product logic: every
+// number comes from get_snapshot, every refusal is decided by the host.
 // (Design preview without a host lives in preview.html, which supplies a mock.)
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 54;
 const POLL_MS = 500;
+const MINUTES_PER_DAY = 24 * 60;
+const DAWN_HOUR = 6;
 
 const el = (id) => document.getElementById(id);
 
@@ -21,11 +24,22 @@ function wallTimeIn(seconds) {
   return `${t.getHours()}:${pad(t.getMinutes())}`;
 }
 
+function minutesUntilDawn() {
+  const now = new Date();
+  const dawn = new Date(now);
+  dawn.setHours(DAWN_HOUR, 0, 0, 0);
+  if (dawn <= now) {
+    dawn.setDate(dawn.getDate() + 1);
+  }
+  return Math.max(1, Math.round((dawn - now) / 60000));
+}
+
 const PALETTE = {
   Working: { stroke: "#1B9DF5", tint: "var(--primary-tint)", leaf: "#0A6FDB", title: "Travail en cours" },
   Notice: { stroke: "#1B9DF5", tint: "var(--primary-tint)", leaf: "#0A6FDB", title: "Pause imminente" },
   Break: { stroke: "#16B37E", tint: "var(--mint-tint)", leaf: "#0E7A57", title: "Pause en cours" },
   Returning: { stroke: "#16B37E", tint: "var(--mint-tint)", leaf: "#0E7A57", title: "C’est fini" },
+  Suspended: { stroke: "#868DA0", tint: "rgba(28,33,48,.06)", leaf: "#868DA0", title: "Suspendu" },
   Inactive: { stroke: "#868DA0", tint: "rgba(28,33,48,.06)", leaf: "#868DA0", title: "En veille" },
 };
 
@@ -35,6 +49,9 @@ function ringSub(snap) {
   }
   if (snap.phase === "Break") {
     return "TIENS BON";
+  }
+  if (snap.phase === "Suspended") {
+    return `REPRISE À ${wallTimeIn(snap.remaining_secs)}`;
   }
   return "—";
 }
@@ -53,6 +70,13 @@ function paintSeverity(severity) {
   }
 }
 
+function paintLevers(phase) {
+  const workingLike = phase === "Working" || phase === "Inactive";
+  el("levers").style.display = workingLike ? "flex" : "none";
+  el("resume-box").style.display = phase === "Suspended" ? "flex" : "none";
+  el("severity-row").style.opacity = workingLike ? "1" : "0.4";
+}
+
 function render(snap) {
   const look = PALETTE[snap.phase] || PALETTE.Inactive;
   el("phase-title").textContent = look.title;
@@ -64,23 +88,52 @@ function render(snap) {
   el("countdown").textContent = formatClock(snap.remaining_secs);
   el("ring-sub").textContent = ringSub(snap);
   paintSeverity(snap.severity);
-
-  // No lever weakens a due break: hide them from the notice onward.
-  const held = snap.phase !== "Working" && snap.phase !== "Inactive";
-  el("levers").style.display = held ? "none" : "flex";
-  el("severity-row").style.opacity = held ? "0.4" : "1";
+  paintLevers(snap.phase);
 
   const served = snap.served_breaks || 0;
   el("today-line").textContent = `${served} pause${served === 1 ? "" : "s"} servie${served === 1 ? "" : "s"}`;
   el("menubar-clock").textContent = formatClock(snap.remaining_secs);
 }
 
-function tauriInvoke() {
+function invoker() {
   return window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke;
 }
 
+async function send(command, args) {
+  const invoke = invoker();
+  if (!invoke) {
+    return;
+  }
+  try {
+    await invoke(command, args);
+  } catch (_e) {
+    // the host refused (e.g. a break is due); the next poll shows the truth
+  }
+}
+
+function wireControls() {
+  for (const item of document.querySelectorAll("#severity-seg .seg-item")) {
+    item.addEventListener("click", () => send("set_severity", { severity: item.dataset.sev }));
+  }
+  for (const item of document.querySelectorAll("[data-suspend]")) {
+    item.addEventListener("click", () => {
+      const raw = item.dataset.suspend;
+      const minutes = raw === "dawn" ? minutesUntilDawn() : Number(raw);
+      send("suspend", { minutes });
+    });
+  }
+  const resume = el("resume-btn");
+  if (resume) {
+    resume.addEventListener("click", () => send("resume"));
+  }
+  const quit = el("quit");
+  if (quit) {
+    quit.addEventListener("click", () => send("quit"));
+  }
+}
+
 async function poll() {
-  const invoke = tauriInvoke();
+  const invoke = invoker();
   if (!invoke) {
     el("phase-title").textContent = "En attente de l’hôte…";
     return;
@@ -92,5 +145,6 @@ async function poll() {
   }
 }
 
+wireControls();
 poll();
 setInterval(poll, POLL_MS);
