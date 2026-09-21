@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-rhythm"
+description = "Enables the set_rhythm command without any pre-configured scope."
+commands.allow = ["set_rhythm"]
+
+[[permission]]
+identifier = "deny-set-rhythm"
+description = "Denies the set_rhythm command without any pre-configured scope."
+commands.deny = ["set_rhythm"]

@@ -2,5 +2,14 @@
   "identifier": "default",
   "description": "Le panneau lit l'instantané du cycle et lui envoie ses commandes.",
   "windows": ["panel"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "allow-get-snapshot",
+    "allow-suspend",
+    "allow-resume",
+    "allow-interrupt-break",
+    "allow-set-severity",
+    "allow-set-rhythm",
+    "allow-quit"
+  ]
 }

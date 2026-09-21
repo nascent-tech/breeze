@@ -395,3 +395,18 @@ décident sur le même fait) ; `pending_*` appliqués = cycle suivant (§10.3) ;
 conservé, conversion au ledger ; pas de rationnement domaine (un garde-fou qu'on épuise n'en est plus
 un) — la friction 10 s est UX, le prix est identique à Cmd+Q. Dette ACL (`interrupt_break` mutant
 ouvert à toutes fenêtres) = même classe que `quit`, déjà consignée.
+
+## Palier 15 (durcissement ACL des commandes) — dette sécurité résolue
+
+Dette de sécurité du palier overlay levée : `build.rs` déclare l'`AppManifest` avec les 7 commandes,
+ce qui les **soumet à l'ACL** (sans permission `allow-*` explicite, une fenêtre ne peut plus les
+invoquer). Chaque fenêtre est verrouillée à ce dont elle a besoin :
+- **panel** (`default.json`) : les 7 commandes.
+- **overlay-\*** (`overlay.json`) : `get_snapshot` (lecture) **et** `interrupt_break` (le geste §8.5) —
+  rien d'autre. Une surface de pause ne peut plus invoquer `quit`/`resume`/`suspend`/`set_severity`/
+  `set_rhythm` : la promesse « rien n'écourte la pause » est tenue au niveau capacité, pas seulement par
+  convention. (Écart assumé vs la recette Fable « get_snapshot seul », antérieure au geste : l'overlay
+  porte désormais légitimement `interrupt_break`.)
+
+Vérifié : `gen/schemas/capabilities.json` reflète bien la restriction (overlay = 3 permissions, panel =
+8). Le build valide les identifiants `allow-*` générés — un identifiant erroné aurait échoué.
