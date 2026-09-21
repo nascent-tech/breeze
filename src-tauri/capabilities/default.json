@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Le panneau lit l'instantané du cycle.",
+  "description": "Le panneau lit l'instantané du cycle et lui envoie ses commandes.",
   "windows": ["panel"],
   "permissions": ["core:default"]
 }

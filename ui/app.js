@@ -71,10 +71,31 @@ function paintSeverity(severity) {
 }
 
 function paintLevers(phase) {
-  const workingLike = phase === "Working" || phase === "Inactive";
-  el("levers").style.display = workingLike ? "flex" : "none";
+  el("levers").style.display = phase === "Working" ? "flex" : "none";
   el("resume-box").style.display = phase === "Suspended" ? "flex" : "none";
-  el("severity-row").style.opacity = workingLike ? "1" : "0.4";
+  const coldChoice = phase === "Working" || phase === "Inactive";
+  el("severity-row").style.opacity = coldChoice ? "1" : "0.4";
+}
+
+const REFUSALS = {
+  "break-due": "Une pause est due — réglable au cycle suivant.",
+  "not-suspendable": "Rien à suspendre ici.",
+  "not-suspended": "Breeze n’est pas suspendu.",
+  "unknown-severity": "Sévérité inconnue.",
+};
+
+let hintTimer = null;
+
+function showHint(code) {
+  const sub = el("phase-sub");
+  if (!sub) {
+    return;
+  }
+  sub.textContent = REFUSALS[code] || "Action refusée.";
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => {
+    sub.textContent = "Cycle de la journée";
+  }, 4000);
 }
 
 function render(snap) {
@@ -106,8 +127,8 @@ async function send(command, args) {
   }
   try {
     await invoke(command, args);
-  } catch (_e) {
-    // the host refused (e.g. a break is due); the next poll shows the truth
+  } catch (code) {
+    showHint(String(code));
   }
 }
 

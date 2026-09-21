@@ -13,6 +13,7 @@ pub struct Cycle {
     state: CycleState,
     rhythm: Rhythm,
     severity: Severity,
+    pending_severity: Option<Severity>,
     outcomes: Vec<BreakOutcome>,
 }
 
@@ -25,6 +26,7 @@ impl Cycle {
             },
             rhythm,
             severity,
+            pending_severity: None,
             outcomes: Vec::new(),
         }
     }
@@ -53,15 +55,14 @@ impl Cycle {
             CycleState::Working {
                 countdown: Countdown::Frozen { remaining },
             } => remaining,
+            CycleState::Suspended { frozen, .. } => frozen,
             CycleState::Working {
                 countdown: Countdown::Due { .. },
             }
             | CycleState::Notice { .. }
             | CycleState::BreakActive { .. }
             | CycleState::Returning { .. } => return Err(CommandError::BreakDue),
-            CycleState::Inactive | CycleState::Suspended { .. } => {
-                return Err(CommandError::NotSuspendable)
-            }
+            CycleState::Inactive => return Err(CommandError::NotSuspendable),
         };
         self.state = CycleState::Suspended { resume_at, frozen };
         Ok(())
@@ -71,27 +72,40 @@ impl Cycle {
         let CycleState::Suspended { frozen, .. } = self.state else {
             return Err(CommandError::NotSuspended);
         };
+        let Some(deadline) = now.checked_plus(frozen) else {
+            return Err(CommandError::NotSuspended);
+        };
         self.state = CycleState::Working {
-            countdown: Countdown::Running {
-                deadline: now.plus(frozen),
-            },
+            countdown: Countdown::Running { deadline },
         };
         Ok(())
     }
 
     pub fn change_severity(&mut self, severity: Severity) -> Result<(), CommandError> {
-        match self.state {
-            CycleState::Working {
-                countdown: Countdown::Due { .. },
+        if self.break_is_due() {
+            return Err(CommandError::BreakDue);
+        }
+        match (self.severity, severity) {
+            (Severity::Hardcore, Severity::Simple) => {
+                self.pending_severity = Some(Severity::Simple);
             }
-            | CycleState::Notice { .. }
-            | CycleState::BreakActive { .. }
-            | CycleState::Returning { .. } => Err(CommandError::BreakDue),
             _ => {
                 self.severity = severity;
-                Ok(())
+                self.pending_severity = None;
             }
         }
+        Ok(())
+    }
+
+    fn break_is_due(&self) -> bool {
+        matches!(
+            self.state,
+            CycleState::Working {
+                countdown: Countdown::Due { .. }
+            } | CycleState::Notice { .. }
+                | CycleState::BreakActive { .. }
+                | CycleState::Returning { .. }
+        )
     }
 
     fn advance_once(&mut self, now: Instant) -> bool {
@@ -148,6 +162,9 @@ impl Cycle {
         let Some(deadline) = from.checked_plus(self.rhythm.work().as_duration()) else {
             return false;
         };
+        if let Some(pending) = self.pending_severity.take() {
+            self.severity = pending;
+        }
         self.state = CycleState::Working {
             countdown: Countdown::Running { deadline },
         };

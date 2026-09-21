@@ -1,4 +1,4 @@
-use breeze_domain::constants::NOTICE;
+use breeze_domain::constants::{NOTICE, RETURN_HOLD};
 use breeze_domain::{
     ActiveDays, CommandError, Countdown, Cycle, CycleState, Instant, Minutes, Rhythm, Severity,
 };
@@ -89,4 +89,60 @@ fn resume_without_a_suspension_is_refused() {
         cycle.resume(Instant::EPOCH).unwrap_err(),
         CommandError::NotSuspended
     );
+}
+
+#[test]
+fn weakening_the_severity_waits_for_the_next_cycle() {
+    let r = rhythm();
+    let work = r.work().as_duration();
+    let pause = r.pause().as_duration();
+    let mut cycle = Cycle::start(r, Severity::Hardcore, Instant::EPOCH);
+    cycle.change_severity(Severity::Simple).unwrap();
+
+    let first_break = Instant::EPOCH.plus(work).plus(NOTICE);
+    cycle.tick(first_break);
+    assert!(
+        matches!(
+            cycle.state(),
+            CycleState::BreakActive {
+                severity: Severity::Hardcore,
+                ..
+            }
+        ),
+        "the break already coming stays Hardcore"
+    );
+
+    let next_work = first_break.plus(pause).plus(RETURN_HOLD);
+    let second_break = next_work.plus(work).plus(NOTICE);
+    cycle.tick(second_break);
+    assert!(
+        matches!(
+            cycle.state(),
+            CycleState::BreakActive {
+                severity: Severity::Simple,
+                ..
+            }
+        ),
+        "the next cycle carries the softened severity"
+    );
+}
+
+#[test]
+fn suspending_again_replaces_the_term() {
+    let r = rhythm();
+    let mut cycle = Cycle::start(r, Severity::Simple, Instant::EPOCH);
+    let at = Instant::EPOCH.plus(TEN_MIN);
+    cycle.suspend(at, at.plus(FIFTEEN_MIN)).unwrap();
+    let later = at.plus(FIFTEEN_MIN).plus(FIFTEEN_MIN);
+    cycle.suspend(at, later).unwrap();
+
+    cycle.tick(at.plus(FIFTEEN_MIN));
+    assert!(matches!(cycle.state(), CycleState::Suspended { .. }));
+    cycle.tick(later);
+    assert!(matches!(
+        cycle.state(),
+        CycleState::Working {
+            countdown: Countdown::Running { .. }
+        }
+    ));
 }
