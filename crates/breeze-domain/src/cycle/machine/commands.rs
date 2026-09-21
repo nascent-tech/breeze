@@ -4,7 +4,7 @@ use crate::command_error::CommandError;
 use crate::cycle::absence::{absence_verdict, Absence, AbsenceVerdict};
 use crate::cycle::countdown::Countdown;
 use crate::cycle::state::CycleState;
-use crate::outcome::BreakOutcome;
+use crate::outcome::{BreakOutcome, InterruptionDoor};
 use crate::settings::{Rhythm, Severity};
 use core::time::Duration;
 
@@ -64,6 +64,29 @@ impl Cycle {
         self.state = CycleState::Working {
             countdown: Countdown::Running { deadline },
         };
+        Ok(())
+    }
+
+    pub fn interrupt_break(&mut self, now: Instant) -> Result<(), CommandError> {
+        // L'échéance fait autorité, pas la fréquence du poll : une pause déjà due est
+        // servie, pas interrompue (§8.5 « comptée prise, la confirmation se ferme sans effet »).
+        self.tick(now);
+        let CycleState::BreakActive {
+            deadline,
+            severity: Severity::Hardcore,
+            ..
+        } = self.state
+        else {
+            return Err(CommandError::NotInterruptible);
+        };
+        let unserved = deadline.elapsed_since(now);
+        if !self.enter_next_work(now) {
+            return Err(CommandError::NotInterruptible);
+        }
+        self.outcomes.push(BreakOutcome::Interrupted {
+            unserved,
+            door: InterruptionDoor::HardcoreExitGesture,
+        });
         Ok(())
     }
 

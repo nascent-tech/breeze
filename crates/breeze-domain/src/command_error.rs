@@ -3,4 +3,5 @@ pub enum CommandError {
     BreakDue,
     NotSuspendable,
     NotSuspended,
+    NotInterruptible,
 }

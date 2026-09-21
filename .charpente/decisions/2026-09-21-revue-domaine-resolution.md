@@ -43,8 +43,10 @@ documentent le comportement, ils ne l'autorisent pas en production.
 
 ## Reporté aux paliers porteurs (nits D4, sans dette cachée)
 
-- `BreakOutcome::Interrupted { unserved: Duration }` deviendra `Minutes` quand la dette de
-  posture (§9.2) câblera le ledger — l'unité y prend son sens.
+- `BreakOutcome::Interrupted { unserved: Duration }` garde `Duration` à l'enregistrement (le sort
+  conserve l'information exacte) ; la **conversion en `Minutes` se fait au ledger** (§9.2), où vit la
+  règle d'arrondi (« la deuxième minute en crédite huit ») — arrondir plus tôt figerait la décision
+  avant que la règle existe.
 - `BreakMode::Degraded` recevra ses `reasons` quand `capabilities.rs` (le relevé
   `EnforcementCapabilities`) arrivera avec le premier adaptateur.
 - Le placement de `BreakMode` (aujourd'hui dans `cycle/`) sera revu avec `capabilities.rs`.
@@ -364,3 +366,32 @@ vérifié (voile clair translucide, hardcore ink opaque).
 - **Durcissement `Layered`** (non échappable, `CGShieldingWindowLevel`, masque Dock/menubar) : palier
   natif dédié (objc2/unsafe isolé ou plugin), + geste Échap 10 s (§8.5) & commande `abort_break`, +
   re-raise périodique Windows/X11 (`BestEffort`).
+
+## Palier 14 (geste de sortie Hardcore §8.5) — implémentation + revue Fable
+
+`Cycle::interrupt_break(now)` : la seule échappatoire du produit, **Hardcore uniquement**. Effet —
+comptée **interrompue** (`Interrupted{unserved, HardcoreExitGesture}`), retour **direct en travail
+décompte plein** (pas de [RETOUR], pas de `Served`). Hôte : commande `interrupt_break`. UI overlay :
+maintien Échap 10 s (jauge) → confirmation (Annuler par défaut) → `interrupt_break` ; légende
+permanente, non rationné, décompte jamais arrêté. Aperçu vérifié (jauge, confirmation).
+
+Revue Fable — **2 Majeurs corrigés** :
+- **M1 (domaine)** — `interrupt_break` fait `self.tick(now)` **en tête** : une pause dont l'échéance
+  est tombée entre deux polls est **servie**, pas interrompue (§8.5 « comptée prise, la confirmation se
+  ferme sans effet »). Sans le tick, on créditait `Interrupted{unserved:0}` là où `Served` était dû —
+  faux sort. Test `a_break_whose_deadline_has_passed_is_served_not_interrupted`.
+- **M6a (UI)** — perte de focus pendant le maintien (Cmd+Tab non neutralisé §8.5) : le `keyup`
+  n'arrivait pas, la jauge continuait et la confirmation s'ouvrait à 10 s **sans touche tenue**.
+  `blur`/`visibilitychange` → `resetHold()`. « Dix secondes **consécutives** » garanti.
+
+Mineurs appliqués : **renommage glossaire** `abort_break`→`interrupt_break`, `NotAbortable`→
+`NotInterruptible`, refus `"not-interruptible"` (le brief dit « interrompre », l'outcome est déjà
+`Interrupted` — vocabulaire unifié pour les futures portes Quit/TrayMenu) ; garde du `bool`
+d'`enter_next_work` (miroir de `return_from_absence`) ; Échap dans la boîte = Annuler (action par
+défaut) ; `#card { position: relative }` (ancre la confirmation à la carte).
+
+RAS (Fable) : garde Hardcore lit la sévérité **capturée dans `BreakActive`** (domaine et Enforcer
+décident sur le même fait) ; `pending_*` appliqués = cycle suivant (§10.3) ; `unserved: Duration`
+conservé, conversion au ledger ; pas de rationnement domaine (un garde-fou qu'on épuise n'en est plus
+un) — la friction 10 s est UX, le prix est identique à Cmd+Q. Dette ACL (`interrupt_break` mutant
+ouvert à toutes fenêtres) = même classe que `quit`, déjà consignée.
