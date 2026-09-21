@@ -72,3 +72,27 @@ dépendance `breeze-domain` retirée du null). La dette déclarée, à câbler �
   sortie XRandR) : l'adaptateur fera la correspondance ; le domaine ne connaît qu'un id opaque.
 - **Coupe-circuit** : le swap vers `NullOverlay` devra réinitialiser l'état de l'exécuteur
   pour ne pas désynchroniser la carte `covered`.
+
+## Palier 3 (UI verre + enveloppe Tauri) — revue Fable, dette consignée
+
+Verdict initial : 1 Critique + 5 Majeurs — **tous corrigés** :
+- **C1** `withGlobalTauri: true` ajouté (sans quoi `window.__TAURI__` n'était jamais injecté et
+  le binaire tournait sur le mock) ; le mock est **sorti de l'app** vers `ui/preview.html` seul.
+- **M1** un **ticker de fond** (`spawn_ticker`, 250 ms) fait avancer le cycle ; `get_snapshot`
+  devient une **lecture pure** (plus de `poll` mutant à la demande, donc plus de grand saut brut).
+- **M2** `break_in_secs` calculé côté hôte (préavis compris) ; **M3** la sévérité réglée est
+  toujours dans le DTO ; **M4** Instrument Sans **embarquée** (`ui/fonts/`, plus de Google Fonts —
+  §10.6) ; **M5** panneau responsive (plus de rognage).
+- Mineurs : CSP réelle posée, verrou `Mutex` tolérant au poison, leviers masqués hors `Working`,
+  deux tests sur `to_dto`.
+
+Dette nommée, à câbler à son palier :
+- **Horloge macOS** : `std::time::Instant` ne compte pas la veille → à remplacer par `ClockPort`
+  (adaptateur), avec le verdict d'absence §10.4. Le ticker de fond est provisoire.
+- **Overlays réels** : encore `NullOverlay` — arrivent avec l'adaptateur macOS (fenêtres de niveau
+  `CGShieldingWindowLevel`, `NSVisualEffectView` pour le vrai flou ; la transparence actuelle est du
+  verre CSS). La notarisation reste le point bloquant à mesurer.
+- **CSP** : durcir `style-src 'unsafe-inline'` en sortant les styles inline vers des classes.
+- **Capability** : `core:default` est large ; les commandes locales n'en ont pas besoin — à réduire.
+- **`ChangeSeverity`/`Suspend`** : le segmented et « Suspendre » sont affichés mais pas encore
+  câblés à des commandes (le domaine ne porte pas encore la suspension).

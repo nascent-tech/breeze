@@ -1,0 +1,20 @@
+[package]
+name = "breeze-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "breeze_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["macos-private-api"] }
+serde = { version = "1", features = ["derive"] }
+breeze-domain = { path = "../crates/breeze-domain" }
+breeze-app = { path = "../crates/breeze-app" }
+breeze-bridge-null = { path = "../crates/breeze-bridge-null" }
