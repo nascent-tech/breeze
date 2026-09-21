@@ -1,4 +1,6 @@
-use breeze_domain::Severity;
+use crate::sqlite_app_statuses;
+use crate::sqlite_error::into_error;
+use breeze_domain::{AppId, AppStatus, Severity};
 use breeze_ports::{PersistedState, PersistenceError, PersistencePort};
 use core::time::Duration;
 use rusqlite::{params, Connection};
@@ -6,7 +8,7 @@ use std::path::Path;
 use std::sync::{Mutex, PoisonError};
 
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 pub struct SqliteStore {
     connection: Mutex<Connection>,
@@ -47,6 +49,9 @@ impl SqliteStore {
         if version == 1 {
             migrate_v1_to_v2(&connection)?;
         }
+        // v3 : table des statuts d'apps. CREATE IF NOT EXISTS est atomique et sûr
+        // pour toute version antérieure (aucune donnée existante à transformer).
+        sqlite_app_statuses::create_table(&connection)?;
         connection
             .pragma_update(None, "user_version", SCHEMA_VERSION)
             .map_err(into_error)?;
@@ -67,10 +72,6 @@ fn migrate_v1_to_v2(connection: &Connection) -> Result<(), PersistenceError> {
              COMMIT;",
         )
         .map_err(into_error)
-}
-
-fn into_error(error: rusqlite::Error) -> PersistenceError {
-    PersistenceError(error.to_string())
 }
 
 fn severity_name(severity: Severity) -> &'static str {
@@ -139,6 +140,25 @@ impl PersistencePort for SqliteStore {
             )
             .map(|_| ())
             .map_err(into_error)
+    }
+
+    fn load_app_statuses(&self) -> Result<Vec<(AppId, AppStatus)>, PersistenceError> {
+        let connection = self
+            .connection
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        sqlite_app_statuses::load(&connection)
+    }
+
+    fn replace_app_statuses(
+        &self,
+        statuses: &[(AppId, AppStatus)],
+    ) -> Result<(), PersistenceError> {
+        let mut connection = self
+            .connection
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        sqlite_app_statuses::replace(&mut connection, statuses)
     }
 }
 
@@ -227,6 +247,95 @@ mod tests {
                 debt_seconds: 0,
                 debt_recorded_at_unix: 0,
             }))
+        );
+    }
+
+    fn app(raw: &str) -> AppId {
+        AppId::parse(raw).unwrap()
+    }
+
+    #[test]
+    fn a_fresh_store_has_no_app_statuses() {
+        let store = SqliteStore::in_memory().unwrap();
+        assert_eq!(store.load_app_statuses(), Ok(Vec::new()));
+    }
+
+    #[test]
+    fn it_saves_and_reads_app_statuses_back() {
+        let store = SqliteStore::in_memory().unwrap();
+        let statuses = vec![
+            (app("com.apple.Music"), AppStatus::Spared),
+            (app("com.tinyspeck.slackmacgap"), AppStatus::Ignored),
+        ];
+        store.replace_app_statuses(&statuses).unwrap();
+        let mut loaded = store.load_app_statuses().unwrap();
+        loaded.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+        let mut expected = statuses;
+        expected.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+        assert_eq!(loaded, expected);
+    }
+
+    #[test]
+    fn replacing_app_statuses_drops_the_previous_set() {
+        let store = SqliteStore::in_memory().unwrap();
+        store
+            .replace_app_statuses(&[(app("com.apple.Music"), AppStatus::Spared)])
+            .unwrap();
+        store
+            .replace_app_statuses(&[(app("com.apple.Notes"), AppStatus::Ignored)])
+            .unwrap();
+        assert_eq!(
+            store.load_app_statuses(),
+            Ok(vec![(app("com.apple.Notes"), AppStatus::Ignored)])
+        );
+    }
+
+    #[test]
+    fn a_blocked_status_is_never_stored() {
+        let store = SqliteStore::in_memory().unwrap();
+        store
+            .replace_app_statuses(&[
+                (app("com.apple.Music"), AppStatus::Blocked),
+                (app("com.apple.Notes"), AppStatus::Spared),
+            ])
+            .unwrap();
+        assert_eq!(
+            store.load_app_statuses(),
+            Ok(vec![(app("com.apple.Notes"), AppStatus::Spared)])
+        );
+    }
+
+    #[test]
+    fn a_v2_database_gains_the_app_statuses_table() {
+        // Base au schéma 2 : table state complète, user_version = 2, pas de app_statuses.
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute(
+                "CREATE TABLE state (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    work_minutes INTEGER NOT NULL,
+                    pause_minutes INTEGER NOT NULL,
+                    severity TEXT NOT NULL,
+                    served_breaks INTEGER NOT NULL,
+                    debt_seconds INTEGER NOT NULL DEFAULT 0,
+                    debt_recorded_at INTEGER NOT NULL DEFAULT 0
+                )",
+                [],
+            )
+            .unwrap();
+        connection
+            .pragma_update(None, "user_version", 2i64)
+            .unwrap();
+
+        let store = SqliteStore::from_connection(connection).unwrap();
+
+        assert_eq!(store.load_app_statuses(), Ok(Vec::new()));
+        store
+            .replace_app_statuses(&[(app("com.apple.Music"), AppStatus::Spared)])
+            .unwrap();
+        assert_eq!(
+            store.load_app_statuses(),
+            Ok(vec![(app("com.apple.Music"), AppStatus::Spared)])
         );
     }
 }

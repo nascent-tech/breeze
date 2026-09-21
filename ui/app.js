@@ -166,6 +166,17 @@ function wireControls() {
   if (quit) {
     quit.addEventListener("click", () => send("quit"));
   }
+  const settings = el("open-settings");
+  if (settings) {
+    const open = () => send("open_settings");
+    settings.addEventListener("click", open);
+    settings.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  }
 }
 
 async function poll() {

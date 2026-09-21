@@ -1,15 +1,20 @@
+mod apps;
 mod bridge;
 mod dto;
 
 use breeze_app::Scheduler;
 use breeze_bridge_common::{SqliteStore, SystemClock};
 use breeze_bridge_null::NullSessionSignals;
+#[cfg(not(target_os = "macos"))]
+use breeze_bridge_null::{NullAccessibility, NullInstalledApps};
 use breeze_domain::constants::{MINUTES_PER_DAY, SECONDS_PER_MINUTE};
 use breeze_domain::{
     ActiveDays, CommandError, Cycle, InterruptionDoor, Minutes, PostureDebt, Rhythm, Severity,
+    SparedApps,
 };
 use breeze_ports::ClockPort;
 use breeze_ports::SessionSignalsPort;
+use breeze_ports::{AccessibilityPermissionPort, InstalledAppsPort};
 use core::time::Duration;
 use dto::{to_dto, SnapshotDto};
 use std::sync::{Arc, Mutex};
@@ -22,11 +27,16 @@ const DEFAULT_PAUSE: u16 = 10;
 
 type Persistence = Arc<dyn breeze_ports::PersistencePort + Send + Sync>;
 type Clock = Arc<dyn ClockPort + Send + Sync>;
+type InstalledApps = Arc<dyn InstalledAppsPort>;
+type Accessibility = Arc<dyn AccessibilityPermissionPort>;
 
-struct AppState {
-    scheduler: Arc<Mutex<Scheduler>>,
-    clock: Clock,
-    persistence: Persistence,
+pub(crate) struct AppState {
+    pub(crate) scheduler: Arc<Mutex<Scheduler>>,
+    pub(crate) clock: Clock,
+    pub(crate) persistence: Persistence,
+    pub(crate) installed_apps: InstalledApps,
+    pub(crate) accessibility: Accessibility,
+    pub(crate) spared: Arc<Mutex<SparedApps>>,
 }
 
 fn parse_severity(name: &str) -> Option<Severity> {
@@ -244,6 +254,33 @@ fn load_saved(store: &SqliteStore) -> Option<breeze_ports::PersistedState> {
     }
 }
 
+fn load_app_statuses(
+    persistence: &Persistence,
+) -> Vec<(breeze_domain::AppId, breeze_domain::AppStatus)> {
+    match persistence.load_app_statuses() {
+        Ok(pairs) => pairs,
+        Err(error) => {
+            eprintln!("breeze: could not read app statuses: {}", error.0);
+            Vec::new()
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn app_adapters() -> (InstalledApps, Accessibility) {
+    (
+        Arc::new(breeze_bridge_macos::MacInstalledApps::new()),
+        Arc::new(breeze_bridge_macos::MacAccessibility),
+    )
+}
+
+#[cfg(not(target_os = "macos"))]
+fn app_adapters() -> (InstalledApps, Accessibility) {
+    // Hors macOS : pas de catalogue ni de permission réelle tant que l'adaptateur
+    // de la plateforme n'existe pas. Le produit dégrade honnêtement.
+    (Arc::new(NullInstalledApps), Arc::new(NullAccessibility))
+}
+
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
@@ -254,6 +291,10 @@ pub fn run() {
                 Cycle::start(rhythm, severity, clock.monotonic()).with_debt(debt),
             )));
             let persistence: Persistence = Arc::new(store);
+            let spared = Arc::new(Mutex::new(SparedApps::from_pairs(load_app_statuses(
+                &persistence,
+            ))));
+            let (installed_apps, accessibility) = app_adapters();
             spawn_ticker(
                 app.handle().clone(),
                 Arc::clone(&scheduler),
@@ -264,6 +305,9 @@ pub fn run() {
                 scheduler,
                 clock,
                 persistence,
+                installed_apps,
+                accessibility,
+                spared,
             });
             Ok(())
         })
@@ -274,7 +318,12 @@ pub fn run() {
             interrupt_break,
             set_severity,
             set_rhythm,
-            quit
+            quit,
+            apps::list_installed_apps,
+            apps::set_app_status,
+            apps::request_accessibility,
+            apps::accessibility_status,
+            apps::open_settings
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Breeze desktop host")

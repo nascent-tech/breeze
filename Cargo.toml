@@ -6,6 +6,7 @@ members = [
     "crates/breeze-app",
     "crates/breeze-bridge-null",
     "crates/breeze-bridge-common",
+    "crates/breeze-bridge-macos",
     "src-tauri",
 ]
 

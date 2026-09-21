@@ -18,5 +18,6 @@ pub use cycle::{
 pub use debt::{PostureDebt, Settlement};
 pub use outcome::{BreakOutcome, InterruptionDoor};
 pub use settings::{
-    ActiveDays, AppStatus, Minutes, Rhythm, RhythmError, Severity, TimeRange, Weekday,
+    ActiveDays, AppId, AppStatus, InvalidAppId, Minutes, Rhythm, RhythmError, Severity, SparedApps,
+    TimeRange, Weekday,
 };
