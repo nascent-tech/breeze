@@ -1,0 +1,6 @@
+{
+  "identifier": "overlay",
+  "description": "Les surfaces de pause lisent l'instantané du cycle. Elles n'envoient aucune commande.",
+  "windows": ["overlay-*"],
+  "permissions": ["core:default"]
+}

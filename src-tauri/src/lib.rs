@@ -1,8 +1,8 @@
+mod bridge;
 mod dto;
 
 use breeze_app::Scheduler;
 use breeze_bridge_common::{SqliteStore, SystemClock};
-use breeze_bridge_null::{NullDisplays, NullOverlay};
 use breeze_domain::constants::{MINUTES_PER_DAY, SECONDS_PER_MINUTE};
 use breeze_domain::{ActiveDays, CommandError, Cycle, Minutes, Rhythm, Severity};
 use breeze_ports::ClockPort;
@@ -140,13 +140,22 @@ fn quit(app: tauri::AppHandle) {
     app.exit(0);
 }
 
-fn spawn_ticker(scheduler: Arc<Mutex<Scheduler>>, clock: Clock, persistence: Persistence) {
+fn spawn_ticker(
+    app: tauri::AppHandle,
+    scheduler: Arc<Mutex<Scheduler>>,
+    clock: Clock,
+    persistence: Persistence,
+) {
     thread::spawn(move || {
-        let mut overlay = NullOverlay;
-        let displays = NullDisplays;
+        let monitors = bridge::MonitorCache::default();
+        let mut overlay = bridge::TauriOverlay::new(app.clone());
+        let displays = bridge::TauriDisplays::new(monitors.clone());
         let mut last_served = 0;
         loop {
             thread::sleep(TICK);
+            // Invariant : aucun getter Tauri bloquant tant que `scheduler` est verrouillé
+            // (sinon interblocage avec une commande synchrone sur le thread principal).
+            monitors.refresh_from_main_thread(&app);
             let now = clock.monotonic();
             let served = lock(&scheduler)
                 .poll(now, &mut overlay, &displays)
@@ -222,6 +231,7 @@ pub fn run() {
             ))));
             let persistence: Persistence = Arc::new(store);
             spawn_ticker(
+                app.handle().clone(),
                 Arc::clone(&scheduler),
                 Arc::clone(&clock),
                 Arc::clone(&persistence),

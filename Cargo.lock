@@ -191,7 +191,6 @@ version = "0.0.0"
 dependencies = [
  "breeze-app",
  "breeze-bridge-common",
- "breeze-bridge-null",
  "breeze-domain",
  "breeze-ports",
  "serde",
