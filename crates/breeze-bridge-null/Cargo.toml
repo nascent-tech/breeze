@@ -9,4 +9,5 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+breeze-domain = { path = "../breeze-domain" }
 breeze-ports = { path = "../breeze-ports" }

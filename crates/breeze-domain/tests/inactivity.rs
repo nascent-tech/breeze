@@ -94,3 +94,51 @@ fn only_a_running_work_phase_freezes_not_the_notice() {
     cycle.freeze_if_idle(notice_at.plus(IDLE_FREEZE));
     assert!(matches!(cycle.state(), CycleState::Notice { .. }));
 }
+
+fn at(n: u64) -> Instant {
+    Instant::at_secs(n)
+}
+
+#[test]
+fn a_freeze_right_after_a_served_break_never_exceeds_the_work_duration() {
+    let mut cycle = Cycle::start(rhythm(), Severity::Simple, Instant::EPOCH);
+    // Un cycle complet (50/10) jusqu'au travail suivant : 3000 travail, 60 préavis,
+    // 600 pause, 3 retour → nouveau travail à 3663.
+    cycle.tick(at(3663));
+    assert!(matches!(
+        cycle.state(),
+        CycleState::Working {
+            countdown: Countdown::Running { .. }
+        }
+    ));
+    // Inactif depuis le début du nouveau travail : le restant gelé ne peut pas dépasser
+    // la durée de travail (sinon `last_activity` datait d'avant ce décompte).
+    cycle.freeze_if_idle(at(3663).plus(IDLE_FREEZE));
+    match cycle.state() {
+        CycleState::Working {
+            countdown: Countdown::Frozen { remaining },
+        } => assert!(
+            remaining <= rhythm().work().as_duration(),
+            "restant gelé {remaining:?} > durée de travail"
+        ),
+        other => panic!("expected a frozen work, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_freeze_right_after_resume_never_exceeds_the_frozen_remaining() {
+    let mut cycle = Cycle::start(rhythm(), Severity::Simple, Instant::EPOCH);
+    // Suspendre tôt (à 60 s) : 2940 s de travail gelées. Reprendre bien plus tard.
+    cycle.suspend(at(60), at(4000)).unwrap();
+    cycle.resume(at(4000)).unwrap();
+    cycle.freeze_if_idle(at(4000).plus(IDLE_FREEZE));
+    match cycle.state() {
+        CycleState::Working {
+            countdown: Countdown::Frozen { remaining },
+        } => assert!(
+            remaining <= Duration::from_secs(2940),
+            "restant gelé {remaining:?} > restant repris"
+        ),
+        other => panic!("expected a frozen work, got {other:?}"),
+    }
+}

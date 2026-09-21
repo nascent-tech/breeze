@@ -59,12 +59,9 @@ impl Cycle {
         let CycleState::Suspended { frozen, .. } = self.state else {
             return Err(CommandError::NotSuspended);
         };
-        let Some(deadline) = now.checked_plus(frozen) else {
+        if !self.enter_running(now, frozen) {
             return Err(CommandError::NotSuspended);
-        };
-        self.state = CycleState::Working {
-            countdown: Countdown::Running { deadline },
-        };
+        }
         Ok(())
     }
 

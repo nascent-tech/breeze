@@ -4,11 +4,12 @@ use breeze_domain::{
     CommandError, Countdown, Cycle, CycleState, Instant, InterruptionDoor, PostureDebt, Rhythm,
     Severity,
 };
-use breeze_ports::{DisplayEnumerationPort, OverlaySurfacesPort};
+use breeze_ports::{DisplayEnumerationPort, OverlaySurfacesPort, SessionSignals};
 
 pub struct Scheduler {
     cycle: Cycle,
     enforcer: Enforcer,
+    last_input: Instant,
 }
 
 impl Scheduler {
@@ -16,14 +17,28 @@ impl Scheduler {
         Scheduler {
             cycle,
             enforcer: Enforcer::default(),
+            last_input: Instant::EPOCH,
         }
     }
 
-    pub fn poll<O, D>(&mut self, now: Instant, overlay: &mut O, displays: &D) -> CycleSnapshot
+    pub fn poll<O, D>(
+        &mut self,
+        now: Instant,
+        overlay: &mut O,
+        displays: &D,
+        signals: SessionSignals,
+    ) -> CycleSnapshot
     where
         O: OverlaySurfacesPort,
         D: DisplayEnumerationPort,
     {
+        // `>` : la dernière saisie est monotone ; ne réagir qu'à une saisie plus récente
+        // (une valeur qui recule ne doit jamais faire reculer l'horloge d'inactivité).
+        if signals.last_input > self.last_input {
+            self.last_input = signals.last_input;
+            self.cycle.observe_activity(signals.last_input);
+        }
+        self.cycle.freeze_if_idle(now);
         self.cycle.tick(now);
         self.enforcer
             .reconcile(self.cycle.state(), overlay, displays);
