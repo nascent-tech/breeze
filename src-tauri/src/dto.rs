@@ -14,6 +14,7 @@ pub struct SnapshotDto {
     pub served_breaks: u32,
     pub work_minutes: u16,
     pub pause_minutes: u16,
+    pub debt_minutes: u16,
 }
 
 fn phase_name(phase: CyclePhase) -> &'static str {
@@ -70,6 +71,7 @@ pub fn to_dto(
         served_breaks: snapshot.served_breaks,
         work_minutes: configured.work().count(),
         pause_minutes: configured.pause().count(),
+        debt_minutes: snapshot.debt_minutes,
     }
 }
 

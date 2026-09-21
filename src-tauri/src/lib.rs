@@ -4,7 +4,9 @@ mod dto;
 use breeze_app::Scheduler;
 use breeze_bridge_common::{SqliteStore, SystemClock};
 use breeze_domain::constants::{MINUTES_PER_DAY, SECONDS_PER_MINUTE};
-use breeze_domain::{ActiveDays, CommandError, Cycle, Minutes, Rhythm, Severity};
+use breeze_domain::{
+    ActiveDays, CommandError, Cycle, InterruptionDoor, Minutes, PostureDebt, Rhythm, Severity,
+};
 use breeze_ports::ClockPort;
 use core::time::Duration;
 use dto::{to_dto, SnapshotDto};
@@ -49,13 +51,14 @@ fn lock(scheduler: &Mutex<Scheduler>) -> std::sync::MutexGuard<'_, Scheduler> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>) {
-    let (rhythm, severity, served) = {
+fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>, clock: &Clock) {
+    let (rhythm, severity, served, debt) = {
         let scheduler = lock(scheduler);
         (
             scheduler.configured_rhythm(),
             scheduler.chosen_severity(),
             scheduler.snapshot().served_breaks,
+            scheduler.debt(),
         )
     };
     let state = breeze_ports::PersistedState {
@@ -63,6 +66,8 @@ fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>) {
         pause_minutes: rhythm.pause().count(),
         severity,
         served_breaks: served,
+        debt_seconds: u32::try_from(debt.total().as_secs()).unwrap_or(u32::MAX),
+        debt_recorded_at_unix: clock.wall().as_unix_secs(),
     };
     if let Err(error) = persistence.save(state) {
         eprintln!("breeze: could not persist state: {}", error.0);
@@ -93,7 +98,7 @@ fn suspend(state: tauri::State<'_, AppState>, minutes: u64) -> Result<(), String
     lock(&state.scheduler)
         .suspend(now, resume_at)
         .map_err(refusal)?;
-    save_state(&state.persistence, &state.scheduler);
+    save_state(&state.persistence, &state.scheduler, &state.clock);
     Ok(())
 }
 
@@ -101,7 +106,7 @@ fn suspend(state: tauri::State<'_, AppState>, minutes: u64) -> Result<(), String
 fn resume(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let now = state.clock.monotonic();
     lock(&state.scheduler).resume(now).map_err(refusal)?;
-    save_state(&state.persistence, &state.scheduler);
+    save_state(&state.persistence, &state.scheduler, &state.clock);
     Ok(())
 }
 
@@ -111,7 +116,7 @@ fn interrupt_break(state: tauri::State<'_, AppState>) -> Result<(), String> {
     lock(&state.scheduler)
         .interrupt_break(now)
         .map_err(refusal)?;
-    save_state(&state.persistence, &state.scheduler);
+    save_state(&state.persistence, &state.scheduler, &state.clock);
     Ok(())
 }
 
@@ -121,7 +126,7 @@ fn set_severity(state: tauri::State<'_, AppState>, severity: String) -> Result<(
     lock(&state.scheduler)
         .change_severity(parsed)
         .map_err(refusal)?;
-    save_state(&state.persistence, &state.scheduler);
+    save_state(&state.persistence, &state.scheduler, &state.clock);
     Ok(())
 }
 
@@ -142,12 +147,15 @@ fn set_rhythm(
     lock(&state.scheduler)
         .change_rhythm(rhythm)
         .map_err(refusal)?;
-    save_state(&state.persistence, &state.scheduler);
+    save_state(&state.persistence, &state.scheduler, &state.clock);
     Ok(())
 }
 
 #[tauri::command]
-fn quit(app: tauri::AppHandle) {
+fn quit(app: tauri::AppHandle, state: tauri::State<'_, AppState>) {
+    let now = state.clock.monotonic();
+    lock(&state.scheduler).terminate(now, InterruptionDoor::TrayMenu);
+    save_state(&state.persistence, &state.scheduler, &state.clock);
     app.exit(0);
 }
 
@@ -173,7 +181,7 @@ fn spawn_ticker(
                 .served_breaks;
             if served != last_served {
                 last_served = served;
-                save_state(&persistence, &scheduler);
+                save_state(&persistence, &scheduler, &clock);
             }
         }
     });
@@ -189,9 +197,9 @@ fn default_rhythm() -> Rhythm {
     .expect("the default rhythm is within bounds")
 }
 
-fn restore_rhythm(saved: Option<breeze_ports::PersistedState>) -> (Rhythm, Severity) {
+fn restore(saved: Option<breeze_ports::PersistedState>) -> (Rhythm, Severity, PostureDebt) {
     let Some(saved) = saved else {
-        return (default_rhythm(), Severity::Simple);
+        return (default_rhythm(), Severity::Simple, PostureDebt::none());
     };
     let rhythm = Rhythm::new(
         Minutes(saved.work_minutes),
@@ -200,7 +208,8 @@ fn restore_rhythm(saved: Option<breeze_ports::PersistedState>) -> (Rhythm, Sever
         ActiveDays::everyday(),
     )
     .unwrap_or_else(|_| default_rhythm());
-    (rhythm, saved.severity)
+    let debt = PostureDebt::restore(Duration::from_secs(u64::from(saved.debt_seconds)));
+    (rhythm, saved.severity, debt)
 }
 
 fn open_store(app: &tauri::App) -> SqliteStore {
@@ -233,13 +242,11 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let store = open_store(app);
-            let (rhythm, severity) = restore_rhythm(load_saved(&store));
+            let (rhythm, severity, debt) = restore(load_saved(&store));
             let clock: Clock = Arc::new(SystemClock::new());
-            let scheduler = Arc::new(Mutex::new(Scheduler::new(Cycle::start(
-                rhythm,
-                severity,
-                clock.monotonic(),
-            ))));
+            let scheduler = Arc::new(Mutex::new(Scheduler::new(
+                Cycle::start(rhythm, severity, clock.monotonic()).with_debt(debt),
+            )));
             let persistence: Persistence = Arc::new(store);
             spawn_ticker(
                 app.handle().clone(),
@@ -268,7 +275,9 @@ pub fn run() {
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 if let Some(state) = app.try_state::<AppState>() {
-                    save_state(&state.persistence, &state.scheduler);
+                    let now = state.clock.monotonic();
+                    lock(&state.scheduler).terminate(now, InterruptionDoor::Quit);
+                    save_state(&state.persistence, &state.scheduler, &state.clock);
                 }
             }
         });

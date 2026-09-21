@@ -6,4 +6,6 @@ pub struct PersistedState {
     pub pause_minutes: u16,
     pub severity: Severity,
     pub served_breaks: u32,
+    pub debt_seconds: u32,
+    pub debt_recorded_at_unix: u64,
 }

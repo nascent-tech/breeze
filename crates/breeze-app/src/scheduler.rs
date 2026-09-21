@@ -1,6 +1,9 @@
 use crate::enforcer::Enforcer;
 use crate::snapshot::CycleSnapshot;
-use breeze_domain::{CommandError, Countdown, Cycle, CycleState, Instant, Rhythm, Severity};
+use breeze_domain::{
+    CommandError, Countdown, Cycle, CycleState, Instant, InterruptionDoor, PostureDebt, Rhythm,
+    Severity,
+};
 use breeze_ports::{DisplayEnumerationPort, OverlaySurfacesPort};
 
 pub struct Scheduler {
@@ -41,6 +44,14 @@ impl Scheduler {
 
     pub fn interrupt_break(&mut self, now: Instant) -> Result<(), CommandError> {
         self.cycle.interrupt_break(now)
+    }
+
+    pub fn terminate(&mut self, now: Instant, door: InterruptionDoor) {
+        self.cycle.terminate(now, door);
+    }
+
+    pub fn debt(&self) -> PostureDebt {
+        self.cycle.debt()
     }
 
     pub fn change_severity(&mut self, severity: Severity) -> Result<(), CommandError> {

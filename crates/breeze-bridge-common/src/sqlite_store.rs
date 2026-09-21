@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::{Mutex, PoisonError};
 
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 
 pub struct SqliteStore {
     connection: Mutex<Connection>,
@@ -26,6 +26,9 @@ impl SqliteStore {
         connection
             .pragma_update(None, "journal_mode", "WAL")
             .map_err(into_error)?;
+        let version: i64 = connection
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .map_err(into_error)?;
         connection
             .execute(
                 "CREATE TABLE IF NOT EXISTS state (
@@ -33,11 +36,17 @@ impl SqliteStore {
                     work_minutes INTEGER NOT NULL,
                     pause_minutes INTEGER NOT NULL,
                     severity TEXT NOT NULL,
-                    served_breaks INTEGER NOT NULL
+                    served_breaks INTEGER NOT NULL,
+                    debt_seconds INTEGER NOT NULL DEFAULT 0,
+                    debt_recorded_at INTEGER NOT NULL DEFAULT 0
                 )",
                 [],
             )
             .map_err(into_error)?;
+        // Une base au schéma 1 a une table sans les colonnes de dette : on les ajoute.
+        if version == 1 {
+            migrate_v1_to_v2(&connection)?;
+        }
         connection
             .pragma_update(None, "user_version", SCHEMA_VERSION)
             .map_err(into_error)?;
@@ -45,6 +54,19 @@ impl SqliteStore {
             connection: Mutex::new(connection),
         })
     }
+}
+
+fn migrate_v1_to_v2(connection: &Connection) -> Result<(), PersistenceError> {
+    // Atomique : les deux colonnes, ou aucune. Un échec laisse la base en v1, réessayable
+    // au prochain démarrage, plutôt qu'à moitié migrée (le second ADD échouerait alors en boucle).
+    connection
+        .execute_batch(
+            "BEGIN;
+             ALTER TABLE state ADD COLUMN debt_seconds INTEGER NOT NULL DEFAULT 0;
+             ALTER TABLE state ADD COLUMN debt_recorded_at INTEGER NOT NULL DEFAULT 0;
+             COMMIT;",
+        )
+        .map_err(into_error)
 }
 
 fn into_error(error: rusqlite::Error) -> PersistenceError {
@@ -72,7 +94,8 @@ impl PersistencePort for SqliteStore {
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
         let row = connection.query_row(
-            "SELECT work_minutes, pause_minutes, severity, served_breaks FROM state WHERE id = 1",
+            "SELECT work_minutes, pause_minutes, severity, served_breaks, debt_seconds, debt_recorded_at
+             FROM state WHERE id = 1",
             [],
             |row| {
                 Ok(PersistedState {
@@ -80,6 +103,8 @@ impl PersistencePort for SqliteStore {
                     pause_minutes: row.get(1)?,
                     severity: severity_from(&row.get::<_, String>(2)?),
                     served_breaks: row.get(3)?,
+                    debt_seconds: row.get(4)?,
+                    debt_recorded_at_unix: row.get(5)?,
                 })
             },
         );
@@ -97,15 +122,19 @@ impl PersistencePort for SqliteStore {
             .unwrap_or_else(PoisonError::into_inner);
         connection
             .execute(
-                "INSERT INTO state (id, work_minutes, pause_minutes, severity, served_breaks)
-                    VALUES (1, ?1, ?2, ?3, ?4)
+                "INSERT INTO state
+                    (id, work_minutes, pause_minutes, severity, served_breaks, debt_seconds, debt_recorded_at)
+                    VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6)
                  ON CONFLICT(id) DO UPDATE SET
-                    work_minutes = ?1, pause_minutes = ?2, severity = ?3, served_breaks = ?4",
+                    work_minutes = ?1, pause_minutes = ?2, severity = ?3, served_breaks = ?4,
+                    debt_seconds = ?5, debt_recorded_at = ?6",
                 params![
                     state.work_minutes,
                     state.pause_minutes,
                     severity_name(state.severity),
                     state.served_breaks,
+                    state.debt_seconds,
+                    state.debt_recorded_at_unix,
                 ],
             )
             .map(|_| ())
@@ -131,6 +160,8 @@ mod tests {
             pause_minutes: 10,
             severity: Severity::Hardcore,
             served_breaks: 3,
+            debt_seconds: 450,
+            debt_recorded_at_unix: 1_700_000_000,
         };
         store.save(state).unwrap();
         assert_eq!(store.load(), Ok(Some(state)));
@@ -145,6 +176,8 @@ mod tests {
                 pause_minutes: 5,
                 severity: Severity::Simple,
                 served_breaks: 1,
+                debt_seconds: 0,
+                debt_recorded_at_unix: 0,
             })
             .unwrap();
         let updated = PersistedState {
@@ -152,8 +185,48 @@ mod tests {
             pause_minutes: 10,
             severity: Severity::Hardcore,
             served_breaks: 4,
+            debt_seconds: 120,
+            debt_recorded_at_unix: 1_700_000_500,
         };
         store.save(updated).unwrap();
         assert_eq!(store.load(), Ok(Some(updated)));
+    }
+
+    #[test]
+    fn a_v1_database_migrates_and_defaults_its_debt_to_zero() {
+        // Une base au schéma 1 : table sans colonnes de dette, une ligne, user_version = 1.
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute(
+                "CREATE TABLE state (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    work_minutes INTEGER NOT NULL,
+                    pause_minutes INTEGER NOT NULL,
+                    severity TEXT NOT NULL,
+                    served_breaks INTEGER NOT NULL
+                )",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute("INSERT INTO state VALUES (1, 50, 10, 'Hardcore', 7)", [])
+            .unwrap();
+        connection
+            .pragma_update(None, "user_version", 1i64)
+            .unwrap();
+
+        let store = SqliteStore::from_connection(connection).unwrap();
+
+        assert_eq!(
+            store.load(),
+            Ok(Some(PersistedState {
+                work_minutes: 50,
+                pause_minutes: 10,
+                severity: Severity::Hardcore,
+                served_breaks: 7,
+                debt_seconds: 0,
+                debt_recorded_at_unix: 0,
+            }))
+        );
     }
 }
