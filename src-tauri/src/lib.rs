@@ -17,11 +17,13 @@ const TICK: Duration = Duration::from_millis(250);
 const DEFAULT_WORK: u16 = 50;
 const DEFAULT_PAUSE: u16 = 10;
 
+type Persistence = Arc<dyn PersistencePort + Send + Sync>;
+
 struct AppState {
     scheduler: Arc<Mutex<Scheduler>>,
     started: SystemInstant,
     rhythm: Rhythm,
-    persistence: Box<dyn PersistencePort + Send + Sync>,
+    persistence: Persistence,
 }
 
 fn now_since(started: SystemInstant) -> Instant {
@@ -52,14 +54,23 @@ fn lock(scheduler: &Mutex<Scheduler>) -> std::sync::MutexGuard<'_, Scheduler> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-fn persist(state: &AppState) {
-    let snapshot = lock(&state.scheduler).snapshot();
-    state.persistence.save(PersistedState {
-        work_minutes: state.rhythm.work().count(),
-        pause_minutes: state.rhythm.pause().count(),
-        severity: snapshot.severity,
-        served_breaks: snapshot.served_breaks,
-    });
+fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>, rhythm: Rhythm) {
+    let (served, severity) = {
+        let scheduler = lock(scheduler);
+        (
+            scheduler.snapshot().served_breaks,
+            scheduler.chosen_severity(),
+        )
+    };
+    let state = PersistedState {
+        work_minutes: rhythm.work().count(),
+        pause_minutes: rhythm.pause().count(),
+        severity,
+        served_breaks: served,
+    };
+    if let Err(error) = persistence.save(state) {
+        eprintln!("breeze: could not persist state: {}", error.0);
+    }
 }
 
 #[tauri::command]
@@ -78,7 +89,7 @@ fn suspend(state: tauri::State<'_, AppState>, minutes: u64) -> Result<(), String
     lock(&state.scheduler)
         .suspend(now, resume_at)
         .map_err(refusal)?;
-    persist(state.inner());
+    save_state(&state.persistence, &state.scheduler, state.rhythm);
     Ok(())
 }
 
@@ -86,7 +97,7 @@ fn suspend(state: tauri::State<'_, AppState>, minutes: u64) -> Result<(), String
 fn resume(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let now = now_since(state.started);
     lock(&state.scheduler).resume(now).map_err(refusal)?;
-    persist(state.inner());
+    save_state(&state.persistence, &state.scheduler, state.rhythm);
     Ok(())
 }
 
@@ -96,7 +107,7 @@ fn set_severity(state: tauri::State<'_, AppState>, severity: String) -> Result<(
     lock(&state.scheduler)
         .change_severity(parsed)
         .map_err(refusal)?;
-    persist(state.inner());
+    save_state(&state.persistence, &state.scheduler, state.rhythm);
     Ok(())
 }
 
@@ -105,14 +116,26 @@ fn quit(app: tauri::AppHandle) {
     app.exit(0);
 }
 
-fn spawn_ticker(scheduler: Arc<Mutex<Scheduler>>, started: SystemInstant) {
+fn spawn_ticker(
+    scheduler: Arc<Mutex<Scheduler>>,
+    started: SystemInstant,
+    persistence: Persistence,
+    rhythm: Rhythm,
+) {
     thread::spawn(move || {
         let mut overlay = NullOverlay;
         let displays = NullDisplays;
+        let mut last_served = 0;
         loop {
             thread::sleep(TICK);
             let now = now_since(started);
-            lock(&scheduler).poll(now, &mut overlay, &displays);
+            let served = lock(&scheduler)
+                .poll(now, &mut overlay, &displays)
+                .served_breaks;
+            if served != last_served {
+                last_served = served;
+                save_state(&persistence, &scheduler, rhythm);
+            }
         }
     });
 }
@@ -147,26 +170,48 @@ fn open_store(app: &tauri::App) -> SqliteStore {
         .app_data_dir()
         .unwrap_or_else(|_| std::env::temp_dir());
     let _ = std::fs::create_dir_all(&dir);
-    SqliteStore::open(&dir.join("breeze.sqlite3")).expect("open the Breeze store")
+    match SqliteStore::open(&dir.join("breeze.sqlite3")) {
+        Ok(store) => store,
+        Err(error) => {
+            eprintln!("breeze: falling back to an in-memory store: {}", error.0);
+            SqliteStore::in_memory().expect("an in-memory store always opens")
+        }
+    }
+}
+
+fn load_saved(store: &SqliteStore) -> Option<PersistedState> {
+    match store.load() {
+        Ok(saved) => saved,
+        Err(error) => {
+            eprintln!("breeze: could not read stored state: {}", error.0);
+            None
+        }
+    }
 }
 
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let store = open_store(app);
-            let (rhythm, severity) = restore_rhythm(store.load());
+            let (rhythm, severity) = restore_rhythm(load_saved(&store));
             let started = SystemInstant::now();
             let scheduler = Arc::new(Mutex::new(Scheduler::new(Cycle::start(
                 rhythm,
                 severity,
                 Instant::EPOCH,
             ))));
-            spawn_ticker(Arc::clone(&scheduler), started);
+            let persistence: Persistence = Arc::new(store);
+            spawn_ticker(
+                Arc::clone(&scheduler),
+                started,
+                Arc::clone(&persistence),
+                rhythm,
+            );
             app.manage(AppState {
                 scheduler,
                 started,
                 rhythm,
-                persistence: Box::new(store),
+                persistence,
             });
             Ok(())
         })
@@ -177,6 +222,13 @@ pub fn run() {
             set_severity,
             quit
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running the Breeze desktop host");
+        .build(tauri::generate_context!())
+        .expect("error while building the Breeze desktop host")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                if let Some(state) = app.try_state::<AppState>() {
+                    save_state(&state.persistence, &state.scheduler, state.rhythm);
+                }
+            }
+        });
 }

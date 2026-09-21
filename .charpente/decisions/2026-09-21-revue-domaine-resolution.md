@@ -120,3 +120,25 @@ Dette **décidée** (reportée à son palier porteur, tranché par moi) :
   §10.4), avec le reste des sorts de pause.
 - Nits reportés : refus en `enum Refusal: Serialize` plutôt que `String` ; `quit` via
   `QuitRequested` quand la persistance arrivera ; rôles/clavier ARIA sur les `seg-item`.
+
+## Palier 6 (persistance SQLite) — revue Fable, corrections appliquées
+
+Verdict : corrections avant merge (0 Critique, 4 Majeurs de perte de données). **Appliqués** :
+- **M1** — `RunEvent::Exit` persiste l'état à la fermeture (Cmd-Q, menu, fermeture de fenêtre) ;
+  plus de perte de ce qui n'a pas été écrit à une commande.
+- **M2** — la **sévérité choisie** (`chosen_severity` = `pending_severity.unwrap_or(courante)`) est
+  persistée : au relancement, l'affaiblissement accepté (Hardcore→Simple) prend effet, comme un
+  nouveau cycle (§10.3).
+- **M3** — le ticker persiste **au changement de `served_breaks`** ; combiné à M1, les statistiques
+  survivent au relancement en usage nominal.
+- **M4** — `PersistencePort` renvoie `Result<_, PersistenceError>` ; `load` distingue « pas de
+  ligne » d'une base illisible ; `save`/lecture journalisées côté hôte ; `busy_timeout(5 s)`.
+- **M5/m1/m3** — repli `in_memory()` + journal au lieu de `expect` sur le disque ; `user_version`
+  posé pour les migrations à venir ; gets SQLite typés (`u16`/`u32` bornés, plus de `as`).
+
+Dette **décidée**, reportée au palier ClockPort/échéance :
+- **Échéance murale (autorité §10.4)** non persistée — exige l'horloge murale locale.
+- **Plage horaire / jours actifs** non round-trippés (pas de `ChangeRhythm`, défauts `None`/tous
+  actifs) — reviennent avec l'écran de réglages du rythme.
+- Nit accepté : `lib.rs` de l'hôte à 235 lignes (> 200) — à découper en `commands.rs`/`host.rs` au
+  prochain passage sur l'hôte.

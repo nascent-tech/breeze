@@ -39,6 +39,10 @@ impl Cycle {
         self.severity
     }
 
+    pub fn chosen_severity(&self) -> Severity {
+        self.pending_severity.unwrap_or(self.severity)
+    }
+
     pub fn outcomes(&self) -> &[BreakOutcome] {
         &self.outcomes
     }

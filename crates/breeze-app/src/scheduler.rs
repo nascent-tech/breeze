@@ -43,6 +43,10 @@ impl Scheduler {
         self.cycle.change_severity(severity)
     }
 
+    pub fn chosen_severity(&self) -> Severity {
+        self.cycle.chosen_severity()
+    }
+
     pub fn next_wake(&self) -> Option<Instant> {
         deadline_of(self.cycle.state())
     }
