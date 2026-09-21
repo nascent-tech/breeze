@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = ["crates/breeze-domain"]
+
+[workspace.package]
+edition = "2021"
+version = "0.0.0"
+license = "MIT"
+repository = "https://github.com/nascent-tech/breeze"
+
+[workspace.lints.clippy]
+all = "deny"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
