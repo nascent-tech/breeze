@@ -277,3 +277,13 @@ le contrat. **Injoignable aujourd'hui** (pas d'appelant, `Instant` monotone ne c
 le devient avec `ClockPort` (boot time). **Débordement** : `return_from_absence` rend son verdict même
 si un `checked_plus` d'`Instant` échoue (état alors inchangé) — injoignable par construction
 (`Instant` adossé à `Duration`, ≈ 5,8·10¹¹ ans), noté une fois ici.
+
+## Palier 11 (découpage de `machine.rs`) — dette résolue
+
+Refactoring **pur, iso-comportement** (73 tests inchangés verts) : `machine.rs` (294 l.) devient le
+module `cycle/machine/` — `mod.rs` (agrégat `Cycle` + construction + accesseurs + inactivité, 98 l.),
+`commands.rs` (intents : rythme/sévérité/suspension/reprise + verdict d'absence + `reanchor`/
+`break_is_due`, 125 l.), `transitions.rs` (moteur nominal : `tick`/`advance_once`/`enter_*`/reprise, 90 l.).
+Les sous-modules sont descendants de `machine`, donc voient les champs privés ; les `enter_*` partagés
+entre `commands` et `transitions` passent en `pub(super)` (visibilité **bornée au module `machine`**,
+l'API publique de `Cycle` est inchangée). Aucun changement de logique.
