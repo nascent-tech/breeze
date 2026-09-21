@@ -450,3 +450,26 @@ servie → 0 ; plafonds travail/60 min). **1 Majeur + mineurs appliqués** :
   `Cycle::clear_debt()` est la commande domaine prête ; son déclenchement (réveil à minuit, ou
   comparaison `debt_recorded_at` au jour local au chargement — d'où la colonne persistée dès
   maintenant, pour éviter une migration v3) entre au palier calendrier local.
+
+## Palier 17 (SessionSignalsPort — câblage du gel d'inactivité §10.1) — revue Fable
+
+Port `SessionSignals{last_input: Instant}` + `SessionSignalsPort::poll` ; adaptateur `NullSessionSignals`
+(toujours actif → ne gèle jamais, défaut sûr). `Scheduler::poll` route : `observe_activity` sur saisie
+**plus récente** (`>`, monotone) → `freeze_if_idle` → `tick`. Le **gel d'inactivité §10.1** est câblé au
+planificateur. Absence §10.4 **non câblée** (attend l'horloge boot-time) — contrat d'ordonnancement
+intact. Détection OS réelle = adaptateur par plateforme à venir.
+
+Revue Fable — **1 Majeur corrigé** (bug domaine que le palier rend joignable) :
+- **Majeur** — `enter_next_work`/`resume`/`resume_from_suspension` posaient un nouveau `Running` **sans
+  réinitialiser `last_activity`** → `freeze_if_idle` gelait un restant calculé depuis une activité
+  d'avant le décompte (jusqu'à +57 min après une suspension d'1 h). Masqué par le null, déclenché par
+  le premier vrai adaptateur. Corrigé : `enter_running(from, remaining)` réinitialise `last_activity`,
+  point d'entrée unique en `Running`. 2 tests domaine (gel après pause servie / après reprise ≤ décompte
+  posé).
+- **Mineur** — signaux passés **par valeur** (`SessionSignals`), relevés **hors du verrou** scheduler
+  (l'invariant anti-interblocage vaut pour un futur adaptateur D-Bus bloquant) ; garde `>` monotone ;
+  gel détecté par `snap.deadline == None` (contrat exposé) plutôt qu'un accessoire du ticker.
+
+Reporté : `reanchor` (bras Running) réinitialisera aussi `last_activity` quand §10.4 sera câblé (compensé
+aujourd'hui par le contrat `observe_activity(now)` au réveil). §8.3 (gel par app `ignorée`) = port
+distinct (ou 2ᵉ champ de `SessionSignals`) à trancher au palier ForegroundApp.

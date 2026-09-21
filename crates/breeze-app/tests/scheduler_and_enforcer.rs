@@ -1,13 +1,13 @@
 use breeze_app::{CyclePhase, Scheduler};
 use breeze_domain::constants::NOTICE;
 use breeze_domain::{ActiveDays, Cycle, Instant, Minutes, Rhythm, Severity};
+use breeze_ports::{
+    Display, DisplayEnumerationPort, DisplayId, OverlayCapability, OverlaySurfacesPort, Rect,
+    SessionSignals, SurfaceId, SurfaceKind,
+};
 use core::time::Duration;
 
 const ONE_SEC: Duration = Duration::from_secs(1);
-use breeze_ports::{
-    Display, DisplayEnumerationPort, DisplayId, OverlayCapability, OverlaySurfacesPort, Rect,
-    SurfaceId, SurfaceKind,
-};
 
 const SCREEN: Rect = Rect {
     x: 0,
@@ -15,6 +15,16 @@ const SCREEN: Rect = Rect {
     width: 100,
     height: 100,
 };
+
+// L'utilisateur est actif à `now` : jamais de gel.
+fn active(now: Instant) -> SessionSignals {
+    SessionSignals { last_input: now }
+}
+
+// La dernière saisie remonte à `last`.
+fn idle_since(last: Instant) -> SessionSignals {
+    SessionSignals { last_input: last }
+}
 
 #[derive(Default)]
 struct SpyOverlay {
@@ -65,7 +75,12 @@ fn the_scheduler_projects_the_working_phase_at_start_without_covering() {
     let mut sched = Scheduler::new(Cycle::start(rhythm(), Severity::Simple, Instant::EPOCH));
     let mut overlay = SpyOverlay::default();
     let displays = TwoDisplays;
-    let snap = sched.poll(Instant::EPOCH, &mut overlay, &displays);
+    let snap = sched.poll(
+        Instant::EPOCH,
+        &mut overlay,
+        &displays,
+        active(Instant::EPOCH),
+    );
     assert_eq!(snap.phase, CyclePhase::Working);
     assert_eq!(overlay.covers, 0);
 }
@@ -80,21 +95,23 @@ fn overlays_cover_every_display_on_a_hardcore_break_then_lift_on_return() {
     let mut overlay = SpyOverlay::default();
     let displays = TwoDisplays;
 
-    let snap = sched.poll(break_at, &mut overlay, &displays);
+    let snap = sched.poll(break_at, &mut overlay, &displays, active(break_at));
     assert_eq!(snap.phase, CyclePhase::Break);
     assert_eq!(overlay.covers, 2, "one surface per display");
     assert_eq!(overlay.last_kind, Some(SurfaceKind::Hardcore));
     assert_eq!(overlay.dismisses, 0);
 
-    sched.poll(break_at.plus(ONE_SEC), &mut overlay, &displays);
-    sched.poll(break_at.plus(pause - ONE_SEC), &mut overlay, &displays);
+    let mid = break_at.plus(ONE_SEC);
+    sched.poll(mid, &mut overlay, &displays, active(mid));
+    let late = break_at.plus(pause - ONE_SEC);
+    sched.poll(late, &mut overlay, &displays, active(late));
     assert_eq!(
         overlay.covers, 2,
         "polling again while the break holds poses no new surface"
     );
     assert_eq!(overlay.dismisses, 0);
 
-    sched.poll(return_at, &mut overlay, &displays);
+    sched.poll(return_at, &mut overlay, &displays, active(return_at));
     assert_eq!(overlay.dismisses, 1, "overlays lift when the break ends");
 }
 
@@ -106,7 +123,7 @@ fn a_simple_break_veils_rather_than_shielding() {
     let mut overlay = SpyOverlay::default();
     let displays = TwoDisplays;
 
-    sched.poll(break_at, &mut overlay, &displays);
+    sched.poll(break_at, &mut overlay, &displays, active(break_at));
     assert_eq!(overlay.last_kind, Some(SurfaceKind::Veil));
 }
 
@@ -119,6 +136,50 @@ fn next_wake_points_at_the_current_deadline() {
 }
 
 #[test]
+fn a_working_countdown_freezes_once_the_session_signals_report_enough_idle() {
+    use breeze_domain::constants::IDLE_FREEZE;
+
+    let mut sched = Scheduler::new(Cycle::start(rhythm(), Severity::Simple, Instant::EPOCH));
+    let mut overlay = SpyOverlay::default();
+    let displays = TwoDisplays;
+    // Dernière saisie à l'EPOCH ; le poll a lieu après le seuil, sans activité entre-temps.
+    let snap = sched.poll(
+        Instant::EPOCH.plus(IDLE_FREEZE),
+        &mut overlay,
+        &displays,
+        idle_since(Instant::EPOCH),
+    );
+
+    // Un décompte gelé n'a plus d'échéance (c'est ce que l'UI verra).
+    assert_eq!(snap.phase, CyclePhase::Working);
+    assert_eq!(snap.deadline, None);
+    assert_eq!(overlay.covers, 0);
+}
+
+#[test]
+fn fresh_input_thaws_a_frozen_countdown_at_the_next_poll() {
+    use breeze_domain::constants::IDLE_FREEZE;
+
+    let mut sched = Scheduler::new(Cycle::start(rhythm(), Severity::Simple, Instant::EPOCH));
+    let mut overlay = SpyOverlay::default();
+    let displays = TwoDisplays;
+
+    let frozen = sched.poll(
+        Instant::EPOCH.plus(IDLE_FREEZE),
+        &mut overlay,
+        &displays,
+        idle_since(Instant::EPOCH),
+    );
+    assert_eq!(frozen.deadline, None);
+
+    // Une saisie fraîche (last_input avancé) : le décompte reprend une échéance.
+    let woke_at = Instant::EPOCH.plus(IDLE_FREEZE);
+    let running = sched.poll(woke_at, &mut overlay, &displays, active(woke_at));
+    assert_eq!(running.phase, CyclePhase::Working);
+    assert!(running.deadline.is_some());
+}
+
+#[test]
 fn the_null_bridge_runs_the_cycle_without_ever_covering() {
     use breeze_bridge_null::{NullDisplays, NullOverlay};
     let r = rhythm();
@@ -126,6 +187,6 @@ fn the_null_bridge_runs_the_cycle_without_ever_covering() {
     let mut sched = Scheduler::new(Cycle::start(r, Severity::Hardcore, Instant::EPOCH));
     let mut overlay = NullOverlay;
     let displays = NullDisplays;
-    let snap = sched.poll(break_at, &mut overlay, &displays);
+    let snap = sched.poll(break_at, &mut overlay, &displays, active(break_at));
     assert_eq!(snap.phase, CyclePhase::Break);
 }

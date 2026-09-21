@@ -3,11 +3,13 @@ mod dto;
 
 use breeze_app::Scheduler;
 use breeze_bridge_common::{SqliteStore, SystemClock};
+use breeze_bridge_null::NullSessionSignals;
 use breeze_domain::constants::{MINUTES_PER_DAY, SECONDS_PER_MINUTE};
 use breeze_domain::{
     ActiveDays, CommandError, Cycle, InterruptionDoor, Minutes, PostureDebt, Rhythm, Severity,
 };
 use breeze_ports::ClockPort;
+use breeze_ports::SessionSignalsPort;
 use core::time::Duration;
 use dto::{to_dto, SnapshotDto};
 use std::sync::{Arc, Mutex};
@@ -169,6 +171,7 @@ fn spawn_ticker(
         let monitors = bridge::MonitorCache::default();
         let mut overlay = bridge::TauriOverlay::new(app.clone());
         let displays = bridge::TauriDisplays::new(monitors.clone());
+        let mut signals = NullSessionSignals;
         let mut last_served = 0;
         loop {
             thread::sleep(TICK);
@@ -176,8 +179,11 @@ fn spawn_ticker(
             // (sinon interblocage avec une commande synchrone sur le thread principal).
             monitors.refresh_from_main_thread(&app);
             let now = clock.monotonic();
+            // Relevé hors du verrou : l'invariant « aucun appel bloquant sous le verrou »
+            // vaut aussi pour un futur adaptateur de session (D-Bus, etc.).
+            let reading = signals.poll(now);
             let served = lock(&scheduler)
-                .poll(now, &mut overlay, &displays)
+                .poll(now, &mut overlay, &displays, reading)
                 .served_breaks;
             if served != last_served {
                 last_served = served;

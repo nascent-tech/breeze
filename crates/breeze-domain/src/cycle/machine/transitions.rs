@@ -81,19 +81,22 @@ impl Cycle {
         if let Some(severity) = self.pending_severity.take() {
             self.severity = severity;
         }
-        let Some(deadline) = from.checked_plus(self.rhythm.work().as_duration()) else {
-            return false;
-        };
-        self.state = CycleState::Working {
-            countdown: Countdown::Running { deadline },
-        };
-        true
+        let work = self.rhythm.work().as_duration();
+        self.enter_running(from, work)
     }
 
     fn resume_from_suspension(&mut self, now: Instant, frozen: Duration) -> bool {
-        let Some(deadline) = now.checked_plus(frozen) else {
+        self.enter_running(now, frozen)
+    }
+
+    // Tout retour en [TRAVAIL] avec un décompte neuf redémarre l'horloge d'inactivité :
+    // sinon `freeze_if_idle` gèlerait un restant calculé depuis une activité d'avant le
+    // décompte, plus long que la durée de travail elle-même.
+    pub(super) fn enter_running(&mut self, from: Instant, remaining: Duration) -> bool {
+        let Some(deadline) = from.checked_plus(remaining) else {
             return false;
         };
+        self.last_activity = from;
         self.state = CycleState::Working {
             countdown: Countdown::Running { deadline },
         };

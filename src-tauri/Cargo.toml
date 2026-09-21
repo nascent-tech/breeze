@@ -18,4 +18,5 @@ serde = { version = "1", features = ["derive"] }
 breeze-domain = { path = "../crates/breeze-domain" }
 breeze-app = { path = "../crates/breeze-app" }
 breeze-ports = { path = "../crates/breeze-ports" }
+breeze-bridge-null = { path = "../crates/breeze-bridge-null" }
 breeze-bridge-common = { path = "../crates/breeze-bridge-common" }
