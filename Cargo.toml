@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/breeze-domain"]
+members = [
+    "crates/breeze-domain",
+    "crates/breeze-ports",
+    "crates/breeze-app",
+    "crates/breeze-bridge-null",
+]
 
 [workspace.package]
 edition = "2021"

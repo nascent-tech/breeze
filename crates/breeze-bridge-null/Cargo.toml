@@ -1,0 +1,12 @@
+[package]
+name = "breeze-bridge-null"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+breeze-ports = { path = "../breeze-ports" }
