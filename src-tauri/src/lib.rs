@@ -38,6 +38,7 @@ fn refusal(error: CommandError) -> String {
         CommandError::BreakDue => "break-due",
         CommandError::NotSuspendable => "not-suspendable",
         CommandError::NotSuspended => "not-suspended",
+        CommandError::NotInterruptible => "not-interruptible",
     }
     .to_owned()
 }
@@ -100,6 +101,16 @@ fn suspend(state: tauri::State<'_, AppState>, minutes: u64) -> Result<(), String
 fn resume(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let now = state.clock.monotonic();
     lock(&state.scheduler).resume(now).map_err(refusal)?;
+    save_state(&state.persistence, &state.scheduler);
+    Ok(())
+}
+
+#[tauri::command]
+fn interrupt_break(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let now = state.clock.monotonic();
+    lock(&state.scheduler)
+        .interrupt_break(now)
+        .map_err(refusal)?;
     save_state(&state.persistence, &state.scheduler);
     Ok(())
 }
@@ -247,6 +258,7 @@ pub fn run() {
             get_snapshot,
             suspend,
             resume,
+            interrupt_break,
             set_severity,
             set_rhythm,
             quit

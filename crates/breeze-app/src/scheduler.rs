@@ -39,6 +39,10 @@ impl Scheduler {
         self.cycle.resume(now)
     }
 
+    pub fn interrupt_break(&mut self, now: Instant) -> Result<(), CommandError> {
+        self.cycle.interrupt_break(now)
+    }
+
     pub fn change_severity(&mut self, severity: Severity) -> Result<(), CommandError> {
         self.cycle.change_severity(severity)
     }
