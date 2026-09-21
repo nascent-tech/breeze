@@ -163,3 +163,21 @@ Contrat **consigné** (m1), à honorer par l'appelant :
 - **Non câblé, décidé** : `Scheduler` n'appelle ni `freeze_if_idle` ni `observe_activity` ; l'app est
   inchangée. Le câblage arrive avec `SessionSignalsPort` (adaptateurs OS). `CycleSnapshot` projettera
   alors `Frozen` avec son restant (dette m4).
+## Palier 8 (coupe-circuit §10.6) — revue Fable, corrections appliquées
+
+Verdict initial : pas mergeable (2 Majeurs). **Appliqués** :
+- **M1** — `Breaker` horodate en **`WallClock`** (survit au relancement) et non plus en `Instant`
+  monotone (qui repart à zéro à chaque processus, donc `len` ne dépassait jamais 1 et les 24 h ne
+  traversaient pas un redémarrage). `restore(crashes, armed)` + `crashes()` rendent l'état
+  **persistable**. `WallClock::saturating_duration_since` ajouté.
+- **M2** — `record_crash` appelle `tick(at)` en tête : une chute isolée après 24 h désarme d'abord.
+- Mineurs — désarmement mesuré depuis `max(crashes)` (l'ordre mural n'est pas garanti) ; élagage à la
+  fenêtre de 5 min (borne mieux le `Vec`) ; `PartialEq/Eq` pour le round-trip ; tests de bord (fenêtre
+  stricte, 4ᵉ chute qui repousse le désarmement, round-trip `restore`).
+- **Seuil tranché (Fable)** : **≥ 3** (« la troisième chute arme », §12.2/§10.6) — inchangé.
+
+Dette de **câblage** consignée (le breaker reste non câblé) : drapeau *running* persisté (posé au
+démarrage, effacé à la fermeture propre → un démarrage retrouvant le drapeau = `record_crash`) ;
+`tick` à chaque `poll` ; `is_armed()` lu **à l'entrée en pause seulement** ; swap vers `NullOverlay`
+avec réinitialisation de la carte `covered` de l'exécuteur (dette palier 2) ; priorité sur la dette
+de posture ; pause servie sans overlay comptée `Served` ; champ dans le DTO ; « Réarmer » → `reset()`.

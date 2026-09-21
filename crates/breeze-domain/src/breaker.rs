@@ -1,9 +1,9 @@
-use crate::clock::Instant;
+use crate::clock::WallClock;
 use crate::constants::{BREAKER_DISARM, BREAKER_THRESHOLD, BREAKER_WINDOW};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Breaker {
-    crashes: Vec<Instant>,
+    crashes: Vec<WallClock>,
     armed: bool,
 }
 
@@ -12,28 +12,32 @@ impl Breaker {
         Breaker::default()
     }
 
-    pub fn record_crash(&mut self, at: Instant) {
+    pub fn restore(crashes: Vec<WallClock>, armed: bool) -> Self {
+        Breaker { crashes, armed }
+    }
+
+    pub fn crashes(&self) -> &[WallClock] {
+        &self.crashes
+    }
+
+    pub fn record_crash(&mut self, at: WallClock) {
+        self.tick(at);
         self.crashes
-            .retain(|crash| at.elapsed_since(*crash) < BREAKER_DISARM);
+            .retain(|crash| at.saturating_duration_since(*crash) < BREAKER_WINDOW);
         self.crashes.push(at);
-        let recent = self
-            .crashes
-            .iter()
-            .filter(|crash| at.elapsed_since(**crash) < BREAKER_WINDOW)
-            .count();
-        if recent >= BREAKER_THRESHOLD as usize {
+        if self.crashes.len() >= BREAKER_THRESHOLD as usize {
             self.armed = true;
         }
     }
 
-    pub fn tick(&mut self, now: Instant) {
+    pub fn tick(&mut self, now: WallClock) {
         if !self.armed {
             return;
         }
-        let Some(last) = self.crashes.last().copied() else {
+        let Some(last) = self.crashes.iter().copied().max() else {
             return;
         };
-        if now.elapsed_since(last) >= BREAKER_DISARM {
+        if now.saturating_duration_since(last) >= BREAKER_DISARM {
             self.reset();
         }
     }
