@@ -4,6 +4,7 @@ use crate::command_error::CommandError;
 use crate::cycle::absence::{absence_verdict, Absence, AbsenceVerdict};
 use crate::cycle::countdown::Countdown;
 use crate::cycle::state::CycleState;
+use crate::debt::Settlement;
 use crate::outcome::{BreakOutcome, InterruptionDoor};
 use crate::settings::{Rhythm, Severity};
 use core::time::Duration;
@@ -83,11 +84,33 @@ impl Cycle {
         if !self.enter_next_work(now) {
             return Err(CommandError::NotInterruptible);
         }
-        self.outcomes.push(BreakOutcome::Interrupted {
-            unserved,
-            door: InterruptionDoor::HardcoreExitGesture,
-        });
+        self.record_interruption(unserved, InterruptionDoor::HardcoreExitGesture);
         Ok(())
+    }
+
+    // Terminaison propre (§10.2) : le raccourci système (Quit) ou le menu de l'icône
+    // (TrayMenu). Une pause due mais jamais commencée crédite sa durée réglée entière,
+    // une pause en cours son restant. Idempotente : après coup l'état est [TRAVAIL].
+    pub fn terminate(&mut self, now: Instant, door: InterruptionDoor) {
+        self.tick(now);
+        let unserved = match self.state {
+            CycleState::Notice { .. } => self.rhythm.pause().as_duration(),
+            CycleState::BreakActive { deadline, .. } => deadline.elapsed_since(now),
+            _ => return,
+        };
+        if self.enter_next_work(now) {
+            self.record_interruption(unserved, door);
+        }
+    }
+
+    pub(super) fn record_interruption(&mut self, unserved: Duration, door: InterruptionDoor) {
+        if door.charges_debt() {
+            self.debt.credit(unserved);
+        } else {
+            self.debt.freeze();
+        }
+        self.outcomes
+            .push(BreakOutcome::Interrupted { unserved, door });
     }
 
     pub fn return_from_absence(&mut self, absence: Absence, now: Instant) -> AbsenceVerdict {
@@ -100,7 +123,7 @@ impl Cycle {
                 }
             }
             AbsenceVerdict::BreakServed => {
-                self.enter_returning(now);
+                self.enter_returning(now, Settlement::Frozen);
             }
             AbsenceVerdict::BreakStartsAtWake => {
                 self.enter_break(now);

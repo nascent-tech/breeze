@@ -5,6 +5,7 @@ pub mod clock;
 pub mod command_error;
 pub mod constants;
 pub mod cycle;
+pub mod debt;
 pub mod outcome;
 pub mod settings;
 
@@ -14,6 +15,7 @@ pub use command_error::CommandError;
 pub use cycle::{
     absence_verdict, Absence, AbsenceVerdict, BreakMode, Countdown, Cycle, CycleState,
 };
+pub use debt::{PostureDebt, Settlement};
 pub use outcome::{BreakOutcome, InterruptionDoor};
 pub use settings::{
     ActiveDays, AppStatus, Minutes, Rhythm, RhythmError, Severity, TimeRange, Weekday,

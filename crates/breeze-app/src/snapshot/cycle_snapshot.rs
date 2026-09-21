@@ -7,6 +7,7 @@ pub struct CycleSnapshot {
     pub deadline: Option<Instant>,
     pub severity: Severity,
     pub served_breaks: u32,
+    pub debt_minutes: u16,
 }
 
 impl CycleSnapshot {
@@ -22,6 +23,7 @@ impl CycleSnapshot {
             deadline,
             severity: cycle.severity(),
             served_breaks: u32::try_from(served).unwrap_or(u32::MAX),
+            debt_minutes: cycle.debt().minutes(),
         }
     }
 }

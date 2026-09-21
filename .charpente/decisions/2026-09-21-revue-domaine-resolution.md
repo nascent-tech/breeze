@@ -410,3 +410,43 @@ invoquer). Chaque fenêtre est verrouillée à ce dont elle a besoin :
 
 Vérifié : `gen/schemas/capabilities.json` reflète bien la restriction (overlay = 3 permissions, panel =
 8). Le build valide les identifiants `allow-*` générés — un identifiant erroné aurait échoué.
+
+## Palier 16 (dette de posture §9.2) — conception + revue Fable
+
+**Le cœur du modèle « sans négociation »** : une pause interrompue a une conséquence durable.
+Conception tranchée par Fable, implémentée, revue.
+
+Objet-valeur `PostureDebt { owed, absorbed }` (Durations) possédé par `Cycle`. **Crédit** (les minutes
+non servies) par un point unique `record_interruption(unserved, door)` où les portes convergent
+(décision 12, « un seul calcul ») : `interrupt_break` (geste Hardcore) et `terminate(door)` (Quit =
+Cmd-Q via `RunEvent::Exit`, TrayMenu = commande `quit`). Une **chute** (`InterruptionDoor::Crash`,
+`charges_debt()==false`) **gèle** au lieu de créditer (décision 15). **Remboursement** : `enter_break`
+allonge la pause de `min(owed, min(travail,60min) − pause)` (`absorb` : `owed`→`absorbed`) ; à la
+sortie, `enter_returning(Settlement)` — `Repaid` (`settle`, pause vécue jusqu'au terme) ou `Frozen`
+(`freeze`, absence §10.4 / chute) ; une interruption crédite le restant de l'échéance **allongée** (le
+prêt y est inclus, `credit` remet `absorbed` à 0). **Persistance** : `PersistedState` +
+`debt_seconds`/`debt_recorded_at`, schéma SQLite v2, migration v1→v2 **atomique**.
+
+Revue Fable — arithmétique **confirmée juste** (dette 8 → pause +8 ; interrompue à 12/2 min → 6/16 ;
+servie → 0 ; plafonds travail/60 min). **1 Majeur + mineurs appliqués** :
+- **Majeur** — `minutes()` affichés sur `total()` (owed+absorbed), pas `owed` seul : pendant une pause
+  allongée `owed=0` mais rien n'est encore remboursé (§9.2 « seule une pause vécue rembourse ») —
+  l'icône aurait menti (0) au moment où le signal doit être lisible. Test ajouté.
+- **Mineur** — migration v1→v2 enveloppée dans une transaction (un échec du 2ᵉ `ALTER` laisserait la
+  base à moitié migrée, coincée en boucle sinon). `Scheduler::clear_debt` (passe-plat sans appelant)
+  retiré ; `Cycle::clear_debt` reste (surface domaine pour l'effacement de minuit). `debt_minutes`
+  exposé dans le `SnapshotDto` (§9.2 « visible en permanence sur l'icône » — la donnée atteint l'UI).
+  Commentaire sur l'invariant de `credit`.
+
+**Reporté, nommé (par la conception, pas un trou)** :
+- **Porte `SuspensionOverrun`** (4ᵉ porte) : déclarée (`charges_debt()==true`) mais **non tirée** — elle
+  entre avec la **règle de dépassement de suspension §10.1** (dette M3 du palier 4), quand `resume`
+  créditera « le travail qui restait au moment de suspendre » (décision 14). D'ici là, trois portes
+  sur quatre créditent ; le calcul est unique et prêt.
+- **Durcissement** (§9.2) : le seuil est **mesuré en test utilisateur** (§12.3, Bloquant §7) → aucune
+  constante, aucun mécanisme (ce serait « remplir un inconnu par une valeur plausible »). Ce qu'elle
+  crédite est fixé et livré ; le seuil ne l'est pas.
+- **Effacement à minuit heure locale** : exige un calendrier local (même manque que « demain 6 h »).
+  `Cycle::clear_debt()` est la commande domaine prête ; son déclenchement (réveil à minuit, ou
+  comparaison `debt_recorded_at` au jour local au chargement — d'où la colonne persistée dès
+  maintenant, pour éviter une migration v3) entre au palier calendrier local.

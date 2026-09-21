@@ -5,6 +5,7 @@ use crate::clock::Instant;
 use crate::constants::IDLE_FREEZE;
 use crate::cycle::countdown::Countdown;
 use crate::cycle::state::CycleState;
+use crate::debt::PostureDebt;
 use crate::outcome::BreakOutcome;
 use crate::settings::{Rhythm, Severity};
 
@@ -17,6 +18,7 @@ pub struct Cycle {
     pending_severity: Option<Severity>,
     last_activity: Instant,
     outcomes: Vec<BreakOutcome>,
+    debt: PostureDebt,
 }
 
 impl Cycle {
@@ -32,7 +34,21 @@ impl Cycle {
             pending_severity: None,
             last_activity: now,
             outcomes: Vec::new(),
+            debt: PostureDebt::none(),
         }
+    }
+
+    pub fn with_debt(mut self, debt: PostureDebt) -> Self {
+        self.debt = debt;
+        self
+    }
+
+    pub fn debt(&self) -> PostureDebt {
+        self.debt
+    }
+
+    pub fn clear_debt(&mut self) {
+        self.debt.clear();
     }
 
     pub fn state(&self) -> CycleState {
