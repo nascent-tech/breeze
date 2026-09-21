@@ -1,6 +1,6 @@
 {
   "identifier": "overlay",
-  "description": "Les surfaces de pause lisent l'instantané du cycle. Elles n'envoient aucune commande.",
+  "description": "Les surfaces de pause lisent l'instantané et ne portent que le geste de sortie Hardcore (§8.5). Aucune autre commande.",
   "windows": ["overlay-*"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "allow-get-snapshot", "allow-interrupt-break"]
 }

@@ -177,6 +177,90 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the get_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-snapshot",
+          "markdownDescription": "Enables the get_snapshot command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the interrupt_break command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-interrupt-break",
+          "markdownDescription": "Enables the interrupt_break command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the quit command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-quit",
+          "markdownDescription": "Enables the quit command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the resume command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-resume",
+          "markdownDescription": "Enables the resume command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_rhythm command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-rhythm",
+          "markdownDescription": "Enables the set_rhythm command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_severity command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-severity",
+          "markdownDescription": "Enables the set_severity command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the suspend command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-suspend",
+          "markdownDescription": "Enables the suspend command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-snapshot",
+          "markdownDescription": "Denies the get_snapshot command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the interrupt_break command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-interrupt-break",
+          "markdownDescription": "Denies the interrupt_break command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the quit command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-quit",
+          "markdownDescription": "Denies the quit command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the resume command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-resume",
+          "markdownDescription": "Denies the resume command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_rhythm command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-rhythm",
+          "markdownDescription": "Denies the set_rhythm command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_severity command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-severity",
+          "markdownDescription": "Denies the set_severity command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the suspend command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-suspend",
+          "markdownDescription": "Denies the suspend command without any pre-configured scope."
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",
