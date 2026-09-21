@@ -51,16 +51,18 @@ impl Cycle {
 
     pub fn observe_activity(&mut self, at: Instant) {
         self.last_activity = at;
-        if let CycleState::Working {
+        let CycleState::Working {
             countdown: Countdown::Frozen { remaining },
         } = self.state
-        {
-            self.state = CycleState::Working {
-                countdown: Countdown::Running {
-                    deadline: at.plus(remaining),
-                },
-            };
-        }
+        else {
+            return;
+        };
+        let Some(deadline) = at.checked_plus(remaining) else {
+            return;
+        };
+        self.state = CycleState::Working {
+            countdown: Countdown::Running { deadline },
+        };
     }
 
     pub fn freeze_if_idle(&mut self, now: Instant) {
@@ -70,12 +72,16 @@ impl Cycle {
         else {
             return;
         };
-        if now.elapsed_since(self.last_activity) < IDLE_FREEZE {
+        if now.has_reached(deadline) {
+            return;
+        }
+        let freeze_at = self.last_activity.plus(IDLE_FREEZE);
+        if now < freeze_at {
             return;
         }
         self.state = CycleState::Working {
             countdown: Countdown::Frozen {
-                remaining: deadline.elapsed_since(now),
+                remaining: deadline.elapsed_since(freeze_at),
             },
         };
     }

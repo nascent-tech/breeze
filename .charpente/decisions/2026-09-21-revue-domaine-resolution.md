@@ -142,3 +142,24 @@ Dette **décidée**, reportée au palier ClockPort/échéance :
   actifs) — reviennent avec l'écran de réglages du rythme.
 - Nit accepté : `lib.rs` de l'hôte à 235 lignes (> 200) — à découper en `commands.rs`/`host.rs` au
   prochain passage sur l'hôte.
+
+## Palier 7 (gel d'inactivité §10.1) — revue Fable, corrections appliquées
+
+Verdict : corrections avant merge (0 Critique, 1 Majeur). **Appliqués** :
+- **M1** — `freeze_if_idle` ne gèle plus si l'échéance est déjà franchie (`now.has_reached(deadline)`) :
+  une pause due n'est jamais transformée en phase gelée (§10.1 « ce gel ne joue que tant que le
+  décompte n'a pas atteint zéro »). Tests `idleness_never_freezes_once_the_work_deadline_is_reached`,
+  `only_a_running_work_phase_freezes_not_the_notice`.
+- **m2** — le restant gelé est ancré sur `last_activity + IDLE_FREEZE` (l'instant où le seuil est
+  franchi), pas sur un `now` de tick en retard.
+- **m3** — dégel via `checked_plus`, cohérent avec `resume`.
+
+Contrat **consigné** (m1), à honorer par l'appelant :
+- **`freeze_if_idle` suppose une machine éveillée et déverrouillée.** Le domaine n'a pas ce signal ;
+  le futur `SessionSignalsPort` ne fournira l'inactivité *que* session éveillée, et fournira
+  `observe_activity(wake_at)` au réveil, faute de quoi une phase serait gelée par une veille — ce que
+  §10.1 réserve au §10.4. Le **second seuil** d'inactivité et la veille/verrouillage restent au palier
+  `session.rs`.
+- **Non câblé, décidé** : `Scheduler` n'appelle ni `freeze_if_idle` ni `observe_activity` ; l'app est
+  inchangée. Le câblage arrive avec `SessionSignalsPort` (adaptateurs OS). `CycleSnapshot` projettera
+  alors `Frozen` avec son restant (dette m4).

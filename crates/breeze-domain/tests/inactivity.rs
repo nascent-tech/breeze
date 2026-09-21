@@ -65,3 +65,32 @@ fn a_frozen_phase_never_reaches_a_break_on_its_own() {
     cycle.tick(Instant::EPOCH.plus(A_LONG_WHILE));
     assert!(is_frozen(&cycle));
 }
+
+#[test]
+fn idleness_never_freezes_once_the_work_deadline_is_reached() {
+    let r = rhythm();
+    let work = r.work().as_duration();
+    let mut cycle = Cycle::start(r, Severity::Simple, Instant::EPOCH);
+    cycle.freeze_if_idle(Instant::EPOCH.plus(work));
+    assert!(
+        matches!(
+            cycle.state(),
+            CycleState::Working {
+                countdown: Countdown::Running { .. }
+            }
+        ),
+        "a due break is never turned into a frozen phase"
+    );
+    cycle.tick(Instant::EPOCH.plus(work));
+    assert!(matches!(cycle.state(), CycleState::Notice { .. }));
+}
+
+#[test]
+fn only_a_running_work_phase_freezes_not_the_notice() {
+    let r = rhythm();
+    let notice_at = Instant::EPOCH.plus(r.work().as_duration());
+    let mut cycle = Cycle::start(r, Severity::Simple, Instant::EPOCH);
+    cycle.tick(notice_at);
+    cycle.freeze_if_idle(notice_at.plus(IDLE_FREEZE));
+    assert!(matches!(cycle.state(), CycleState::Notice { .. }));
+}
