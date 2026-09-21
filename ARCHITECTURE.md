@@ -137,7 +137,7 @@ API d'OS. Le domaine n'en importe aucun ; c'est `breeze-app` qui les consomme.
 | `AutostartPort` | Le lancement au démarrage | — |
 | `PersistencePort` | L'instantané, le journal borné, les statistiques 30 j, l'export | — |
 | `UpdateCheckPort` | La seule sortie réseau, désactivable | — |
-| `ClockPort` | Temps monotone, horloge murale, détection de saut (port du **domaine**) | — |
+| `ClockPort` | Temps monotone + horloge murale (port du **domaine**). La détection de saut est *stateful* et vit chez celui qui *poll* (palier absence/§10.7), pas dans l'adaptateur sans état | — |
 
 Deux choses ne sont **pas** des ports, car elles ne portent aucune décision du domaine : l'icône
 d'état et l'instance unique. Ce sont des adaptateurs de l'enveloppe Tauri. La présence de l'icône

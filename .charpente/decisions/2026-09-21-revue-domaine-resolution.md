@@ -89,8 +89,15 @@ Verdict initial : 1 Critique + 5 Majeurs — **tous corrigés** :
   deux tests sur `to_dto`.
 
 Dette nommée, à câbler à son palier :
-- **Horloge macOS** : `std::time::Instant` ne compte pas la veille → à remplacer par `ClockPort`
-  (adaptateur), avec le verdict d'absence §10.4. Le ticker de fond est provisoire.
+- **Horloge murale/monotone** : `ClockPort` est câblé au palier SystemClock (`breeze-bridge-common`,
+  `SystemClock` sur `std::time::Instant` + `SystemTime`). ⚠️ **Il ne compte PAS la veille** (`monotonic`
+  = `std::time::Instant`, macOS `CLOCK_UPTIME_RAW` / Linux `CLOCK_MONOTONIC`) : `monotonic()` ne peut
+  donc **pas** servir de source à `lasted` du verdict d'absence (§10.4). La source « boot time » (qui
+  compte la veille) reste à venir dans un adaptateur par plateforme : macOS `mach_continuous_time`,
+  Linux `CLOCK_BOOTTIME`, Windows `QueryInterruptTime` (la variante *biased*, qui inclut la veille ;
+  `QueryUnbiasedInterruptTime` l'exclut). La **détection de saut** (`ClockJump`) est **stateful**
+  (comparer le delta mural au delta monotone entre deux lectures) : elle vit chez celui qui *poll*
+  (palier absence/§10.7), pas dans l'adaptateur sans état. Le ticker de fond reste provisoire.
 - **Overlays réels** : encore `NullOverlay` — arrivent avec l'adaptateur macOS (fenêtres de niveau
   `CGShieldingWindowLevel`, `NSVisualEffectView` pour le vrai flou ; la transparence actuelle est du
   verre CSS). La notarisation reste le point bloquant à mesurer.
@@ -244,7 +251,7 @@ Conception **tranchée par Fable** avant le code (la logique la plus promesse-cr
 
 **Câblage : domaine + tests seulement.** Pas de `Scheduler`. Trois manques amont : `SessionSignalsPort`
 (aucun signal veille/verrouillage/inactivité), `ClockPort` (aucune source de `lasted` qui compte la
-veille — macOS `mach_continuous_time`, Linux `CLOCK_BOOTTIME`, Windows `QueryUnbiasedInterruptTime`),
+veille — macOS `mach_continuous_time`, Linux `CLOCK_BOOTTIME`, Windows `QueryInterruptTime`),
 et `lasted` doit être immunisé contre un `ClockJump::Backward` (changement d'heure ≠ absence, §10.6).
 `tests/absence.rs` : 21 tests (table complète par fonction pure — `Frozen`/`Due` construits
 directement — plus 4 d'intégration : crédit unique, ré-ancrage, consommation du pending).
@@ -287,3 +294,26 @@ module `cycle/machine/` — `mod.rs` (agrégat `Cycle` + construction + accesseu
 Les sous-modules sont descendants de `machine`, donc voient les champs privés ; les `enter_*` partagés
 entre `commands` et `transitions` passent en `pub(super)` (visibilité **bornée au module `machine`**,
 l'API publique de `Cycle` est inchangée). Aucun changement de logique.
+
+## Palier 12 (SystemClock / ClockPort) — revue Fable, corrections appliquées
+
+Adaptateur `SystemClock` (`breeze-bridge-common`) implémentant `ClockPort` (monotone via
+`std::time::Instant`, murale via `SystemTime`) ; l'hôte ne fabrique plus son temps (`now_since`/
+`SystemInstant` supprimés) et tient `clock: Arc<dyn ClockPort + Send + Sync>`, lu partout via
+`monotonic()`. `Cycle::start` prend `clock.monotonic()` (≈0 ms au démarrage, même source que toutes
+les lectures — strictement mieux que l'ancienne coïncidence `Instant::EPOCH == started`).
+
+Verdict Fable : **code mergeable tel quel** ; le seul point bloquant était **documentaire**.
+**Appliqués** :
+- **Majeur (doc)** — la dette « Horloge macOS » (ligne 92) réécrite : `SystemClock` **ne compte pas la
+  veille**, `monotonic()` ne peut pas servir de `lasted` (§10.4) ; source « boot time » à venir par
+  plateforme. `QueryUnbiasedInterruptTime` corrigé en `QueryInterruptTime` (l'*unbiased* exclut la
+  veille) ici et dans la note du palier absence. `ARCHITECTURE.md` : la « détection de saut » retirée
+  de la liste des responsabilités directes de `ClockPort` (stateful → palier absence/§10.7).
+- **Mineur (tests)** — `the_monotonic_reading_advances_with_time` (sommeil 5 ms, prouve l'élapsed réel,
+  l'ancien test passait trivialement à 0 ms) ; constante nommée `JAN_1_2020_UNIX_SECS` (plus de
+  commentaire français).
+
+RAS confirmés : `wall()` implémenté par contrat de port (pas YAGNI) ; seam `Arc<dyn ClockPort>` correct
+(concret confiné à `run()`) ; `unwrap_or(0)` de `wall()` non paniquant ; `ClockJump::Backward` hors
+périmètre de l'adaptateur sans état. Dette hôte : `src-tauri/src/lib.rs` ~254 lignes (>200), à découper.

@@ -1,15 +1,15 @@
 mod dto;
 
 use breeze_app::Scheduler;
-use breeze_bridge_common::SqliteStore;
+use breeze_bridge_common::{SqliteStore, SystemClock};
 use breeze_bridge_null::{NullDisplays, NullOverlay};
 use breeze_domain::constants::{MINUTES_PER_DAY, SECONDS_PER_MINUTE};
-use breeze_domain::{ActiveDays, CommandError, Cycle, Instant, Minutes, Rhythm, Severity};
+use breeze_domain::{ActiveDays, CommandError, Cycle, Minutes, Rhythm, Severity};
+use breeze_ports::ClockPort;
 use core::time::Duration;
 use dto::{to_dto, SnapshotDto};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Instant as SystemInstant;
 use tauri::Manager;
 
 const TICK: Duration = Duration::from_millis(250);
@@ -17,16 +17,12 @@ const DEFAULT_WORK: u16 = 50;
 const DEFAULT_PAUSE: u16 = 10;
 
 type Persistence = Arc<dyn breeze_ports::PersistencePort + Send + Sync>;
+type Clock = Arc<dyn ClockPort + Send + Sync>;
 
 struct AppState {
     scheduler: Arc<Mutex<Scheduler>>,
-    started: SystemInstant,
+    clock: Clock,
     persistence: Persistence,
-}
-
-fn now_since(started: SystemInstant) -> Instant {
-    let millis = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-    Instant::at_millis(millis)
 }
 
 fn parse_severity(name: &str) -> Option<Severity> {
@@ -74,7 +70,7 @@ fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>) {
 
 #[tauri::command]
 fn get_snapshot(state: tauri::State<'_, AppState>) -> SnapshotDto {
-    let now = now_since(state.started);
+    let now = state.clock.monotonic();
     let (snapshot, active, configured) = {
         let scheduler = lock(&state.scheduler);
         (
@@ -88,7 +84,7 @@ fn get_snapshot(state: tauri::State<'_, AppState>) -> SnapshotDto {
 
 #[tauri::command]
 fn suspend(state: tauri::State<'_, AppState>, minutes: u64) -> Result<(), String> {
-    let now = now_since(state.started);
+    let now = state.clock.monotonic();
     let capped = minutes.clamp(1, u64::from(MINUTES_PER_DAY));
     let resume_at = now.plus(Duration::from_secs(
         capped.saturating_mul(SECONDS_PER_MINUTE),
@@ -102,7 +98,7 @@ fn suspend(state: tauri::State<'_, AppState>, minutes: u64) -> Result<(), String
 
 #[tauri::command]
 fn resume(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let now = now_since(state.started);
+    let now = state.clock.monotonic();
     lock(&state.scheduler).resume(now).map_err(refusal)?;
     save_state(&state.persistence, &state.scheduler);
     Ok(())
@@ -144,18 +140,14 @@ fn quit(app: tauri::AppHandle) {
     app.exit(0);
 }
 
-fn spawn_ticker(
-    scheduler: Arc<Mutex<Scheduler>>,
-    started: SystemInstant,
-    persistence: Persistence,
-) {
+fn spawn_ticker(scheduler: Arc<Mutex<Scheduler>>, clock: Clock, persistence: Persistence) {
     thread::spawn(move || {
         let mut overlay = NullOverlay;
         let displays = NullDisplays;
         let mut last_served = 0;
         loop {
             thread::sleep(TICK);
-            let now = now_since(started);
+            let now = clock.monotonic();
             let served = lock(&scheduler)
                 .poll(now, &mut overlay, &displays)
                 .served_breaks;
@@ -222,17 +214,21 @@ pub fn run() {
         .setup(|app| {
             let store = open_store(app);
             let (rhythm, severity) = restore_rhythm(load_saved(&store));
-            let started = SystemInstant::now();
+            let clock: Clock = Arc::new(SystemClock::new());
             let scheduler = Arc::new(Mutex::new(Scheduler::new(Cycle::start(
                 rhythm,
                 severity,
-                Instant::EPOCH,
+                clock.monotonic(),
             ))));
             let persistence: Persistence = Arc::new(store);
-            spawn_ticker(Arc::clone(&scheduler), started, Arc::clone(&persistence));
+            spawn_ticker(
+                Arc::clone(&scheduler),
+                Arc::clone(&clock),
+                Arc::clone(&persistence),
+            );
             app.manage(AppState {
                 scheduler,
-                started,
+                clock,
                 persistence,
             });
             Ok(())
