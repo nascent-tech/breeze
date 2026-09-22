@@ -3,7 +3,7 @@ mod bridge;
 mod dto;
 mod settings;
 
-use breeze_app::Scheduler;
+use breeze_app::{CyclePhase, Scheduler};
 use breeze_bridge_common::{SqliteStore, SystemClock};
 use breeze_bridge_null::NullSessionSignals;
 #[cfg(not(target_os = "macos"))]
@@ -18,20 +18,27 @@ use breeze_ports::SessionSignalsPort;
 use breeze_ports::{AccessibilityPermissionPort, InstalledAppsPort};
 use core::time::Duration;
 use dto::{to_dto, SnapshotDto};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::Manager;
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 const TICK: Duration = Duration::from_millis(250);
 const DEFAULT_WORK: u16 = 50;
 const DEFAULT_PAUSE: u16 = 10;
+const TRAY_ID: &str = "breeze-tray";
+pub(crate) const FLAG_SOUNDS: &str = "sounds";
+pub(crate) const FLAG_MENUBAR_TEXT: &str = "menubar_text";
+const PANEL_SHORTCUT: &str = "Alt+Cmd+B";
 
 type Persistence = Arc<dyn breeze_ports::PersistencePort + Send + Sync>;
 type Clock = Arc<dyn ClockPort + Send + Sync>;
 type InstalledApps = Arc<dyn InstalledAppsPort>;
 type Accessibility = Arc<dyn AccessibilityPermissionPort>;
+type Toggle = Arc<AtomicBool>;
 
 pub(crate) struct AppState {
     pub(crate) scheduler: Arc<Mutex<Scheduler>>,
@@ -40,6 +47,8 @@ pub(crate) struct AppState {
     pub(crate) installed_apps: InstalledApps,
     pub(crate) accessibility: Accessibility,
     pub(crate) spared: Arc<Mutex<SparedApps>>,
+    pub(crate) sounds: Toggle,
+    pub(crate) menubar_text: Toggle,
 }
 
 fn parse_severity(name: &str) -> Option<Severity> {
@@ -178,11 +187,17 @@ fn quit(app: tauri::AppHandle, state: tauri::State<'_, AppState>) {
     app.exit(0);
 }
 
+struct TickerToggles {
+    sounds: Toggle,
+    menubar_text: Toggle,
+}
+
 fn spawn_ticker(
     app: tauri::AppHandle,
     scheduler: Arc<Mutex<Scheduler>>,
     clock: Clock,
     persistence: Persistence,
+    toggles: TickerToggles,
 ) {
     thread::spawn(move || {
         let monitors = bridge::MonitorCache::default();
@@ -190,25 +205,88 @@ fn spawn_ticker(
         let displays = bridge::TauriDisplays::new(monitors.clone());
         let mut signals = NullSessionSignals;
         let mut last_served = 0;
+        let mut last_phase = CyclePhase::Inactive;
         loop {
             thread::sleep(TICK);
             // Invariant : aucun getter Tauri bloquant tant que `scheduler` est verrouillé
             // (sinon interblocage avec une commande synchrone sur le thread principal).
             monitors.refresh_from_main_thread(&app);
             let now = clock.monotonic();
-            // Relevé hors du verrou : l'invariant « aucun appel bloquant sous le verrou »
-            // vaut aussi pour un futur adaptateur de session (D-Bus, etc.).
             let reading = signals.poll(now);
-            let served = lock(&scheduler)
-                .poll(now, &mut overlay, &displays, reading)
-                .served_breaks;
-            if served != last_served {
-                last_served = served;
+            let snapshot = {
+                let mut scheduler = lock(&scheduler);
+                scheduler.poll(now, &mut overlay, &displays, reading);
+                scheduler.snapshot()
+            };
+            if snapshot.served_breaks != last_served {
+                last_served = snapshot.served_breaks;
                 save_state(&persistence, &scheduler, &clock);
+            }
+            update_tray_title(
+                &app,
+                &snapshot,
+                now,
+                toggles.menubar_text.load(Ordering::Relaxed),
+            );
+            if snapshot.phase != last_phase {
+                if toggles.sounds.load(Ordering::Relaxed) {
+                    chime_for_transition(last_phase, snapshot.phase);
+                }
+                last_phase = snapshot.phase;
             }
         }
     });
 }
+
+fn update_tray_title(
+    app: &tauri::AppHandle,
+    snapshot: &breeze_app::CycleSnapshot,
+    now: breeze_domain::Instant,
+    show_countdown: bool,
+) {
+    let Some(tray) = app.tray_by_id(TRAY_ID) else {
+        return;
+    };
+    let title = if show_countdown {
+        countdown_title(snapshot, now)
+    } else {
+        String::new()
+    };
+    let _ = tray.set_title(Some(title));
+}
+
+fn countdown_title(snapshot: &breeze_app::CycleSnapshot, now: breeze_domain::Instant) -> String {
+    match snapshot.phase {
+        CyclePhase::Working | CyclePhase::Notice | CyclePhase::Break => snapshot
+            .deadline
+            .map(|deadline| {
+                let secs = deadline.elapsed_since(now).as_secs();
+                format!("{}:{:02}", secs / 60, secs % 60)
+            })
+            .unwrap_or_default(),
+        _ => String::new(),
+    }
+}
+
+// Carillon discret aux bornes de la pause. Non bloquant ; l'échec est ignoré.
+#[cfg(target_os = "macos")]
+fn chime_for_transition(previous: CyclePhase, current: CyclePhase) {
+    let sound = if current == CyclePhase::Break {
+        Some("/System/Library/Sounds/Glass.aiff")
+    } else if previous == CyclePhase::Break {
+        Some("/System/Library/Sounds/Ping.aiff")
+    } else {
+        None
+    };
+    if let Some(path) = sound {
+        let _ = std::process::Command::new("/usr/bin/afplay")
+            .arg(path)
+            .spawn();
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn chime_for_transition(_previous: CyclePhase, _current: CyclePhase) {}
 
 fn default_rhythm() -> Rhythm {
     Rhythm::new(
@@ -301,7 +379,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let settings = MenuItem::with_id(app, "settings", "Réglages…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quitter Breeze", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&open, &settings, &quit])?;
-    let mut builder = TrayIconBuilder::new()
+    let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_panel(app),
@@ -360,8 +438,30 @@ fn app_adapters() -> (InstalledApps, Accessibility) {
     (Arc::new(NullInstalledApps), Arc::new(NullAccessibility))
 }
 
+fn flag_or(persistence: &Persistence, key: &str, default: bool) -> bool {
+    persistence.flag(key).ok().flatten().unwrap_or(default)
+}
+
+fn register_panel_shortcut(app: &tauri::App) {
+    let outcome = app
+        .global_shortcut()
+        .on_shortcut(PANEL_SHORTCUT, |app, _shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
+                show_panel(app);
+            }
+        });
+    if let Err(error) = outcome {
+        eprintln!("breeze: could not register panel shortcut: {error}");
+    }
+}
+
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             let store = open_store(app);
             let (rhythm, severity, debt) = restore(load_saved(&store));
@@ -373,14 +473,26 @@ pub fn run() {
             let spared = Arc::new(Mutex::new(SparedApps::from_pairs(load_app_statuses(
                 &persistence,
             ))));
+            let sounds: Toggle =
+                Arc::new(AtomicBool::new(flag_or(&persistence, FLAG_SOUNDS, true)));
+            let menubar_text: Toggle = Arc::new(AtomicBool::new(flag_or(
+                &persistence,
+                FLAG_MENUBAR_TEXT,
+                true,
+            )));
             let (installed_apps, accessibility) = app_adapters();
             spawn_ticker(
                 app.handle().clone(),
                 Arc::clone(&scheduler),
                 Arc::clone(&clock),
                 Arc::clone(&persistence),
+                TickerToggles {
+                    sounds: Arc::clone(&sounds),
+                    menubar_text: Arc::clone(&menubar_text),
+                },
             );
             build_tray(app)?;
+            register_panel_shortcut(app);
             open_onboarding_if_first_run(app, &persistence);
             app.manage(AppState {
                 scheduler,
@@ -389,6 +501,8 @@ pub fn run() {
                 installed_apps,
                 accessibility,
                 spared,
+                sounds,
+                menubar_text,
             });
             Ok(())
         })
@@ -411,7 +525,10 @@ pub fn run() {
             settings::set_active_days,
             settings::set_schedule,
             settings::set_update_check,
-            settings::reset_settings
+            settings::reset_settings,
+            settings::set_launch_at_login,
+            settings::set_sounds,
+            settings::set_menubar_mode
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Breeze desktop host")

@@ -9,9 +9,13 @@
     "allow-request-accessibility",
     "allow-accessibility-status",
     "allow-get-settings",
+    "allow-set-rhythm",
     "allow-set-active-days",
     "allow-set-schedule",
     "allow-set-update-check",
-    "allow-reset-settings"
+    "allow-reset-settings",
+    "allow-set-launch-at-login",
+    "allow-set-sounds",
+    "allow-set-menubar-mode"
   ]
 }
