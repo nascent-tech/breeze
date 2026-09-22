@@ -9,8 +9,6 @@
     "allow-request-accessibility",
     "allow-accessibility-status",
     "allow-get-settings",
-    "allow-set-rhythm",
-    "allow-set-severity",
     "allow-set-active-days",
     "allow-set-schedule",
     "allow-set-update-check",

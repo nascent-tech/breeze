@@ -76,6 +76,7 @@ pub(crate) fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>
             scheduler.debt(),
         )
     };
+    let schedule = rhythm.schedule();
     let state = breeze_ports::PersistedState {
         work_minutes: rhythm.work().count(),
         pause_minutes: rhythm.pause().count(),
@@ -83,6 +84,9 @@ pub(crate) fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>
         served_breaks: served,
         debt_seconds: u32::try_from(debt.total().as_secs()).unwrap_or(u32::MAX),
         debt_recorded_at_unix: clock.wall().as_unix_secs(),
+        active_days: rhythm.active_days().mask(),
+        schedule_start: schedule.map(breeze_domain::TimeRange::start),
+        schedule_end: schedule.map(breeze_domain::TimeRange::end),
     };
     if let Err(error) = persistence.save(state) {
         eprintln!("breeze: could not persist state: {}", error.0);
@@ -220,11 +224,16 @@ fn restore(saved: Option<breeze_ports::PersistedState>) -> (Rhythm, Severity, Po
     let Some(saved) = saved else {
         return (default_rhythm(), Severity::Simple, PostureDebt::none());
     };
+    let days = ActiveDays::from_mask(saved.active_days).unwrap_or_else(|_| ActiveDays::everyday());
+    let schedule = match (saved.schedule_start, saved.schedule_end) {
+        (Some(start), Some(end)) => breeze_domain::TimeRange::from_minutes(start, end).ok(),
+        _ => None,
+    };
     let rhythm = Rhythm::new(
         Minutes(saved.work_minutes),
         Minutes(saved.pause_minutes),
-        None,
-        ActiveDays::everyday(),
+        schedule,
+        days,
     )
     .unwrap_or_else(|_| default_rhythm());
     let debt = PostureDebt::restore(Duration::from_secs(u64::from(saved.debt_seconds)));

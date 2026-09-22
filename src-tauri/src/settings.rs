@@ -46,10 +46,17 @@ pub fn get_settings(state: State<'_, AppState>) -> SettingsDto {
     }
 }
 
-fn apply_rhythm(state: &State<'_, AppState>, rhythm: Rhythm) -> Result<(), String> {
-    lock(&state.scheduler)
-        .change_rhythm(rhythm)
-        .map_err(refusal)?;
+// Lit le rythme configuré et applique le rythme reconstruit SOUS UN SEUL VERROU :
+// un réglage concurrent (fenêtre onboarding) ne peut pas écraser des champs périmés.
+fn rebuild_rhythm<F>(state: &State<'_, AppState>, build: F) -> Result<(), String>
+where
+    F: FnOnce(Rhythm) -> Result<Rhythm, String>,
+{
+    {
+        let mut scheduler = lock(&state.scheduler);
+        let rhythm = build(scheduler.configured_rhythm())?;
+        scheduler.change_rhythm(rhythm).map_err(refusal)?;
+    }
     save_state(&state.persistence, &state.scheduler, &state.clock);
     Ok(())
 }
@@ -57,10 +64,10 @@ fn apply_rhythm(state: &State<'_, AppState>, rhythm: Rhythm) -> Result<(), Strin
 #[tauri::command]
 pub fn set_active_days(state: State<'_, AppState>, mask: u8) -> Result<(), String> {
     let days = ActiveDays::from_mask(mask).map_err(|_| "invalid-active-days".to_owned())?;
-    let current = lock(&state.scheduler).configured_rhythm();
-    let rhythm = Rhythm::new(current.work(), current.pause(), current.schedule(), days)
-        .map_err(|_| "invalid-rhythm".to_owned())?;
-    apply_rhythm(&state, rhythm)
+    rebuild_rhythm(&state, |current| {
+        Rhythm::new(current.work(), current.pause(), current.schedule(), days)
+            .map_err(|_| "invalid-rhythm".to_owned())
+    })
 }
 
 #[tauri::command]
@@ -75,15 +82,15 @@ pub fn set_schedule(
     } else {
         None
     };
-    let current = lock(&state.scheduler).configured_rhythm();
-    let rhythm = Rhythm::new(
-        current.work(),
-        current.pause(),
-        schedule,
-        current.active_days(),
-    )
-    .map_err(|_| "invalid-rhythm".to_owned())?;
-    apply_rhythm(&state, rhythm)
+    rebuild_rhythm(&state, |current| {
+        Rhythm::new(
+            current.work(),
+            current.pause(),
+            schedule,
+            current.active_days(),
+        )
+        .map_err(|_| "invalid-rhythm".to_owned())
+    })
 }
 
 #[tauri::command]
@@ -106,20 +113,22 @@ pub fn reset_settings(state: State<'_, AppState>) -> Result<(), String> {
         ActiveDays::everyday(),
     )
     .map_err(|_| "invalid-rhythm".to_owned())?;
+    // La persistance qui peut échouer d'abord : si le disque refuse, l'état en mémoire
+    // (rythme, sévérité, apps) reste inchangé — pas de réinitialisation partielle.
+    let mut spared = state.spared.lock().unwrap_or_else(|e| e.into_inner());
+    if let Err(error) = state.persistence.replace_app_statuses(&[]) {
+        eprintln!("breeze: could not clear app statuses: {}", error.0);
+        return Err("persistence-failed".to_owned());
+    }
+    *spared = breeze_domain::SparedApps::new();
     {
         let mut scheduler = lock(&state.scheduler);
         scheduler.change_rhythm(rhythm).map_err(refusal)?;
         let _ = scheduler.change_severity(Severity::Simple);
     }
-    let mut spared = state.spared.lock().unwrap_or_else(|e| e.into_inner());
-    let snapshot = spared.clone();
-    *spared = breeze_domain::SparedApps::new();
-    if let Err(error) = state.persistence.replace_app_statuses(&[]) {
-        *spared = snapshot;
-        eprintln!("breeze: could not clear app statuses: {}", error.0);
-        return Err("persistence-failed".to_owned());
+    if let Err(error) = state.persistence.set_update_check(true) {
+        eprintln!("breeze: could not reset update-check flag: {}", error.0);
     }
-    let _ = state.persistence.set_update_check(true);
     save_state(&state.persistence, &state.scheduler, &state.clock);
     Ok(())
 }

@@ -276,8 +276,8 @@ function applySettings(s) {
   const workKnob = document.getElementById("rhythm-work-knob");
   const pauseFill = document.getElementById("rhythm-pause-fill");
   const pauseKnob = document.getElementById("rhythm-pause-knob");
-  if (work) work.innerHTML = `${s.work_minutes}&nbsp;min`;
-  if (pause) pause.innerHTML = `${s.pause_minutes}&nbsp;min`;
+  if (work) work.textContent = `${s.work_minutes} min`;
+  if (pause) pause.textContent = `${s.pause_minutes} min`;
   const workPct = Math.round(((s.work_minutes - WORK_MIN) / (WORK_MAX - WORK_MIN)) * 100);
   const pausePct = Math.round(((s.pause_minutes - PAUSE_MIN) / (PAUSE_MAX - PAUSE_MIN)) * 100);
   if (workFill) workFill.style.width = `${workPct}%`;
@@ -365,5 +365,17 @@ if (resetButton) {
     }
   });
 }
+
+// Entrée/Espace activent les contrôles à rôle bouton/switch (parité clavier).
+["schedule-switch", "update-check-switch", "reset-settings"].forEach((id) => {
+  const control = document.getElementById(id);
+  if (!control) return;
+  control.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      control.click();
+    }
+  });
+});
 
 loadSettings();
