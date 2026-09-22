@@ -179,6 +179,22 @@ impl PersistencePort for SqliteStore {
             .unwrap_or_else(PoisonError::into_inner);
         sqlite_meta::mark_onboarding_done(&connection)
     }
+
+    fn is_update_check_enabled(&self) -> Result<bool, PersistenceError> {
+        let connection = self
+            .connection
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        sqlite_meta::is_update_check_enabled(&connection)
+    }
+
+    fn set_update_check(&self, enabled: bool) -> Result<(), PersistenceError> {
+        let connection = self
+            .connection
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        sqlite_meta::set_update_check(&connection, enabled)
+    }
 }
 
 #[cfg(test)]

@@ -135,7 +135,7 @@
                   <span class="t-label">Vérifier les mises à jour</span>
                   <span class="t-caption">La seule sortie réseau de Breeze&nbsp;: envoie la version installée et ton adresse IP au serveur de publication, rien d’autre. Désactivé, Breeze ne contacte jamais aucun serveur.</span>
                 </div>
-                <span class="switch on"></span>
+                <span id="update-check-switch" class="switch on" role="switch" aria-checked="true" tabindex="0" style="cursor: default"></span>
               </div>
             </div>
             <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
@@ -144,7 +144,7 @@
                   <span class="t-label">Réinitialiser les réglages</span>
                   <span class="t-caption">Revient à 50/10, Mode Simple, toutes les applications bloquées. Les statistiques sont conservées.</span>
                 </div>
-                <span class="btn btn-secondary btn-sm">Réinitialiser&hellip;</span>
+                <span id="reset-settings" class="btn btn-secondary btn-sm" role="button" tabindex="0">Réinitialiser&hellip;</span>
               </div>
             </div>
           </section>
@@ -158,13 +158,13 @@
             <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 16px">
               <div style="display: flex; align-items: center; gap: 16px">
                 <span class="t-label" style="width: 104px; flex: none">Travail</span>
-                <div class="slidertrack" style="flex: 1"><div class="sliderfill" style="width: 26%"></div><div class="sliderknob" style="left: calc(26% - 10px)"></div></div>
-                <span class="num t-label" style="width: 56px; text-align: right">50&nbsp;min</span>
+                <div class="slidertrack" style="flex: 1"><div id="rhythm-work-fill" class="sliderfill" style="width: 26%"></div><div id="rhythm-work-knob" class="sliderknob" style="left: calc(26% - 10px)"></div></div>
+                <span id="rhythm-work-value" class="num t-label" style="width: 56px; text-align: right">50&nbsp;min</span>
               </div>
               <div style="display: flex; align-items: center; gap: 16px">
                 <span class="t-label" style="width: 104px; flex: none">Pause</span>
-                <div class="slidertrack" style="flex: 1"><div class="sliderfill" style="width: 15%"></div><div class="sliderknob" style="left: calc(15% - 10px)"></div></div>
-                <span class="num t-label" style="width: 56px; text-align: right">10&nbsp;min</span>
+                <div class="slidertrack" style="flex: 1"><div id="rhythm-pause-fill" class="sliderfill" style="width: 15%"></div><div id="rhythm-pause-knob" class="sliderknob" style="left: calc(15% - 10px)"></div></div>
+                <span id="rhythm-pause-value" class="num t-label" style="width: 56px; text-align: right">10&nbsp;min</span>
               </div>
               <div class="t-caption" style="color: var(--ink-3)">Travail&nbsp;: 5 à 180&nbsp;min &middot; Pause&nbsp;: 1 à 60&nbsp;min, jamais plus longue que le travail.</div>
             </div>
@@ -174,12 +174,12 @@
                   <span class="t-label">Plage horaire</span>
                   <span class="t-caption">Hors de la plage, le cycle est inactif. Une pause commencée va à son terme&nbsp;; une plage peut traverser minuit.</span>
                 </div>
-                <span class="switch on"></span>
+                <span id="schedule-switch" class="switch on" role="switch" aria-checked="true" tabindex="0" style="cursor: default"></span>
               </div>
               <div style="display: flex; align-items: center; gap: 10px">
-                <span class="chip chip-neutral num" style="height: 30px; font-size: 13px">09:00</span>
+                <span id="schedule-start" class="chip chip-neutral num" style="height: 30px; font-size: 13px">09:00</span>
                 <span class="t-caption" style="color: var(--ink-3)">à</span>
-                <span class="chip chip-neutral num" style="height: 30px; font-size: 13px">18:30</span>
+                <span id="schedule-end" class="chip chip-neutral num" style="height: 30px; font-size: 13px">18:30</span>
               </div>
             </div>
             <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
@@ -388,11 +388,6 @@
             <div class="card" style="padding: 4px 14px; display: flex; flex-direction: column">
               <div class="rowitem" style="min-height: 44px; padding: 6px 4px">
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span class="t-label">Le cycle et le préavis</span><span class="t-caption">Travail, préavis d’une minute, pause, puis le cycle suivant.</span></div>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
-              </div>
-              <div class="divider"></div>
-              <div class="rowitem" style="min-height: 44px; padding: 6px 4px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span class="t-label">Le budget de report</span><span class="t-caption">Ce qui le débite, quand il se recharge, pourquoi un bouton se grise.</span></div>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
               </div>
               <div class="divider"></div>

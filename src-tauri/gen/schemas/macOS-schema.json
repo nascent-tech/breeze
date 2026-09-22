@@ -189,6 +189,12 @@
           "markdownDescription": "Enables the finish_onboarding command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-settings",
+          "markdownDescription": "Enables the get_settings command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_snapshot command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-snapshot",
@@ -225,10 +231,22 @@
           "markdownDescription": "Enables the request_accessibility command without any pre-configured scope."
         },
         {
+          "description": "Enables the reset_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-reset-settings",
+          "markdownDescription": "Enables the reset_settings command without any pre-configured scope."
+        },
+        {
           "description": "Enables the resume command without any pre-configured scope.",
           "type": "string",
           "const": "allow-resume",
           "markdownDescription": "Enables the resume command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_active_days command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-active-days",
+          "markdownDescription": "Enables the set_active_days command without any pre-configured scope."
         },
         {
           "description": "Enables the set_app_status command without any pre-configured scope.",
@@ -243,6 +261,12 @@
           "markdownDescription": "Enables the set_rhythm command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_schedule command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-schedule",
+          "markdownDescription": "Enables the set_schedule command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_severity command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-severity",
@@ -253,6 +277,12 @@
           "type": "string",
           "const": "allow-set-spared-apps",
           "markdownDescription": "Enables the set_spared_apps command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_update_check command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-update-check",
+          "markdownDescription": "Enables the set_update_check command without any pre-configured scope."
         },
         {
           "description": "Enables the suspend command without any pre-configured scope.",
@@ -271,6 +301,12 @@
           "type": "string",
           "const": "deny-finish-onboarding",
           "markdownDescription": "Denies the finish_onboarding command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-settings",
+          "markdownDescription": "Denies the get_settings command without any pre-configured scope."
         },
         {
           "description": "Denies the get_snapshot command without any pre-configured scope.",
@@ -309,10 +345,22 @@
           "markdownDescription": "Denies the request_accessibility command without any pre-configured scope."
         },
         {
+          "description": "Denies the reset_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-reset-settings",
+          "markdownDescription": "Denies the reset_settings command without any pre-configured scope."
+        },
+        {
           "description": "Denies the resume command without any pre-configured scope.",
           "type": "string",
           "const": "deny-resume",
           "markdownDescription": "Denies the resume command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_active_days command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-active-days",
+          "markdownDescription": "Denies the set_active_days command without any pre-configured scope."
         },
         {
           "description": "Denies the set_app_status command without any pre-configured scope.",
@@ -327,6 +375,12 @@
           "markdownDescription": "Denies the set_rhythm command without any pre-configured scope."
         },
         {
+          "description": "Denies the set_schedule command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-schedule",
+          "markdownDescription": "Denies the set_schedule command without any pre-configured scope."
+        },
+        {
           "description": "Denies the set_severity command without any pre-configured scope.",
           "type": "string",
           "const": "deny-set-severity",
@@ -337,6 +391,12 @@
           "type": "string",
           "const": "deny-set-spared-apps",
           "markdownDescription": "Denies the set_spared_apps command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_update_check command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-update-check",
+          "markdownDescription": "Denies the set_update_check command without any pre-configured scope."
         },
         {
           "description": "Denies the suspend command without any pre-configured scope.",

@@ -12,4 +12,7 @@ pub trait PersistencePort {
     // Le parcours de première utilisation a-t-il été mené à son terme ?
     fn is_onboarding_done(&self) -> Result<bool, PersistenceError>;
     fn mark_onboarding_done(&self) -> Result<(), PersistenceError>;
+    // La vérification de mise à jour (seule sortie réseau) est-elle activée ? Défaut : oui.
+    fn is_update_check_enabled(&self) -> Result<bool, PersistenceError>;
+    fn set_update_check(&self, enabled: bool) -> Result<(), PersistenceError>;
 }

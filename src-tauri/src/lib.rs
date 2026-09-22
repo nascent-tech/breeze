@@ -1,6 +1,7 @@
 mod apps;
 mod bridge;
 mod dto;
+mod settings;
 
 use breeze_app::Scheduler;
 use breeze_bridge_common::{SqliteStore, SystemClock};
@@ -49,7 +50,7 @@ fn parse_severity(name: &str) -> Option<Severity> {
     }
 }
 
-fn refusal(error: CommandError) -> String {
+pub(crate) fn refusal(error: CommandError) -> String {
     match error {
         CommandError::BreakDue => "break-due",
         CommandError::NotSuspendable => "not-suspendable",
@@ -59,13 +60,13 @@ fn refusal(error: CommandError) -> String {
     .to_owned()
 }
 
-fn lock(scheduler: &Mutex<Scheduler>) -> std::sync::MutexGuard<'_, Scheduler> {
+pub(crate) fn lock(scheduler: &Mutex<Scheduler>) -> std::sync::MutexGuard<'_, Scheduler> {
     scheduler
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>, clock: &Clock) {
+pub(crate) fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>, clock: &Clock) {
     let (rhythm, severity, served, debt) = {
         let scheduler = lock(scheduler);
         (
@@ -396,7 +397,12 @@ pub fn run() {
             apps::request_accessibility,
             apps::accessibility_status,
             apps::open_settings,
-            apps::finish_onboarding
+            apps::finish_onboarding,
+            settings::get_settings,
+            settings::set_active_days,
+            settings::set_schedule,
+            settings::set_update_check,
+            settings::reset_settings
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Breeze desktop host")
