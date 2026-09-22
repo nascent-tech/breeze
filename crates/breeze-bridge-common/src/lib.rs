@@ -2,6 +2,7 @@
 
 mod sqlite_app_statuses;
 mod sqlite_error;
+mod sqlite_meta;
 mod sqlite_store;
 mod system_clock;
 

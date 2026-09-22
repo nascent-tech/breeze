@@ -19,6 +19,8 @@ use core::time::Duration;
 use dto::{to_dto, SnapshotDto};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::TrayIconBuilder;
 use tauri::Manager;
 
 const TICK: Duration = Duration::from_millis(250);
@@ -266,6 +268,73 @@ fn load_app_statuses(
     }
 }
 
+fn graceful_quit(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<AppState>() {
+        let now = state.clock.monotonic();
+        lock(&state.scheduler).terminate(now, InterruptionDoor::TrayMenu);
+        save_state(&state.persistence, &state.scheduler, &state.clock);
+    }
+    app.exit(0);
+}
+
+fn show_panel(app: &tauri::AppHandle) {
+    if let Some(panel) = app.get_webview_window("panel") {
+        let _ = panel.show();
+        let _ = panel.set_focus();
+    }
+}
+
+// Icône d'état : ouvre le panneau, les réglages, ou quitte proprement. Ce n'est pas
+// un port (aucune décision du domaine) — pur adaptateur de l'enveloppe Tauri.
+fn build_tray(app: &tauri::App) -> tauri::Result<()> {
+    let open = MenuItem::with_id(app, "open", "Ouvrir Breeze", true, None::<&str>)?;
+    let settings = MenuItem::with_id(app, "settings", "Réglages…", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quitter Breeze", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &settings, &quit])?;
+    let mut builder = TrayIconBuilder::new()
+        .menu(&menu)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "open" => show_panel(app),
+            "settings" => {
+                if let Err(error) = apps::open_settings(app.clone()) {
+                    eprintln!("breeze: could not open settings: {error}");
+                }
+            }
+            "quit" => graceful_quit(app),
+            _ => {}
+        });
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+    builder.build(app)?;
+    Ok(())
+}
+
+fn open_onboarding_if_first_run(app: &tauri::App, persistence: &Persistence) {
+    match persistence.is_onboarding_done() {
+        Ok(true) => {}
+        Ok(false) => spawn_onboarding_window(app.handle()),
+        Err(error) => eprintln!("breeze: could not read onboarding flag: {}", error.0),
+    }
+}
+
+fn spawn_onboarding_window(app: &tauri::AppHandle) {
+    let built = tauri::WebviewWindowBuilder::new(
+        app,
+        "onboarding",
+        tauri::WebviewUrl::App("onboarding.html".into()),
+    )
+    .title("Bienvenue dans Breeze")
+    .inner_size(680.0, 820.0)
+    .resizable(false)
+    .center()
+    .focused(true)
+    .build();
+    if let Err(error) = built {
+        eprintln!("breeze: could not open onboarding: {error}");
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn app_adapters() -> (InstalledApps, Accessibility) {
     (
@@ -301,6 +370,8 @@ pub fn run() {
                 Arc::clone(&clock),
                 Arc::clone(&persistence),
             );
+            build_tray(app)?;
+            open_onboarding_if_first_run(app, &persistence);
             app.manage(AppState {
                 scheduler,
                 clock,
@@ -321,9 +392,11 @@ pub fn run() {
             quit,
             apps::list_installed_apps,
             apps::set_app_status,
+            apps::set_spared_apps,
             apps::request_accessibility,
             apps::accessibility_status,
-            apps::open_settings
+            apps::open_settings,
+            apps::finish_onboarding
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Breeze desktop host")
