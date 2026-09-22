@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+mod sqlite_app_statuses;
+mod sqlite_error;
 mod sqlite_store;
 mod system_clock;
 

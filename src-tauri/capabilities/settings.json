@@ -1,0 +1,12 @@
+{
+  "identifier": "settings",
+  "description": "La fenêtre de réglages lit le catalogue d'applications installées, écrit leur statut de pause, et lit/demande la permission d'Accessibilité. Aucune commande du cycle.",
+  "windows": ["settings"],
+  "permissions": [
+    "core:default",
+    "allow-list-installed-apps",
+    "allow-set-app-status",
+    "allow-request-accessibility",
+    "allow-accessibility-status"
+  ]
+}

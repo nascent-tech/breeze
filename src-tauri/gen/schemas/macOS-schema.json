@@ -177,6 +177,12 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the accessibility_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-accessibility-status",
+          "markdownDescription": "Enables the accessibility_status command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_snapshot command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-snapshot",
@@ -189,16 +195,40 @@
           "markdownDescription": "Enables the interrupt_break command without any pre-configured scope."
         },
         {
+          "description": "Enables the list_installed_apps command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-installed-apps",
+          "markdownDescription": "Enables the list_installed_apps command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-settings",
+          "markdownDescription": "Enables the open_settings command without any pre-configured scope."
+        },
+        {
           "description": "Enables the quit command without any pre-configured scope.",
           "type": "string",
           "const": "allow-quit",
           "markdownDescription": "Enables the quit command without any pre-configured scope."
         },
         {
+          "description": "Enables the request_accessibility command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-request-accessibility",
+          "markdownDescription": "Enables the request_accessibility command without any pre-configured scope."
+        },
+        {
           "description": "Enables the resume command without any pre-configured scope.",
           "type": "string",
           "const": "allow-resume",
           "markdownDescription": "Enables the resume command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_app_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-app-status",
+          "markdownDescription": "Enables the set_app_status command without any pre-configured scope."
         },
         {
           "description": "Enables the set_rhythm command without any pre-configured scope.",
@@ -219,6 +249,12 @@
           "markdownDescription": "Enables the suspend command without any pre-configured scope."
         },
         {
+          "description": "Denies the accessibility_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-accessibility-status",
+          "markdownDescription": "Denies the accessibility_status command without any pre-configured scope."
+        },
+        {
           "description": "Denies the get_snapshot command without any pre-configured scope.",
           "type": "string",
           "const": "deny-get-snapshot",
@@ -231,16 +267,40 @@
           "markdownDescription": "Denies the interrupt_break command without any pre-configured scope."
         },
         {
+          "description": "Denies the list_installed_apps command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-installed-apps",
+          "markdownDescription": "Denies the list_installed_apps command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-settings",
+          "markdownDescription": "Denies the open_settings command without any pre-configured scope."
+        },
+        {
           "description": "Denies the quit command without any pre-configured scope.",
           "type": "string",
           "const": "deny-quit",
           "markdownDescription": "Denies the quit command without any pre-configured scope."
         },
         {
+          "description": "Denies the request_accessibility command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-request-accessibility",
+          "markdownDescription": "Denies the request_accessibility command without any pre-configured scope."
+        },
+        {
           "description": "Denies the resume command without any pre-configured scope.",
           "type": "string",
           "const": "deny-resume",
           "markdownDescription": "Denies the resume command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_app_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-app-status",
+          "markdownDescription": "Denies the set_app_status command without any pre-configured scope."
         },
         {
           "description": "Denies the set_rhythm command without any pre-configured scope.",

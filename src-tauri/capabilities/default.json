@@ -10,6 +10,7 @@
     "allow-interrupt-break",
     "allow-set-severity",
     "allow-set-rhythm",
+    "allow-open-settings",
     "allow-quit"
   ]
 }

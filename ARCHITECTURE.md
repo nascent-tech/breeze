@@ -138,6 +138,13 @@ API d'OS. Le domaine n'en importe aucun ; c'est `breeze-app` qui les consomme.
 | `PersistencePort` | L'instantané, le journal borné, les statistiques 30 j, l'export | — |
 | `UpdateCheckPort` | La seule sortie réseau, désactivable | — |
 | `ClockPort` | Temps monotone + horloge murale (port du **domaine**). La détection de saut est *stateful* et vit chez celui qui *poll* (palier absence/§10.7), pas dans l'adaptateur sans état | — |
+| `InstalledAppsPort` | Le catalogue des applications installées et leur **vraie** icône, pour que l'utilisateur choisisse ce qu'il épargne | — |
+| `AccessibilityPermissionPort` | L'état de la permission d'Accessibilité (macOS) et l'invite système | `Granted \| Denied \| Unknown` |
+
+`InstalledAppsPort` et `AccessibilityPermissionPort` portent une décision du produit — quelle app
+est épargnée, ce que le Mode Simple peut voiler — donc ce sont des ports (l'identité d'une app est une
+notion métier, `AppId`). L'icône voyage en PNG déjà rendu ; l'extraction native (macOS : `sips` +
+`Info.plist`) vit dans l'adaptateur `breeze-bridge-macos`, jamais dans le port.
 
 Deux choses ne sont **pas** des ports, car elles ne portent aucune décision du domaine : l'icône
 d'état et l'instance unique. Ce sont des adaptateurs de l'enveloppe Tauri. La présence de l'icône

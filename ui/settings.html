@@ -236,28 +236,8 @@
                 <span class="t-micro" style="width: 236px; color: var(--ink-3)">STATUT PENDANT LA PAUSE</span>
               </div>
               <div class="divider"></div>
-              <div class="rowitem" style="min-height: 40px; padding: 4px 12px">
-                <span class="appicon sm" style="background: linear-gradient(160deg, #ff8a5c, #e85b2b)">F</span>
-                <span class="t-label" style="flex: 1">Figma</span>
-                <span class="seg" style="width: 236px; display: flex"><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item on">Bloquée</span><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item">Épargnée</span><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item">Ignorée</span></span>
-              </div>
-              <div class="divider" style="margin: 0 12px"></div>
-              <div class="rowitem" style="min-height: 40px; padding: 4px 12px">
-                <span class="appicon sm" style="background: linear-gradient(160deg, #8a63e8, #5b3bc4)">S</span>
-                <span class="t-label" style="flex: 1">Slack</span>
-                <span class="seg" style="width: 236px; display: flex"><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item on">Bloquée</span><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item">Épargnée</span><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item">Ignorée</span></span>
-              </div>
-              <div class="divider" style="margin: 0 12px"></div>
-              <div class="rowitem" style="min-height: 40px; padding: 4px 12px">
-                <span class="appicon sm" style="background: linear-gradient(160deg, #f7b84b, #e8940f)">N</span>
-                <span class="t-label" style="flex: 1">Notes</span>
-                <span class="seg" style="width: 236px; display: flex"><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item">Bloquée</span><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item on">Épargnée</span><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item">Ignorée</span></span>
-              </div>
-              <div class="divider" style="margin: 0 12px"></div>
-              <div class="rowitem" style="min-height: 40px; padding: 4px 12px">
-                <span class="appicon sm" style="background: linear-gradient(160deg, #34c77b, #0e9a55)">♪</span>
-                <span class="t-label" style="flex: 1">Musique</span>
-                <span class="seg" style="width: 236px; display: flex"><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item">Bloquée</span><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item">Épargnée</span><span style="flex: 1; text-align: center; padding: 5px 0" class="seg-item on">Ignorée</span></span>
+              <div id="app-list" role="list">
+                <div id="app-list-status" class="t-caption" style="padding: 12px; color: var(--ink-3)">Lecture des applications installées…</div>
               </div>
               <div class="divider" style="margin: 0 12px"></div>
               <div class="rowitem" style="min-height: 40px; padding: 4px 12px">
@@ -268,6 +248,9 @@
             </div>
             <div class="inset" style="padding: 10px 14px">
               <span class="t-caption"><strong>Bloquée</strong> : voilée ou couverte pendant la pause. <strong>Épargnée</strong> : reste utilisable. <strong>Ignorée</strong> : ne fige pas le décompte de la pause. Épargner ou ignorer vaut au cycle suivant&nbsp;; bloquer vaut tout de suite.</span>
+            </div>
+            <div class="inset" style="padding: 10px 14px">
+              <span class="t-caption">Le voile fenêtre par fenêtre arrive avec la prochaine version native&nbsp;; tes choix sont déjà enregistrés et appliqués dès qu’il sera là.</span>
             </div>
           </section>
 
@@ -368,10 +351,10 @@
               <div style="display: flex; align-items: flex-start; gap: 12px">
                 <span class="navico" style="background: #6d4fd4; width: 28px; height: 28px; border-radius: 8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="5" r="1.8"></circle><path d="M5 9l7 1.5L19 9M12 10.5V15l-3 5M12 15l3 5"></path></svg></span>
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
-                  <div style="display: flex; align-items: center; gap: 8px"><span class="t-label">Accessibilité</span><span class="chip chip-mint" style="height: 24px; font-size: 12px">Accordée</span></div>
+                  <div style="display: flex; align-items: center; gap: 8px"><span class="t-label">Accessibilité</span><span id="ax-chip" class="chip chip-neutral" style="height: 24px; font-size: 12px">Vérification…</span></div>
                   <span class="t-caption">Suit le cadre des fenêtres à voiler en Mode Simple. Jamais le contenu, jamais les titres, jamais le clavier.</span>
                 </div>
-                <span class="btn btn-secondary btn-sm">Ouvrir Réglages Système</span>
+                <span id="ax-request" class="btn btn-secondary btn-sm" role="button" tabindex="0">Ouvrir Réglages Système</span>
               </div>
               <div class="divider"></div>
               <div style="display: flex; align-items: flex-start; gap: 12px">
