@@ -7,6 +7,11 @@
     "allow-list-installed-apps",
     "allow-set-app-status",
     "allow-request-accessibility",
-    "allow-accessibility-status"
+    "allow-accessibility-status",
+    "allow-get-settings",
+    "allow-set-active-days",
+    "allow-set-schedule",
+    "allow-set-update-check",
+    "allow-reset-settings"
   ]
 }

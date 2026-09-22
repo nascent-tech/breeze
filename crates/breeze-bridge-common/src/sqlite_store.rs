@@ -9,7 +9,8 @@ use std::path::Path;
 use std::sync::{Mutex, PoisonError};
 
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
-const SCHEMA_VERSION: i64 = 4;
+const SCHEMA_VERSION: i64 = 5;
+const EVERYDAY_MASK: i64 = 0b0111_1111;
 
 pub struct SqliteStore {
     connection: Mutex<Connection>,
@@ -41,7 +42,10 @@ impl SqliteStore {
                     severity TEXT NOT NULL,
                     served_breaks INTEGER NOT NULL,
                     debt_seconds INTEGER NOT NULL DEFAULT 0,
-                    debt_recorded_at INTEGER NOT NULL DEFAULT 0
+                    debt_recorded_at INTEGER NOT NULL DEFAULT 0,
+                    active_days INTEGER NOT NULL DEFAULT 127,
+                    schedule_start INTEGER,
+                    schedule_end INTEGER
                 )",
                 [],
             )
@@ -49,6 +53,11 @@ impl SqliteStore {
         // Une base au schéma 1 a une table sans les colonnes de dette : on les ajoute.
         if version == 1 {
             migrate_v1_to_v2(&connection)?;
+        }
+        // v5 : plage horaire + jours actifs persistés. Une base existante (v1..v4) a la
+        // table sans ces colonnes ; une base fraîche (v0) les a déjà par le CREATE.
+        if (1..5).contains(&version) {
+            migrate_add_schedule_columns(&connection)?;
         }
         // v3 : table des statuts d'apps. CREATE IF NOT EXISTS est atomique et sûr
         // pour toute version antérieure (aucune donnée existante à transformer).
@@ -77,6 +86,19 @@ fn migrate_v1_to_v2(connection: &Connection) -> Result<(), PersistenceError> {
         .map_err(into_error)
 }
 
+fn migrate_add_schedule_columns(connection: &Connection) -> Result<(), PersistenceError> {
+    // Atomique : les trois colonnes, ou aucune. Défaut : tous les jours, plage désactivée.
+    connection
+        .execute_batch(
+            "BEGIN;
+             ALTER TABLE state ADD COLUMN active_days INTEGER NOT NULL DEFAULT 127;
+             ALTER TABLE state ADD COLUMN schedule_start INTEGER;
+             ALTER TABLE state ADD COLUMN schedule_end INTEGER;
+             COMMIT;",
+        )
+        .map_err(into_error)
+}
+
 fn severity_name(severity: Severity) -> &'static str {
     match severity {
         Severity::Simple => "Simple",
@@ -98,10 +120,12 @@ impl PersistencePort for SqliteStore {
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
         let row = connection.query_row(
-            "SELECT work_minutes, pause_minutes, severity, served_breaks, debt_seconds, debt_recorded_at
+            "SELECT work_minutes, pause_minutes, severity, served_breaks, debt_seconds, debt_recorded_at,
+                    active_days, schedule_start, schedule_end
              FROM state WHERE id = 1",
             [],
             |row| {
+                let active_days: i64 = row.get(6)?;
                 Ok(PersistedState {
                     work_minutes: row.get(0)?,
                     pause_minutes: row.get(1)?,
@@ -109,6 +133,9 @@ impl PersistencePort for SqliteStore {
                     served_breaks: row.get(3)?,
                     debt_seconds: row.get(4)?,
                     debt_recorded_at_unix: row.get(5)?,
+                    active_days: u8::try_from(active_days & EVERYDAY_MASK).unwrap_or(0b0111_1111),
+                    schedule_start: row.get::<_, Option<u16>>(7)?,
+                    schedule_end: row.get::<_, Option<u16>>(8)?,
                 })
             },
         );
@@ -127,11 +154,13 @@ impl PersistencePort for SqliteStore {
         connection
             .execute(
                 "INSERT INTO state
-                    (id, work_minutes, pause_minutes, severity, served_breaks, debt_seconds, debt_recorded_at)
-                    VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6)
+                    (id, work_minutes, pause_minutes, severity, served_breaks, debt_seconds,
+                     debt_recorded_at, active_days, schedule_start, schedule_end)
+                    VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
                  ON CONFLICT(id) DO UPDATE SET
                     work_minutes = ?1, pause_minutes = ?2, severity = ?3, served_breaks = ?4,
-                    debt_seconds = ?5, debt_recorded_at = ?6",
+                    debt_seconds = ?5, debt_recorded_at = ?6, active_days = ?7,
+                    schedule_start = ?8, schedule_end = ?9",
                 params![
                     state.work_minutes,
                     state.pause_minutes,
@@ -139,6 +168,9 @@ impl PersistencePort for SqliteStore {
                     state.served_breaks,
                     state.debt_seconds,
                     state.debt_recorded_at_unix,
+                    state.active_days,
+                    state.schedule_start,
+                    state.schedule_end,
                 ],
             )
             .map(|_| ())
@@ -179,6 +211,22 @@ impl PersistencePort for SqliteStore {
             .unwrap_or_else(PoisonError::into_inner);
         sqlite_meta::mark_onboarding_done(&connection)
     }
+
+    fn is_update_check_enabled(&self) -> Result<bool, PersistenceError> {
+        let connection = self
+            .connection
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        sqlite_meta::is_update_check_enabled(&connection)
+    }
+
+    fn set_update_check(&self, enabled: bool) -> Result<(), PersistenceError> {
+        let connection = self
+            .connection
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        sqlite_meta::set_update_check(&connection, enabled)
+    }
 }
 
 #[cfg(test)]
@@ -201,6 +249,9 @@ mod tests {
             served_breaks: 3,
             debt_seconds: 450,
             debt_recorded_at_unix: 1_700_000_000,
+            active_days: 0b0001_1111,
+            schedule_start: Some(540),
+            schedule_end: Some(1110),
         };
         store.save(state).unwrap();
         assert_eq!(store.load(), Ok(Some(state)));
@@ -217,6 +268,9 @@ mod tests {
                 served_breaks: 1,
                 debt_seconds: 0,
                 debt_recorded_at_unix: 0,
+                active_days: 0b0111_1111,
+                schedule_start: None,
+                schedule_end: None,
             })
             .unwrap();
         let updated = PersistedState {
@@ -226,6 +280,9 @@ mod tests {
             served_breaks: 4,
             debt_seconds: 120,
             debt_recorded_at_unix: 1_700_000_500,
+            active_days: 0b0011_0000,
+            schedule_start: Some(480),
+            schedule_end: Some(1020),
         };
         store.save(updated).unwrap();
         assert_eq!(store.load(), Ok(Some(updated)));
@@ -265,6 +322,9 @@ mod tests {
                 served_breaks: 7,
                 debt_seconds: 0,
                 debt_recorded_at_unix: 0,
+                active_days: 0b0111_1111,
+                schedule_start: None,
+                schedule_end: None,
             }))
         );
     }

@@ -236,3 +236,146 @@ if (axButton) {
 
 loadApps();
 refreshAccessibility();
+
+// ---- Réglages persistés : rythme (affiché), jours actifs, plage, MàJ, reset ----
+const WORK_MIN = 5;
+const WORK_MAX = 180;
+const PAUSE_MIN = 1;
+const PAUSE_MAX = 60;
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+function formatHM(minute) {
+  return `${pad2(Math.floor(minute / 60))}:${pad2(minute % 60)}`;
+}
+
+function parseHM(text) {
+  const [h, m] = text.trim().split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+function setSwitch(el, on) {
+  if (!el) return;
+  el.classList.toggle("on", on);
+  el.setAttribute("aria-checked", String(on));
+}
+
+function daysMask() {
+  return days.reduce(
+    (mask, day, i) => (day.getAttribute("aria-pressed") === "true" ? mask | (1 << i) : mask),
+    0,
+  );
+}
+
+function applySettings(s) {
+  const work = document.getElementById("rhythm-work-value");
+  const pause = document.getElementById("rhythm-pause-value");
+  const workFill = document.getElementById("rhythm-work-fill");
+  const workKnob = document.getElementById("rhythm-work-knob");
+  const pauseFill = document.getElementById("rhythm-pause-fill");
+  const pauseKnob = document.getElementById("rhythm-pause-knob");
+  if (work) work.textContent = `${s.work_minutes} min`;
+  if (pause) pause.textContent = `${s.pause_minutes} min`;
+  const workPct = Math.round(((s.work_minutes - WORK_MIN) / (WORK_MAX - WORK_MIN)) * 100);
+  const pausePct = Math.round(((s.pause_minutes - PAUSE_MIN) / (PAUSE_MAX - PAUSE_MIN)) * 100);
+  if (workFill) workFill.style.width = `${workPct}%`;
+  if (workKnob) workKnob.style.left = `calc(${workPct}% - 10px)`;
+  if (pauseFill) pauseFill.style.width = `${pausePct}%`;
+  if (pauseKnob) pauseKnob.style.left = `calc(${pausePct}% - 10px)`;
+
+  days.forEach((day, i) => {
+    const on = (s.active_days & (1 << i)) !== 0;
+    day.setAttribute("aria-pressed", String(on));
+    const chip = day.querySelector(".chip");
+    chip.classList.toggle("chip-tint", on);
+    chip.classList.toggle("chip-neutral", !on);
+  });
+
+  setSwitch(document.getElementById("schedule-switch"), s.schedule_enabled);
+  const start = document.getElementById("schedule-start");
+  const end = document.getElementById("schedule-end");
+  if (start) start.textContent = formatHM(s.schedule_start);
+  if (end) end.textContent = formatHM(s.schedule_end);
+  setSwitch(document.getElementById("update-check-switch"), s.update_check);
+}
+
+async function loadSettings() {
+  if (!invoke) return;
+  try {
+    applySettings(await invoke("get_settings"));
+  } catch (err) {
+    console.error("settings: lecture des réglages impossible", err);
+  }
+}
+
+async function pushActiveDays() {
+  if (!invoke) return;
+  try {
+    await invoke("set_active_days", { mask: daysMask() });
+  } catch (err) {
+    console.error("settings: jours actifs non enregistrés", err);
+  }
+}
+days.forEach((day) => day.addEventListener("click", pushActiveDays));
+
+const scheduleSwitch = document.getElementById("schedule-switch");
+if (scheduleSwitch) {
+  scheduleSwitch.addEventListener("click", async () => {
+    const enabled = scheduleSwitch.getAttribute("aria-checked") !== "true";
+    setSwitch(scheduleSwitch, enabled);
+    if (!invoke) return;
+    const start = parseHM(document.getElementById("schedule-start").textContent);
+    const end = parseHM(document.getElementById("schedule-end").textContent);
+    try {
+      await invoke("set_schedule", { enabled, start, end });
+    } catch (err) {
+      setSwitch(scheduleSwitch, !enabled);
+      console.error("settings: plage horaire non enregistrée", err);
+    }
+  });
+}
+
+const updateSwitch = document.getElementById("update-check-switch");
+if (updateSwitch) {
+  updateSwitch.addEventListener("click", async () => {
+    const enabled = updateSwitch.getAttribute("aria-checked") !== "true";
+    setSwitch(updateSwitch, enabled);
+    if (!invoke) return;
+    try {
+      await invoke("set_update_check", { enabled });
+    } catch (err) {
+      setSwitch(updateSwitch, !enabled);
+      console.error("settings: préférence de mise à jour non enregistrée", err);
+    }
+  });
+}
+
+const resetButton = document.getElementById("reset-settings");
+if (resetButton) {
+  resetButton.addEventListener("click", async () => {
+    if (!invoke) return;
+    try {
+      await invoke("reset_settings");
+      loadSettings();
+      loadApps();
+    } catch (err) {
+      console.error("settings: réinitialisation impossible", err);
+    }
+  });
+}
+
+// Entrée/Espace activent les contrôles à rôle bouton/switch (parité clavier).
+["schedule-switch", "update-check-switch", "reset-settings"].forEach((id) => {
+  const control = document.getElementById(id);
+  if (!control) return;
+  control.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      control.click();
+    }
+  });
+});
+
+loadSettings();

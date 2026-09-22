@@ -19,6 +19,14 @@ impl TimeRange {
         })
     }
 
+    pub fn start(self) -> u16 {
+        self.start_minute
+    }
+
+    pub fn end(self) -> u16 {
+        self.end_minute
+    }
+
     pub fn crosses_midnight(self) -> bool {
         self.end_minute < self.start_minute
     }

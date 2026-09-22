@@ -19,6 +19,11 @@ fn main() {
         "accessibility_status",
         "open_settings",
         "finish_onboarding",
+        "get_settings",
+        "set_active_days",
+        "set_schedule",
+        "set_update_check",
+        "reset_settings",
     ]);
     tauri_build::try_build(Attributes::new().app_manifest(manifest))
         .expect("failed to run tauri-build");

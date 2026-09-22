@@ -1,6 +1,7 @@
 mod apps;
 mod bridge;
 mod dto;
+mod settings;
 
 use breeze_app::Scheduler;
 use breeze_bridge_common::{SqliteStore, SystemClock};
@@ -49,7 +50,7 @@ fn parse_severity(name: &str) -> Option<Severity> {
     }
 }
 
-fn refusal(error: CommandError) -> String {
+pub(crate) fn refusal(error: CommandError) -> String {
     match error {
         CommandError::BreakDue => "break-due",
         CommandError::NotSuspendable => "not-suspendable",
@@ -59,13 +60,13 @@ fn refusal(error: CommandError) -> String {
     .to_owned()
 }
 
-fn lock(scheduler: &Mutex<Scheduler>) -> std::sync::MutexGuard<'_, Scheduler> {
+pub(crate) fn lock(scheduler: &Mutex<Scheduler>) -> std::sync::MutexGuard<'_, Scheduler> {
     scheduler
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>, clock: &Clock) {
+pub(crate) fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>, clock: &Clock) {
     let (rhythm, severity, served, debt) = {
         let scheduler = lock(scheduler);
         (
@@ -75,6 +76,7 @@ fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>, clock: &C
             scheduler.debt(),
         )
     };
+    let schedule = rhythm.schedule();
     let state = breeze_ports::PersistedState {
         work_minutes: rhythm.work().count(),
         pause_minutes: rhythm.pause().count(),
@@ -82,6 +84,9 @@ fn save_state(persistence: &Persistence, scheduler: &Mutex<Scheduler>, clock: &C
         served_breaks: served,
         debt_seconds: u32::try_from(debt.total().as_secs()).unwrap_or(u32::MAX),
         debt_recorded_at_unix: clock.wall().as_unix_secs(),
+        active_days: rhythm.active_days().mask(),
+        schedule_start: schedule.map(breeze_domain::TimeRange::start),
+        schedule_end: schedule.map(breeze_domain::TimeRange::end),
     };
     if let Err(error) = persistence.save(state) {
         eprintln!("breeze: could not persist state: {}", error.0);
@@ -219,11 +224,16 @@ fn restore(saved: Option<breeze_ports::PersistedState>) -> (Rhythm, Severity, Po
     let Some(saved) = saved else {
         return (default_rhythm(), Severity::Simple, PostureDebt::none());
     };
+    let days = ActiveDays::from_mask(saved.active_days).unwrap_or_else(|_| ActiveDays::everyday());
+    let schedule = match (saved.schedule_start, saved.schedule_end) {
+        (Some(start), Some(end)) => breeze_domain::TimeRange::from_minutes(start, end).ok(),
+        _ => None,
+    };
     let rhythm = Rhythm::new(
         Minutes(saved.work_minutes),
         Minutes(saved.pause_minutes),
-        None,
-        ActiveDays::everyday(),
+        schedule,
+        days,
     )
     .unwrap_or_else(|_| default_rhythm());
     let debt = PostureDebt::restore(Duration::from_secs(u64::from(saved.debt_seconds)));
@@ -396,7 +406,12 @@ pub fn run() {
             apps::request_accessibility,
             apps::accessibility_status,
             apps::open_settings,
-            apps::finish_onboarding
+            apps::finish_onboarding,
+            settings::get_settings,
+            settings::set_active_days,
+            settings::set_schedule,
+            settings::set_update_check,
+            settings::reset_settings
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Breeze desktop host")

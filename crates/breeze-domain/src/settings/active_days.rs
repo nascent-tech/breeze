@@ -19,6 +19,10 @@ impl ActiveDays {
         ActiveDays(EVERY_DAY)
     }
 
+    pub fn mask(self) -> u8 {
+        self.0
+    }
+
     pub fn contains(self, day: Weekday) -> bool {
         self.0 & day.bit() != 0
     }
