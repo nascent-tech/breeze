@@ -24,6 +24,9 @@ fn main() {
         "set_schedule",
         "set_update_check",
         "reset_settings",
+        "set_launch_at_login",
+        "set_sounds",
+        "set_menubar_mode",
     ]);
     tauri_build::try_build(Attributes::new().app_manifest(manifest))
         .expect("failed to run tauri-build");

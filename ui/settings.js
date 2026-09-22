@@ -242,6 +242,9 @@ const WORK_MIN = 5;
 const WORK_MAX = 180;
 const PAUSE_MIN = 1;
 const PAUSE_MAX = 60;
+const DAY_MINUTES = 1440;
+const TIME_STEP = 30;
+let lastSettings = null;
 
 function pad2(n) {
   return String(n).padStart(2, "0");
@@ -270,6 +273,7 @@ function daysMask() {
 }
 
 function applySettings(s) {
+  lastSettings = s;
   const work = document.getElementById("rhythm-work-value");
   const pause = document.getElementById("rhythm-pause-value");
   const workFill = document.getElementById("rhythm-work-fill");
@@ -299,6 +303,12 @@ function applySettings(s) {
   if (start) start.textContent = formatHM(s.schedule_start);
   if (end) end.textContent = formatHM(s.schedule_end);
   setSwitch(document.getElementById("update-check-switch"), s.update_check);
+  setSwitch(document.getElementById("launch-switch"), s.launch_at_login);
+  setSwitch(document.getElementById("sounds-switch"), s.sounds);
+  document.querySelectorAll("#menubar-seg .seg-item").forEach((item) => {
+    const on = (item.dataset.mode === "text") === s.menubar_text;
+    item.classList.toggle("on", on);
+  });
 }
 
 async function loadSettings() {
@@ -379,3 +389,97 @@ if (resetButton) {
 });
 
 loadSettings();
+
+// ---- Général : lancement à l'ouverture de session, sons, mode barre de menus ----
+function wireToggleCommand(id, command) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const toggle = async () => {
+    const enabled = el.getAttribute("aria-checked") !== "true";
+    setSwitch(el, enabled);
+    if (!invoke) return;
+    try {
+      await invoke(command, { enabled });
+    } catch (err) {
+      setSwitch(el, !enabled);
+      console.error(`settings: ${command} impossible`, err);
+    }
+  };
+  el.addEventListener("click", toggle);
+  el.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggle();
+    }
+  });
+}
+wireToggleCommand("launch-switch", "set_launch_at_login");
+wireToggleCommand("sounds-switch", "set_sounds");
+
+document.querySelectorAll("#menubar-seg .seg-item").forEach((item) => {
+  item.addEventListener("click", async () => {
+    const text = item.dataset.mode === "text";
+    document
+      .querySelectorAll("#menubar-seg .seg-item")
+      .forEach((other) => other.classList.toggle("on", other === item));
+    if (!invoke) return;
+    try {
+      await invoke("set_menubar_mode", { text });
+    } catch (err) {
+      console.error("settings: mode barre de menus impossible", err);
+    }
+  });
+});
+
+// ---- Rythme : clic sur la piste = valeur proportionnelle → set_rhythm ----
+async function pushRhythm(work, pause) {
+  if (!invoke) return;
+  try {
+    await invoke("set_rhythm", { workMinutes: work, pauseMinutes: pause });
+    loadSettings();
+  } catch (err) {
+    console.error("settings: rythme non enregistré", err);
+  }
+}
+
+function wireSliderTrack(fillId, min, max, isWork) {
+  const fill = document.getElementById(fillId);
+  const track = fill && fill.parentElement;
+  if (!track) return;
+  track.style.cursor = "pointer";
+  track.addEventListener("click", (event) => {
+    if (!lastSettings) return;
+    const rect = track.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    const value = Math.round(min + ratio * (max - min));
+    const work = isWork ? value : lastSettings.work_minutes;
+    let pause = isWork ? lastSettings.pause_minutes : value;
+    if (pause > work) pause = work; // Le domaine refuse pause > travail : borné côté UI.
+    pushRhythm(work, pause);
+  });
+}
+wireSliderTrack("rhythm-work-fill", WORK_MIN, WORK_MAX, true);
+wireSliderTrack("rhythm-pause-fill", PAUSE_MIN, PAUSE_MAX, false);
+
+// ---- Plage : clic sur une borne = +30 min (boucle sur 24 h) → set_schedule ----
+async function stepScheduleBound(which) {
+  if (!invoke || !lastSettings || !lastSettings.schedule_enabled) return;
+  let start = lastSettings.schedule_start;
+  let end = lastSettings.schedule_end;
+  if (which === "start") start = (start + TIME_STEP) % DAY_MINUTES;
+  else end = (end + TIME_STEP) % DAY_MINUTES;
+  if (start === end) return; // Le domaine refuse une plage dégénérée.
+  try {
+    await invoke("set_schedule", { enabled: true, start, end });
+    loadSettings();
+  } catch (err) {
+    console.error("settings: plage non enregistrée", err);
+  }
+}
+["start", "end"].forEach((which) => {
+  const chip = document.getElementById(`schedule-${which}`);
+  if (!chip) return;
+  chip.style.cursor = "pointer";
+  chip.setAttribute("title", "Cliquer pour avancer de 30 min");
+  chip.addEventListener("click", () => stepScheduleBound(which));
+});

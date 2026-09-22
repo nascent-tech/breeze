@@ -1,7 +1,8 @@
-use crate::{lock, refusal, save_state, AppState};
+use crate::{lock, refusal, save_state, AppState, FLAG_MENUBAR_TEXT, FLAG_SOUNDS};
 use breeze_domain::{ActiveDays, Minutes, Rhythm, Severity, TimeRange};
 use serde::Serialize;
 use tauri::State;
+use tauri_plugin_autostart::ManagerExt;
 
 const DEFAULT_START: u16 = 9 * 60;
 const DEFAULT_END: u16 = 18 * 60 + 30;
@@ -18,6 +19,9 @@ pub struct SettingsDto {
     pub schedule_start: u16,
     pub schedule_end: u16,
     pub update_check: bool,
+    pub launch_at_login: bool,
+    pub sounds: bool,
+    pub menubar_text: bool,
 }
 
 fn severity_label(severity: Severity) -> &'static str {
@@ -28,12 +32,20 @@ fn severity_label(severity: Severity) -> &'static str {
 }
 
 #[tauri::command]
-pub fn get_settings(state: State<'_, AppState>) -> SettingsDto {
+pub fn get_settings(app: tauri::AppHandle, state: State<'_, AppState>) -> SettingsDto {
     let (rhythm, severity) = {
         let scheduler = lock(&state.scheduler);
         (scheduler.configured_rhythm(), scheduler.chosen_severity())
     };
     let schedule = rhythm.schedule();
+    let flag_or = |key: &str, default: bool| {
+        state
+            .persistence
+            .flag(key)
+            .ok()
+            .flatten()
+            .unwrap_or(default)
+    };
     SettingsDto {
         work_minutes: rhythm.work().count(),
         pause_minutes: rhythm.pause().count(),
@@ -43,6 +55,9 @@ pub fn get_settings(state: State<'_, AppState>) -> SettingsDto {
         schedule_start: schedule.map_or(DEFAULT_START, TimeRange::start),
         schedule_end: schedule.map_or(DEFAULT_END, TimeRange::end),
         update_check: state.persistence.is_update_check_enabled().unwrap_or(true),
+        launch_at_login: app.autolaunch().is_enabled().unwrap_or(false),
+        sounds: flag_or(FLAG_SOUNDS, true),
+        menubar_text: flag_or(FLAG_MENUBAR_TEXT, true),
     }
 }
 
@@ -130,5 +145,49 @@ pub fn reset_settings(state: State<'_, AppState>) -> Result<(), String> {
         eprintln!("breeze: could not reset update-check flag: {}", error.0);
     }
     save_state(&state.persistence, &state.scheduler, &state.clock);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_launch_at_login(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let manager = app.autolaunch();
+    let outcome = if enabled {
+        manager.enable()
+    } else {
+        manager.disable()
+    };
+    outcome.map_err(|error| {
+        eprintln!("breeze: could not set launch-at-login: {error}");
+        "autostart-failed".to_owned()
+    })
+}
+
+#[tauri::command]
+pub fn set_sounds(state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
+    state
+        .persistence
+        .set_flag(FLAG_SOUNDS, enabled)
+        .map_err(|error| {
+            eprintln!("breeze: could not persist sounds flag: {}", error.0);
+            "persistence-failed".to_owned()
+        })?;
+    state
+        .sounds
+        .store(enabled, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_menubar_mode(state: State<'_, AppState>, text: bool) -> Result<(), String> {
+    state
+        .persistence
+        .set_flag(FLAG_MENUBAR_TEXT, text)
+        .map_err(|error| {
+            eprintln!("breeze: could not persist menubar mode: {}", error.0);
+            "persistence-failed".to_owned()
+        })?;
+    state
+        .menubar_text
+        .store(text, std::sync::atomic::Ordering::Relaxed);
     Ok(())
 }

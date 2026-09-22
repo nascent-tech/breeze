@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-sounds"
+description = "Enables the set_sounds command without any pre-configured scope."
+commands.allow = ["set_sounds"]
+
+[[permission]]
+identifier = "deny-set-sounds"
+description = "Denies the set_sounds command without any pre-configured scope."
+commands.deny = ["set_sounds"]

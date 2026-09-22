@@ -69,6 +69,35 @@ pub(crate) fn set_update_check(
         .map_err(into_error)
 }
 
+// Drapeau booléen générique (clé contrôlée par l'hôte, jamais par l'utilisateur).
+// None = jamais choisi ; l'hôte décide du défaut.
+pub(crate) fn flag(connection: &Connection, key: &str) -> Result<Option<bool>, PersistenceError> {
+    let value: Option<i64> = connection
+        .query_row(
+            "SELECT value FROM meta WHERE key = ?1",
+            params![key],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(into_error)?;
+    Ok(value.map(|raw| raw != 0))
+}
+
+pub(crate) fn set_flag(
+    connection: &Connection,
+    key: &str,
+    value: bool,
+) -> Result<(), PersistenceError> {
+    connection
+        .execute(
+            "INSERT INTO meta (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = ?2",
+            params![key, i64::from(value)],
+        )
+        .map(|_| ())
+        .map_err(into_error)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

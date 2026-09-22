@@ -15,4 +15,7 @@ pub trait PersistencePort {
     // La vérification de mise à jour (seule sortie réseau) est-elle activée ? Défaut : oui.
     fn is_update_check_enabled(&self) -> Result<bool, PersistenceError>;
     fn set_update_check(&self, enabled: bool) -> Result<(), PersistenceError>;
+    // Drapeau booléen de confort (clé contrôlée par l'hôte). None = jamais choisi.
+    fn flag(&self, key: &str) -> Result<Option<bool>, PersistenceError>;
+    fn set_flag(&self, key: &str, value: bool) -> Result<(), PersistenceError>;
 }

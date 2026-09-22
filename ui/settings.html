@@ -101,7 +101,7 @@
                   <span class="t-label">Ouvrir Breeze à l’ouverture de session</span>
                   <span class="t-caption">Le cycle reprend là où la plage horaire le place. Désactivé, Breeze ne démarre qu’à la main.</span>
                 </div>
-                <span class="switch on"></span>
+                <span id="launch-switch" class="switch" role="switch" aria-checked="false" tabindex="0" style="cursor: default"></span>
               </div>
               <div class="divider"></div>
               <div style="display: flex; align-items: center; gap: 12px">
@@ -109,7 +109,7 @@
                   <span class="t-label">Barre de menus</span>
                   <span class="t-caption">Ce qui accompagne l’icône pendant le travail et la pause.</span>
                 </div>
-                <span class="seg"><span class="seg-item on">Temps restant</span><span class="seg-item">Icône seule</span></span>
+                <span id="menubar-seg" class="seg"><span class="seg-item on" data-mode="text">Temps restant</span><span class="seg-item" data-mode="icon">Icône seule</span></span>
               </div>
             </div>
             <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
@@ -118,7 +118,7 @@
                   <span class="t-label">Son de début et de fin de pause</span>
                   <span class="t-caption">Un carillon discret au début et à la fin de chaque pause.</span>
                 </div>
-                <span class="switch on"></span>
+                <span id="sounds-switch" class="switch on" role="switch" aria-checked="true" tabindex="0" style="cursor: default"></span>
               </div>
               <div class="divider"></div>
               <div style="display: flex; align-items: center; gap: 12px">
