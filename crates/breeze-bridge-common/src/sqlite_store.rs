@@ -1,5 +1,6 @@
 use crate::sqlite_app_statuses;
 use crate::sqlite_error::into_error;
+use crate::sqlite_meta;
 use breeze_domain::{AppId, AppStatus, Severity};
 use breeze_ports::{PersistedState, PersistenceError, PersistencePort};
 use core::time::Duration;
@@ -8,7 +9,7 @@ use std::path::Path;
 use std::sync::{Mutex, PoisonError};
 
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
-const SCHEMA_VERSION: i64 = 3;
+const SCHEMA_VERSION: i64 = 4;
 
 pub struct SqliteStore {
     connection: Mutex<Connection>,
@@ -52,6 +53,8 @@ impl SqliteStore {
         // v3 : table des statuts d'apps. CREATE IF NOT EXISTS est atomique et sûr
         // pour toute version antérieure (aucune donnée existante à transformer).
         sqlite_app_statuses::create_table(&connection)?;
+        // v4 : magasin de drapeaux (onboarding_done, etc.).
+        sqlite_meta::create_table(&connection)?;
         connection
             .pragma_update(None, "user_version", SCHEMA_VERSION)
             .map_err(into_error)?;
@@ -159,6 +162,22 @@ impl PersistencePort for SqliteStore {
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
         sqlite_app_statuses::replace(&mut connection, statuses)
+    }
+
+    fn is_onboarding_done(&self) -> Result<bool, PersistenceError> {
+        let connection = self
+            .connection
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        sqlite_meta::is_onboarding_done(&connection)
+    }
+
+    fn mark_onboarding_done(&self) -> Result<(), PersistenceError> {
+        let connection = self
+            .connection
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        sqlite_meta::mark_onboarding_done(&connection)
     }
 }
 

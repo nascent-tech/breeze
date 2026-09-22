@@ -14,9 +14,11 @@ fn main() {
         "quit",
         "list_installed_apps",
         "set_app_status",
+        "set_spared_apps",
         "request_accessibility",
         "accessibility_status",
         "open_settings",
+        "finish_onboarding",
     ]);
     tauri_build::try_build(Attributes::new().app_manifest(manifest))
         .expect("failed to run tauri-build");

@@ -183,6 +183,12 @@
           "markdownDescription": "Enables the accessibility_status command without any pre-configured scope."
         },
         {
+          "description": "Enables the finish_onboarding command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finish-onboarding",
+          "markdownDescription": "Enables the finish_onboarding command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_snapshot command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-snapshot",
@@ -243,6 +249,12 @@
           "markdownDescription": "Enables the set_severity command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_spared_apps command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-spared-apps",
+          "markdownDescription": "Enables the set_spared_apps command without any pre-configured scope."
+        },
+        {
           "description": "Enables the suspend command without any pre-configured scope.",
           "type": "string",
           "const": "allow-suspend",
@@ -253,6 +265,12 @@
           "type": "string",
           "const": "deny-accessibility-status",
           "markdownDescription": "Denies the accessibility_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the finish_onboarding command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finish-onboarding",
+          "markdownDescription": "Denies the finish_onboarding command without any pre-configured scope."
         },
         {
           "description": "Denies the get_snapshot command without any pre-configured scope.",
@@ -313,6 +331,12 @@
           "type": "string",
           "const": "deny-set-severity",
           "markdownDescription": "Denies the set_severity command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_spared_apps command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-spared-apps",
+          "markdownDescription": "Denies the set_spared_apps command without any pre-configured scope."
         },
         {
           "description": "Denies the suspend command without any pre-configured scope.",

@@ -4,6 +4,7 @@ use base64::Engine;
 use breeze_domain::{AppId, AppStatus};
 use breeze_ports::PermissionStatus;
 use serde::Serialize;
+use std::collections::HashMap;
 use tauri::{AppHandle, Manager, State};
 
 #[derive(Serialize)]
@@ -99,6 +100,48 @@ pub fn request_accessibility(state: State<'_, AppState>) -> bool {
 #[tauri::command]
 pub fn accessibility_status(state: State<'_, AppState>) -> &'static str {
     permission_label(state.accessibility.status())
+}
+
+#[tauri::command]
+pub fn set_spared_apps(
+    state: State<'_, AppState>,
+    spared: HashMap<String, bool>,
+) -> Result<(), String> {
+    let mut chosen = state.spared.lock().unwrap_or_else(|e| e.into_inner());
+    let snapshot = chosen.clone();
+    for (raw_id, is_spared) in spared {
+        // Un id invalide est ignoré (onboarding = geste large, jamais fatal).
+        if let Ok(id) = AppId::parse(&raw_id) {
+            let status = if is_spared {
+                AppStatus::Spared
+            } else {
+                AppStatus::Blocked
+            };
+            chosen.set(id, status);
+        }
+    }
+    if let Err(error) = state.persistence.replace_app_statuses(&chosen.pairs()) {
+        *chosen = snapshot;
+        eprintln!("breeze: could not persist spared apps: {}", error.0);
+        return Err("persistence-failed".to_owned());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn finish_onboarding(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    if let Err(error) = state.persistence.mark_onboarding_done() {
+        eprintln!("breeze: could not mark onboarding done: {}", error.0);
+        return Err("persistence-failed".to_owned());
+    }
+    if let Some(panel) = app.get_webview_window("panel") {
+        let _ = panel.show();
+        let _ = panel.set_focus();
+    }
+    if let Some(onboarding) = app.get_webview_window("onboarding") {
+        let _ = onboarding.close();
+    }
+    Ok(())
 }
 
 #[tauri::command]

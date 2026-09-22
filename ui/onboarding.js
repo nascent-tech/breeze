@@ -13,8 +13,8 @@ const choice = {
   pause: 10,
   severity: "Simple",
   accessibilityGranted: false,
-  // Défauts du brief : tout bloqué, sauf ce que l'utilisateur épargne ici.
-  spared: { Notes: true, Musique: true, Slack: false, Figma: false },
+  // Défaut du brief : tout bloqué. Chaque épargne est un bundle_id → true.
+  spared: {},
 };
 
 function show(index) {
@@ -84,20 +84,82 @@ if (grant) {
   });
 }
 
-// Épargne d'applications (role="switch") : bascule le commutateur et l'étiquette.
-document.querySelectorAll(".app-row").forEach((row) =>
+// Épargne d'applications : liste des VRAIES apps installées, chacune un commutateur.
+// Noms via textContent, icônes via img.src=data: (jamais innerHTML).
+function appRow(app) {
+  const row = document.createElement("button");
+  row.type = "button";
+  row.className = "rowitem app-row";
+  row.setAttribute("role", "switch");
+  row.setAttribute("aria-checked", "false");
+
+  const icon = document.createElement("span");
+  icon.className = "appicon";
+  icon.setAttribute("aria-hidden", "true");
+  if (app.icon_data_url) {
+    const img = document.createElement("img");
+    img.src = app.icon_data_url;
+    img.alt = "";
+    img.width = 24;
+    img.height = 24;
+    img.style.cssText = "border-radius: 6px; display: block";
+    icon.style.cssText = "background: transparent; padding: 0";
+    icon.appendChild(img);
+  } else {
+    icon.textContent = (app.name.trim()[0] || "?").toUpperCase();
+    icon.style.cssText = "background: linear-gradient(160deg, #9ba3b5, #6c7383)";
+  }
+
+  const name = document.createElement("span");
+  name.className = "t-label";
+  name.style.cssText = "flex: 1; text-align: left";
+  name.textContent = app.name;
+
+  const status = document.createElement("span");
+  status.className = "app-status t-caption";
+  status.style.color = "var(--ink-3)";
+  status.textContent = "Bloquée";
+
+  const toggle = document.createElement("span");
+  toggle.className = "switch";
+  toggle.setAttribute("aria-hidden", "true");
+
+  row.append(icon, name, status, toggle);
   row.addEventListener("click", () => {
     const spared = row.getAttribute("aria-checked") !== "true";
     row.setAttribute("aria-checked", String(spared));
-    row.querySelector(".switch").classList.toggle("on", spared);
-    choice.spared[row.dataset.app] = spared;
-    const status = row.querySelector(".app-status");
-    if (status) {
-      status.textContent = spared ? "Épargnée" : "Bloquée";
-      status.style.color = spared ? "var(--mint)" : "var(--ink-3)";
-    }
-  }),
-);
+    toggle.classList.toggle("on", spared);
+    choice.spared[app.bundle_id] = spared;
+    status.textContent = spared ? "Épargnée" : "Bloquée";
+    status.style.color = spared ? "var(--mint)" : "var(--ink-3)";
+  });
+  return row;
+}
+
+async function loadApps() {
+  const list = document.getElementById("ob-app-list");
+  const status = document.getElementById("ob-app-status");
+  if (!invoke || !list) {
+    if (status) status.textContent = "Aperçu : la liste réelle s’affiche dans l’application.";
+    return;
+  }
+  try {
+    const apps = await invoke("list_installed_apps");
+    list.textContent = "";
+    apps.forEach((app, index) => {
+      if (index > 0) {
+        const divider = document.createElement("div");
+        divider.className = "divider";
+        divider.style.cssText = "margin: 0 12px";
+        list.appendChild(divider);
+      }
+      list.appendChild(appRow(app));
+    });
+  } catch (err) {
+    if (status) status.textContent = "Impossible de lire les applications installées.";
+    console.error("onboarding: énumération impossible", err);
+  }
+}
 
 // Démarrage : applique rythme, sévérité et épargnes choisis, puis ferme la fenêtre.
 document.querySelectorAll("[data-finish]").forEach((el) =>
@@ -105,7 +167,7 @@ document.querySelectorAll("[data-finish]").forEach((el) =>
     if (!invoke) return; // Aperçu navigateur : pas d'hôte à qui parler.
     const banner = document.getElementById("start-error");
     try {
-      await invoke("set_rhythm", { workMinutes: choice.work, breakMinutes: choice.pause });
+      await invoke("set_rhythm", { workMinutes: choice.work, pauseMinutes: choice.pause });
       await invoke("set_severity", { severity: choice.severity });
       await invoke("set_spared_apps", { spared: choice.spared });
       await invoke("finish_onboarding");
@@ -121,3 +183,4 @@ document.querySelectorAll("[data-finish]").forEach((el) =>
 
 show(0);
 syncAccessAsk();
+loadApps();

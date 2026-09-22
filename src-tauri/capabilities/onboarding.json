@@ -1,0 +1,14 @@
+{
+  "identifier": "onboarding",
+  "description": "Le parcours de première utilisation applique rythme, sévérité et épargne d'apps, lit le catalogue installé et demande l'Accessibilité, puis se conclut. Aucune commande du cycle en cours.",
+  "windows": ["onboarding"],
+  "permissions": [
+    "core:default",
+    "allow-list-installed-apps",
+    "allow-set-rhythm",
+    "allow-set-severity",
+    "allow-set-spared-apps",
+    "allow-request-accessibility",
+    "allow-finish-onboarding"
+  ]
+}

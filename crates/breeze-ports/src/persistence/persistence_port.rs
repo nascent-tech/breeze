@@ -9,4 +9,7 @@ pub trait PersistencePort {
     // Remplace tout l'ensemble en une transaction (BEGIN; DELETE; INSERT…; COMMIT).
     fn replace_app_statuses(&self, statuses: &[(AppId, AppStatus)])
         -> Result<(), PersistenceError>;
+    // Le parcours de première utilisation a-t-il été mené à son terme ?
+    fn is_onboarding_done(&self) -> Result<bool, PersistenceError>;
+    fn mark_onboarding_done(&self) -> Result<(), PersistenceError>;
 }
