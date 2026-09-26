@@ -1,11 +1,11 @@
 use crate::AppState;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
-use breeze_domain::{AppId, AppStatus};
+use breeze_domain::{AppId, AppStatus, SparedApps};
 use breeze_ports::PermissionStatus;
 use serde::Serialize;
 use std::collections::HashMap;
-use tauri::{AppHandle, Manager, State};
+use tauri::State;
 
 #[derive(Serialize)]
 pub struct InstalledAppDto {
@@ -102,6 +102,23 @@ pub fn accessibility_status(state: State<'_, AppState>) -> &'static str {
     permission_label(state.accessibility.status())
 }
 
+// N'écrit que les apps transmises : une app absente de la carte garde son statut
+// (une app Ignorée ne redevient jamais Bloquée faute d'avoir été renvoyée).
+fn apply_spared_choices(chosen: &mut SparedApps, choices: HashMap<String, bool>) {
+    for (raw_id, is_spared) in choices {
+        // Un id invalide est ignoré (onboarding = geste large, jamais fatal).
+        let Ok(id) = AppId::parse(&raw_id) else {
+            continue;
+        };
+        let status = if is_spared {
+            AppStatus::Spared
+        } else {
+            AppStatus::Blocked
+        };
+        chosen.set(id, status);
+    }
+}
+
 #[tauri::command]
 pub fn set_spared_apps(
     state: State<'_, AppState>,
@@ -109,17 +126,7 @@ pub fn set_spared_apps(
 ) -> Result<(), String> {
     let mut chosen = state.spared.lock().unwrap_or_else(|e| e.into_inner());
     let snapshot = chosen.clone();
-    for (raw_id, is_spared) in spared {
-        // Un id invalide est ignoré (onboarding = geste large, jamais fatal).
-        if let Ok(id) = AppId::parse(&raw_id) {
-            let status = if is_spared {
-                AppStatus::Spared
-            } else {
-                AppStatus::Blocked
-            };
-            chosen.set(id, status);
-        }
-    }
+    apply_spared_choices(&mut chosen, spared);
     if let Err(error) = state.persistence.replace_app_statuses(&chosen.pairs()) {
         *chosen = snapshot;
         eprintln!("breeze: could not persist spared apps: {}", error.0);
@@ -128,37 +135,43 @@ pub fn set_spared_apps(
     Ok(())
 }
 
-#[tauri::command]
-pub fn finish_onboarding(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    if let Err(error) = state.persistence.mark_onboarding_done() {
-        eprintln!("breeze: could not mark onboarding done: {}", error.0);
-        return Err("persistence-failed".to_owned());
-    }
-    if let Some(panel) = app.get_webview_window("panel") {
-        let _ = panel.show();
-        let _ = panel.set_focus();
-    }
-    if let Some(onboarding) = app.get_webview_window("onboarding") {
-        let _ = onboarding.close();
-    }
-    Ok(())
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[tauri::command]
-pub fn open_settings(app: AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("settings") {
-        let _ = window.set_focus();
-        return Ok(());
+    fn app(raw: &str) -> AppId {
+        AppId::parse(raw).unwrap()
     }
-    tauri::WebviewWindowBuilder::new(
-        &app,
-        "settings",
-        tauri::WebviewUrl::App("settings.html".into()),
-    )
-    .title("Breeze — Réglages")
-    .inner_size(820.0, 660.0)
-    .resizable(false)
-    .build()
-    .map(|_| ())
-    .map_err(|error| error.to_string())
+
+    #[test]
+    fn only_the_apps_sent_change_status() {
+        let mut chosen = SparedApps::new();
+        chosen.set(app("com.tinyspeck.slackmacgap"), AppStatus::Ignored);
+        chosen.set(app("com.apple.Music"), AppStatus::Spared);
+        let choices = HashMap::from([("com.apple.Music".to_owned(), false)]);
+
+        apply_spared_choices(&mut chosen, choices);
+
+        assert_eq!(
+            chosen.status_of(&app("com.tinyspeck.slackmacgap")),
+            AppStatus::Ignored
+        );
+        assert_eq!(
+            chosen.status_of(&app("com.apple.Music")),
+            AppStatus::Blocked
+        );
+    }
+
+    #[test]
+    fn an_invalid_id_is_skipped_without_failing() {
+        let mut chosen = SparedApps::new();
+        let choices = HashMap::from([
+            ("not a bundle id".to_owned(), true),
+            ("com.apple.Notes".to_owned(), true),
+        ]);
+
+        apply_spared_choices(&mut chosen, choices);
+
+        assert_eq!(chosen.status_of(&app("com.apple.Notes")), AppStatus::Spared);
+    }
 }

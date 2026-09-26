@@ -65,11 +65,19 @@ impl Cycle {
         let Some(deadline) = from.checked_plus(RETURN_HOLD) else {
             return false;
         };
-        match settlement {
-            Settlement::Repaid => self.debt.settle(),
-            Settlement::Frozen => self.debt.freeze(),
-        }
-        self.outcomes.push(BreakOutcome::Served);
+        let pause = self.rhythm.pause().as_duration();
+        let planned = match settlement {
+            Settlement::Repaid => {
+                let lent = self.debt.absorbed();
+                self.debt.settle();
+                pause.saturating_add(lent)
+            }
+            Settlement::Frozen => {
+                self.debt.freeze();
+                pause
+            }
+        };
+        self.outcomes.push(BreakOutcome::Served { planned });
         self.state = CycleState::Returning { deadline };
         true
     }

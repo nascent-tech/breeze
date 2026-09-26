@@ -13,84 +13,167 @@
         overflow: hidden;
       }
       body {
-        display: grid;
-        place-items: center;
-        background: #eef1f7;
+        background: var(--surface);
       }
-      h1 {
+      h1,
+      p,
+      ul {
         margin: 0;
       }
-      /* La fenêtre d'onboarding : 520 × 680, coins 26. */
-      #win {
-        width: 520px;
-        height: 680px;
-        display: flex;
+      ul {
+        padding: 0;
+        list-style: none;
       }
-      .frame {
-        position: relative;
-        flex: 1;
-        background: #fbfcfe;
-        border-radius: 26px;
-        overflow: hidden;
+      [hidden] {
+        display: none !important;
+      }
+      /* Le titre reçoit le focus à chaque étape (annonce lecteur d'écran) mais
+         n'est pas atteignable au clavier (tabindex -1) : pas de contour visible. */
+      .t-headline:focus {
+        outline: none;
+      }
+      /* Fenêtre macOS native (barre de titre en overlay, feux natifs en haut à
+         gauche) : la page remplit la fenêtre, aucune carte flottante. */
+      #app {
+        height: 100vh;
+        width: 100vw;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
       }
       .step {
         display: none;
-        flex: 1;
         flex-direction: column;
+        height: 100%;
+        min-height: 0;
       }
       .step.on {
         display: flex;
       }
-      .content {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        padding: 8px 40px 28px;
-      }
+      /* En-tête « mesh » : zone de déplacement de la fenêtre (data-tauri-drag-region).
+         Laisse de l'air en haut à gauche pour les feux tricolores natifs. */
       .head {
         position: relative;
-        height: 152px;
+        height: 140px;
         flex: none;
         display: grid;
         place-items: center;
-        padding-top: 12px;
+        padding-top: 16px;
+      }
+      .head.mesh {
+        background:
+          radial-gradient(60% 80% at 8% 0%, #b9dbff 0%, rgba(185, 219, 255, 0) 100%),
+          radial-gradient(55% 75% at 92% 0%, #d9ccff 0%, rgba(217, 204, 255, 0) 100%),
+          radial-gradient(50% 70% at 100% 100%, #c2ecd8 0%, rgba(194, 236, 216, 0) 100%),
+          radial-gradient(45% 70% at 0% 100%, #f9d6e5 0%, rgba(249, 214, 229, 0) 100%),
+          #edf1f9;
       }
       .head-fade {
         position: absolute;
         left: 0;
         right: 0;
         bottom: 0;
-        height: 72px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0), #fbfcfe);
+        height: 56px;
+        background: linear-gradient(180deg, rgba(251, 252, 254, 0), var(--surface));
       }
       .tile {
-        width: 72px;
-        height: 72px;
+        position: relative;
+        width: 68px;
+        height: 68px;
         border-radius: 20px;
         background: linear-gradient(180deg, #fbfcfe, #f2f6fc);
         box-shadow: 0 16px 32px -12px rgba(28, 33, 48, 0.3), inset 0 1px 0 #fbfcfe;
         display: grid;
         place-items: center;
       }
-      .cta {
-        margin-top: auto;
+      /* Contenu centré verticalement dans la place disponible ; les marges auto
+         retombent à zéro si le contenu déborde (rien n'est rogné en haut). */
+      .content {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
         display: flex;
         flex-direction: column;
-        gap: 18px;
+        gap: 16px;
+        padding: 8px 40px 16px;
       }
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0 0 0 0);
-        white-space: nowrap;
-        border: 0;
+      .content > :first-child {
+        margin-top: auto;
+      }
+      .content > :last-child {
+        margin-bottom: auto;
+      }
+      .footer {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px 40px 24px;
+        box-shadow: 0 -1px 0 var(--outline);
+      }
+      .center {
+        text-align: center;
+      }
+      .lede {
+        text-align: center;
+        max-width: 420px;
+        align-self: center;
+      }
+      .fine {
+        text-align: center;
+        color: var(--ink-3);
+      }
+      .actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+      }
+      .btn-wide {
+        min-width: 200px;
+      }
+      .btn-back {
+        min-width: 96px;
+      }
+      /* Points clés (bienvenue) et déroulé (démarrage). */
+      .points {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .point {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        background: rgba(28, 33, 48, 0.035);
+      }
+      .point-ico {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        flex: none;
+        display: grid;
+        place-items: center;
+      }
+      .point-ico.blue {
+        background: var(--primary-tint);
+        color: var(--primary);
+      }
+      .point-ico.mint {
+        background: var(--mint-tint);
+        color: var(--mint);
+      }
+      .point-ico.violet {
+        background: var(--violet-tint);
+        color: var(--violet);
+      }
+      .point-text {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
       }
       /* Puce radio des options (rythme / sévérité). */
       .tick {
@@ -106,254 +189,559 @@
       .sev-opt[aria-checked="true"] .tick {
         box-shadow: inset 0 0 0 6px var(--primary);
       }
-      /* Option de rythme : rangée sélectionnable. */
+      .rhythm-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      /* Option de rythme : rangée sélectionnable, vrai bouton. */
       .rhythm-opt {
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 14px 16px;
-        border-radius: 14px;
+        padding: 12px 16px;
+        border-radius: 12px;
         box-shadow: inset 0 0 0 1px var(--outline-2);
+        background: none;
+        border: 0;
+        width: 100%;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        cursor: default;
+        transition: background-color 0.15s ease, box-shadow 0.15s ease;
+      }
+      .rhythm-opt:hover,
+      .sev-opt:hover {
+        background: rgba(28, 33, 48, 0.035);
       }
       .rhythm-opt[aria-checked="true"] {
         background: var(--primary-tint);
         box-shadow: inset 0 0 0 1.5px var(--primary);
       }
-      /* Carte de sévérité sélectionnable. */
+      .rhythm-text {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      /* Carte de sévérité : vrai bouton role=radio. Le flex-column vit sur
+         .sev-inner et non sur le bouton (WebKit ignore flex-direction:column
+         sur un <button>). */
+      .sev-group {
+        display: flex;
+        gap: 12px;
+      }
       .sev-opt {
+        display: block;
+        flex: 1;
+        width: auto;
+        padding: 12px;
+        border-radius: 16px;
         box-shadow: inset 0 0 0 1px var(--outline-2);
+        background: none;
+        border: 0;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        cursor: default;
+        transition: background-color 0.15s ease, box-shadow 0.15s ease;
       }
       .sev-opt[aria-checked="true"] {
         box-shadow: inset 0 0 0 1.5px var(--primary);
       }
+      .sev-inner {
+        display: block;
+        width: 100%;
+        text-align: left;
+      }
+      .sev-inner > * + * {
+        margin-top: 8px;
+      }
+      .sev-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .sev-desc {
+        display: block;
+      }
+      /* Aperçu de sévérité : évoque ce que l'overlay réel montre. */
+      .sev-preview {
+        position: relative;
+        border-radius: 10px;
+        padding: 20px 12px;
+        text-align: center;
+        overflow: hidden;
+      }
+      .sev-preview,
+      .sev-preview .num,
+      .sev-preview-sub {
+        display: block;
+      }
+      .kbd-inline {
+        font-weight: 600;
+        color: var(--ink);
+        white-space: nowrap;
+      }
+      .sev-preview .num {
+        position: relative;
+        font-size: 20px;
+        font-weight: 700;
+        z-index: 1;
+      }
+      .sev-preview-sub {
+        position: relative;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        margin-top: 4px;
+        z-index: 1;
+      }
+      /* Simple : voile clair translucide sur une fausse fenêtre. */
+      .sev-preview.simple {
+        background: linear-gradient(180deg, #eef1f6, #e4e8ef);
+        box-shadow: inset 0 0 0 1px var(--outline);
+      }
+      .sev-preview.simple::before {
+        content: "";
+        position: absolute;
+        inset: 8px 16px auto 16px;
+        height: 30px;
+        border-radius: 6px;
+        background: repeating-linear-gradient(180deg, rgba(28, 33, 48, 0.18) 0 5px, transparent 5px 10px);
+      }
+      .sev-preview.simple::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.58);
+      }
+      .sev-preview.simple .num {
+        color: var(--ink);
+      }
+      .sev-preview.simple .sev-preview-sub {
+        color: var(--ink-2);
+      }
+      /* Hardcore : plein écran sombre, décompte blanc. */
+      .sev-preview.hardcore {
+        background: var(--ink);
+      }
+      .sev-preview.hardcore .num {
+        color: #fbfcfe;
+        letter-spacing: -0.01em;
+      }
+      .sev-preview.hardcore .sev-preview-sub {
+        color: rgba(251, 252, 254, 0.75);
+        letter-spacing: 0.03em;
+      }
+      /* Demande d'Accessibilité (Mode Simple uniquement). */
+      #access-ask {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: inset 0 0 0 1px var(--outline-2);
+      }
+      .access-text {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .inset-note {
+        padding: 12px 16px;
+      }
+      /* Recherche d'applications. */
+      .app-search {
+        height: 36px;
+        padding: 0 12px;
+        border-radius: 10px;
+        border: 0;
+        background: rgba(28, 33, 48, 0.06);
+        box-shadow: inset 0 0 0 1px var(--outline);
+        font: inherit;
+        font-size: 13px;
+        color: var(--ink);
+        width: 100%;
+        transition: background-color 0.15s ease, box-shadow 0.15s ease;
+      }
+      .app-search:hover {
+        background: rgba(28, 33, 48, 0.08);
+      }
+      .app-search:focus {
+        outline: none;
+        background: var(--surface);
+        box-shadow: inset 0 0 0 2px var(--primary);
+      }
+      .app-search::placeholder {
+        color: var(--ink-3);
+      }
+      .app-panel {
+        display: flex;
+        flex-direction: column;
+        border-radius: 12px;
+        box-shadow: inset 0 0 0 1px var(--outline);
+      }
+      #ob-app-list {
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .app-divider {
+        margin: 0 12px;
+      }
+      .app-row {
+        width: 100%;
+      }
+      .app-name {
+        flex: 1;
+        min-width: 0;
+        text-align: left;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .app-status {
+        color: var(--ink-3);
+      }
+      .app-status.is-spared {
+        color: var(--mint);
+      }
+      .appicon.has-img {
+        background: transparent;
+        box-shadow: none;
+      }
+      .appicon.has-img img {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: block;
+      }
+      .appicon.fallback {
+        background: linear-gradient(160deg, #9ba3b5, #6c7383);
+      }
+      .chip-fixed {
+        height: 24px;
+        font-size: 12px;
+      }
+      .switch.locked {
+        opacity: 0.5;
+      }
+      .app-skeleton-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 44px;
+        padding: 8px 12px;
+      }
+      .skl-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        flex: none;
+      }
+      .app-empty,
+      .app-error {
+        padding: 16px 12px;
+        text-align: center;
+        color: var(--ink-3);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+      .chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .error-text {
+        text-align: center;
+        color: var(--danger);
+      }
     </style>
   </head>
   <body>
-    <div id="win">
-      <div class="frame">
-        <div class="traffic" style="position: absolute; top: 16px; left: 16px; z-index: 3">
-          <i class="tr-r"></i><i class="tr-y"></i><i class="tr-g"></i>
+    <div id="app">
+      <!-- 1 · Bienvenue -->
+      <section class="step on" data-step="0" aria-label="Étape 1 sur 5 : bienvenue">
+        <div class="head mesh" data-tauri-drag-region>
+          <div class="head-fade"></div>
+          <div class="tile">
+            <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true">
+              <defs>
+                <linearGradient id="leafg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#1B9DF5"></stop>
+                  <stop offset="1" stop-color="#28C79A"></stop>
+                </linearGradient>
+              </defs>
+              <path fill="url(#leafg)" d="M20.2 3.8C11.5 4 5.6 8.9 4.3 15.4c-.5 2.6.9 5 3.2 5 8.8 0 12.9-8 12.7-16.6Z"></path>
+              <path fill="none" stroke="#FBFCFE" stroke-width="1.4" stroke-linecap="round" d="M6.8 18.2C9.6 13.6 13.4 9.8 17.6 6.6"></path>
+            </svg>
+          </div>
         </div>
+        <div class="content">
+          <h1 class="t-headline center">Bienvenue dans Breeze</h1>
+          <p class="t-body-lg lede">Breeze force la pause. Tu ne peux pas l’ignorer, et c’est le but.</p>
+          <ul class="points">
+            <li class="point">
+              <span class="point-ico blue" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7"></path><path d="M20 4v4.5h-4.5"></path></svg>
+              </span>
+              <span class="point-text">
+                <span class="t-label">Un cycle simple</span>
+                <span class="t-caption">Une phase de travail, puis une pause imposée. Et on recommence.</span>
+              </span>
+            </li>
+            <li class="point">
+              <span class="point-ico mint" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="12" rx="2"></rect><path d="M8.5 20.5h7"></path><path d="M9.5 11h5"></path></svg>
+              </span>
+              <span class="point-text">
+                <span class="t-label">Une pause qui tient</span>
+                <span class="t-caption">L’écran se couvre le temps du compte à rebours&nbsp;: un clic ne le balaie pas.</span>
+              </span>
+            </li>
+            <li class="point">
+              <span class="point-ico violet" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6v5.5c0 4.6 3 7.7 7 9 4-1.3 7-4.4 7-9V6Z"></path><path d="M9.2 12.2l2 2 3.6-3.8"></path></svg>
+              </span>
+              <span class="point-text">
+                <span class="t-label">Tu décides à froid</span>
+                <span class="t-caption">Rythme et sévérité se choisissent maintenant, pas au moment de la pause.</span>
+              </span>
+            </li>
+          </ul>
+          <p class="t-caption fine">Aucun compte, aucun serveur&nbsp;: rien ne quitte ton Mac.</p>
+        </div>
+        <div class="footer">
+          <div class="actions">
+            <button type="button" class="btn btn-primary btn-wide" data-next>Continuer</button>
+          </div>
+          <div class="dots" aria-hidden="true"><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        </div>
+      </section>
 
-        <!-- 1 · Bienvenue -->
-        <section class="step on" data-step="0" aria-label="Étape 1 sur 5 : bienvenue">
-          <div class="head mesh">
-            <div class="head-fade"></div>
-            <div class="tile">
-              <svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
-                <defs>
-                  <linearGradient id="leafg" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stop-color="#1B9DF5"></stop>
-                    <stop offset="1" stop-color="#28C79A"></stop>
-                  </linearGradient>
-                </defs>
-                <path fill="url(#leafg)" d="M20.2 3.8C11.5 4 5.6 8.9 4.3 15.4c-.5 2.6.9 5 3.2 5 8.8 0 12.9-8 12.7-16.6Z"></path>
-                <path fill="none" stroke="#FBFCFE" stroke-width="1.4" stroke-linecap="round" d="M6.8 18.2C9.6 13.6 13.4 9.8 17.6 6.6"></path>
-              </svg>
-            </div>
+      <!-- 2 · Rythme -->
+      <section class="step" data-step="1" aria-label="Étape 2 sur 5 : rythme">
+        <div class="head mesh" data-tauri-drag-region>
+          <div class="head-fade"></div>
+          <div class="tile">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0A6FDB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5v4.5l3 1.8"></path>
+            </svg>
           </div>
-          <div class="content">
-            <h1 class="t-headline" style="text-align: center">Bienvenue dans Breeze</h1>
-            <p class="t-body-lg" style="text-align: center; max-width: 420px; align-self: center; margin: 0">
-              Breeze force la pause. Il recouvre ton écran le temps d’un compte à rebours qu’un clic ne balaie pas — tu ne peux pas l’ignorer, et c’est le but.
-            </p>
-            <p class="t-caption" style="color: var(--ink-3); text-align: center; margin: 0">Aucun compte, aucun serveur : rien ne quitte ton Mac, hors la vérification de mise à jour que tu peux couper.</p>
-            <div class="cta">
-              <div style="display: flex; justify-content: center">
-                <button type="button" class="btn btn-primary" data-next style="min-width: 200px">Continuer</button>
-              </div>
-              <div class="dots" aria-hidden="true"><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-            </div>
+        </div>
+        <div class="content">
+          <h1 class="t-headline center">Choisis ton rythme</h1>
+          <p class="t-body lede">Une phase de travail, puis une pause. Tu pourras affiner dans les réglages&nbsp;: au cycle suivant, jamais sur une pause déjà due.</p>
+          <div id="rhythm-group" class="rhythm-group" role="radiogroup" aria-label="Rythme">
+            <button type="button" class="rhythm-opt" role="radio" aria-checked="false" id="rhythm-current" hidden>
+              <span class="tick" aria-hidden="true"></span>
+              <span class="rhythm-text">
+                <span class="t-label">Ton rythme actuel</span>
+                <span class="t-caption" id="rhythm-current-desc"></span>
+              </span>
+            </button>
+            <button type="button" class="rhythm-opt" role="radio" aria-checked="true" data-work="50" data-pause="10">
+              <span class="tick" aria-hidden="true"></span>
+              <span class="rhythm-text">
+                <span class="t-label">Classique</span>
+                <span class="t-caption">50&nbsp;min de travail · 10&nbsp;min de pause</span>
+              </span>
+              <span class="chip chip-tint">Recommandé</span>
+            </button>
+            <button type="button" class="rhythm-opt" role="radio" aria-checked="false" data-work="25" data-pause="5">
+              <span class="tick" aria-hidden="true"></span>
+              <span class="rhythm-text">
+                <span class="t-label">Pomodoro</span>
+                <span class="t-caption">25&nbsp;min de travail · 5&nbsp;min de pause</span>
+              </span>
+            </button>
+            <button type="button" class="rhythm-opt" role="radio" aria-checked="false" data-work="90" data-pause="15">
+              <span class="tick" aria-hidden="true"></span>
+              <span class="rhythm-text">
+                <span class="t-label">Profond</span>
+                <span class="t-caption">90&nbsp;min de travail · 15&nbsp;min de pause</span>
+              </span>
+            </button>
           </div>
-        </section>
+          <p class="t-caption fine">Réglage fin dans les réglages&nbsp;: 5 à 180&nbsp;min de travail, 1 à 60&nbsp;min de pause.</p>
+        </div>
+        <div class="footer">
+          <div class="actions">
+            <button type="button" class="btn btn-secondary btn-back" data-back>Retour</button>
+            <button type="button" class="btn btn-primary btn-wide" data-next>Continuer</button>
+          </div>
+          <div class="dots" aria-hidden="true"><span class="dot"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        </div>
+      </section>
 
-        <!-- 2 · Rythme -->
-        <section class="step" data-step="1" aria-label="Étape 2 sur 5 : rythme">
-          <div class="head mesh">
-            <div class="head-fade"></div>
-            <div class="tile">
-              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0A6FDB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5v4.5l3 1.8"></path>
-              </svg>
-            </div>
+      <!-- 3 · Sévérité -->
+      <section class="step" data-step="2" aria-label="Étape 3 sur 5 : sévérité">
+        <div class="head mesh" data-tauri-drag-region>
+          <div class="head-fade"></div>
+          <div class="tile">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6D4FD4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3.5 5 6v5.5c0 4.6 3 7.7 7 9 4-1.3 7-4.4 7-9V6Z"></path><path d="M9.2 12.2l2 2 3.6-3.8"></path>
+            </svg>
           </div>
-          <div class="content">
-            <h1 class="t-headline" style="text-align: center">Choisis ton rythme</h1>
-            <p class="t-body" style="text-align: center; max-width: 420px; align-self: center; margin: 0">
-              Une phase de travail, puis une pause. Tu pourras affiner dans les réglages — au cycle suivant, jamais sur une pause déjà due.
-            </p>
-            <div role="radiogroup" aria-label="Rythme" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px">
-              <button type="button" class="rhythm-opt" role="radio" aria-checked="true" data-work="50" data-pause="10">
-                <span class="tick" aria-hidden="true"></span>
-                <span style="flex: 1; display: flex; flex-direction: column; gap: 1px">
-                  <span class="t-label">Classique</span>
-                  <span class="t-caption">50&nbsp;min de travail · 10&nbsp;min de pause</span>
+        </div>
+        <div class="content">
+          <h1 class="t-headline center">À quel point c’est strict&nbsp;?</h1>
+          <p class="t-body lede">Tu décides à froid ce que tu ne pourras plus négocier à chaud. Passer à Hardcore vaut tout de suite&nbsp;; revenir à Simple vaut au cycle suivant.</p>
+          <div id="sev-group" class="sev-group" role="radiogroup" aria-label="Sévérité">
+            <button type="button" class="sev-opt" role="radio" aria-checked="true" data-sev="Simple">
+              <span class="sev-inner">
+                <span class="sev-preview simple" aria-hidden="true">
+                  <span class="num">7:42</span>
+                  <span class="sev-preview-sub">VOILE DISCRET</span>
                 </span>
-                <span class="chip chip-tint">Recommandé</span>
-              </button>
-              <button type="button" class="rhythm-opt" role="radio" aria-checked="false" data-work="25" data-pause="5">
-                <span class="tick" aria-hidden="true"></span>
-                <span style="flex: 1; display: flex; flex-direction: column; gap: 1px">
-                  <span class="t-label">Pomodoro</span>
-                  <span class="t-caption">25&nbsp;min de travail · 5&nbsp;min de pause</span>
-                </span>
-              </button>
-              <button type="button" class="rhythm-opt" role="radio" aria-checked="false" data-work="90" data-pause="15">
-                <span class="tick" aria-hidden="true"></span>
-                <span style="flex: 1; display: flex; flex-direction: column; gap: 1px">
-                  <span class="t-label">Profond</span>
-                  <span class="t-caption">90&nbsp;min de travail · 15&nbsp;min de pause</span>
-                </span>
-              </button>
-            </div>
-            <p class="t-caption" style="text-align: center; color: var(--ink-3); margin: 0">Réglage fin dans les réglages&nbsp;: 5 à 180&nbsp;min de travail, 1 à 60&nbsp;min de pause.</p>
-            <div class="cta">
-              <div style="display: flex; gap: 12px; justify-content: center">
-                <button type="button" class="btn btn-secondary" data-back style="min-width: 96px">Retour</button>
-                <button type="button" class="btn btn-primary" data-next style="min-width: 200px">Continuer</button>
-              </div>
-              <div class="dots" aria-hidden="true"><span class="dot"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 3 · Sévérité -->
-        <section class="step" data-step="2" aria-label="Étape 3 sur 5 : sévérité">
-          <div class="head mesh">
-            <div class="head-fade"></div>
-            <div class="tile">
-              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#6D4FD4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 3.5 5 6v5.5c0 4.6 3 7.7 7 9 4-1.3 7-4.4 7-9V6Z"></path><path d="M9.2 12.2l2 2 3.6-3.8"></path>
-              </svg>
-            </div>
-          </div>
-          <div class="content">
-            <h1 class="t-headline" style="text-align: center">À quel point c’est strict ?</h1>
-            <p class="t-body" style="text-align: center; max-width: 420px; align-self: center; margin: 0">
-              Tu décides à froid ce que tu ne pourras plus négocier à chaud. Passer à Hardcore vaut tout de suite&nbsp;; revenir à Simple vaut au cycle suivant.
-            </p>
-            <div role="radiogroup" aria-label="Sévérité" style="display: flex; gap: 12px; margin-top: 4px">
-              <button type="button" class="sev-opt" role="radio" aria-checked="true" data-sev="Simple" style="flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 16px">
-                <span style="background: #e3e5ea; position: relative; height: 118px; border-radius: 10px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--outline); display: block">
-                  <span style="position: absolute; left: 10px; top: 12px; width: 110px; height: 78px; background: #fbfcfe; border-radius: 6px; box-shadow: 0 6px 14px -6px rgba(28, 33, 48, 0.35); display: block">
-                    <span style="height: 10px; border-bottom: 1px solid var(--outline); display: flex; align-items: center; gap: 2px; padding: 0 4px"><i style="width: 3px; height: 3px; border-radius: 99px; background: #ff5f57"></i><i style="width: 3px; height: 3px; border-radius: 99px; background: #febc2e"></i><i style="width: 3px; height: 3px; border-radius: 99px; background: #28c840"></i></span>
-                    <span style="padding: 6px; display: flex; flex-direction: column; gap: 4px"><span class="skl" style="width: 70%"></span><span class="skl" style="width: 88%"></span><span class="skl" style="width: 55%"></span></span>
-                    <span class="veil" style="border-radius: 6px"><span class="num" style="font-size: 11px; font-weight: 700; color: var(--ink)">07:42</span></span>
-                  </span>
-                  <span style="position: absolute; right: 10px; bottom: 10px; width: 74px; height: 52px; background: #fbfcfe; border-radius: 6px; box-shadow: 0 6px 14px -6px rgba(28, 33, 48, 0.3); padding: 6px; display: flex; flex-direction: column; gap: 4px"><span class="skl" style="width: 80%"></span><span class="skl" style="width: 60%"></span></span>
-                </span>
-                <span style="display: flex; align-items: center; gap: 8px">
+                <span class="sev-name">
                   <span class="tick" aria-hidden="true"></span>
                   <span class="t-label">Simple</span>
                 </span>
-                <span class="t-caption" style="text-align: left">Voile les applications bloquées. Le reste du Mac reste utilisable, la musique continue.</span>
-              </button>
-              <button type="button" class="sev-opt" role="radio" aria-checked="false" data-sev="Hardcore" style="flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 16px">
-                <span style="position: relative; height: 118px; border-radius: 10px; overflow: hidden; background: #f4f6fb; box-shadow: inset 0 0 0 1px var(--outline); display: grid; place-items: center">
-                  <span style="display: flex; flex-direction: column; align-items: center; gap: 4px">
-                    <span class="num" style="font-size: 24px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em">10:00</span>
-                    <span style="font-size: 9px; font-weight: 700; color: var(--ink-2); letter-spacing: 0.03em">MAINTIENS ÉCHAP POUR SORTIR</span>
-                  </span>
+                <span class="t-caption sev-desc">Un voile translucide couvre l’écran pendant la pause. Il se lève seul à la fin.</span>
+              </span>
+            </button>
+            <button type="button" class="sev-opt" role="radio" aria-checked="false" data-sev="Hardcore">
+              <span class="sev-inner">
+                <span class="sev-preview hardcore" aria-hidden="true">
+                  <span class="num">10:00</span>
+                  <span class="sev-preview-sub">MAINTIENS ÉCHAP POUR SORTIR</span>
                 </span>
-                <span style="display: flex; align-items: center; gap: 8px">
+                <span class="sev-name">
                   <span class="tick" aria-hidden="true"></span>
                   <span class="t-label">Hardcore</span>
                 </span>
-                <span class="t-caption" style="text-align: left">Couvre chaque écran en entier. Une seule sortie&nbsp;: maintenir Échap 10&nbsp;s.</span>
-              </button>
-            </div>
-            <!-- La demande d'Accessibilité vit ici (brief §8.7) : Simple la déclenche, Hardcore non. -->
-            <div id="access-ask" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--outline-2)">
-              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
-                <span class="t-label">Autoriser l’Accessibilité</span>
-                <span class="t-caption">Pour voiler chaque fenêtre bloquée. Jamais le contenu, jamais les titres, jamais le clavier. Sans elle&nbsp;: un seul voile plein écran.</span>
-              </div>
-              <button type="button" class="btn btn-primary btn-sm" data-grant-access>Autoriser</button>
-            </div>
-            <div class="inset" style="padding: 10px 14px">
-              <span class="t-caption">Aucun mode n’est infaillible — macOS te laisse toujours forcer à quitter ou éteindre. Breeze rend la triche coûteuse et consciente, jamais impossible.</span>
-            </div>
-            <div class="cta">
-              <div style="display: flex; gap: 12px; justify-content: center">
-                <button type="button" class="btn btn-secondary" data-back style="min-width: 96px">Retour</button>
-                <button type="button" class="btn btn-primary" data-next style="min-width: 200px">Continuer</button>
-              </div>
-              <div class="dots" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div>
-            </div>
+                <span class="t-caption sev-desc">Couvre chaque écran en entier. Une seule sortie&nbsp;: maintenir Échap 10&nbsp;s, puis confirmer.</span>
+              </span>
+            </button>
           </div>
-        </section>
+          <!-- La demande d'Accessibilité vit ici (brief §8.7) : Simple la déclenche, Hardcore non. -->
+          <div id="access-ask">
+            <div class="access-text">
+              <span class="t-label">Autoriser l’Accessibilité</span>
+              <span class="t-caption" id="access-desc">Servira au voile fenêtre par fenêtre. Jamais le contenu, jamais les titres, jamais le clavier.</span>
+            </div>
+            <span class="chip chip-mint" id="access-granted-chip" role="status" hidden>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"></path></svg>
+              Autorisée
+            </span>
+            <button type="button" class="btn btn-primary btn-sm" id="access-grant">Autoriser</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="access-open-settings" hidden>Ouvrir Réglages Système</button>
+          </div>
+          <p class="inset inset-note t-caption">Aucun mode n’est infaillible&nbsp;: macOS te laisse toujours forcer à quitter ou éteindre. Breeze rend la triche coûteuse et consciente, jamais impossible.</p>
+        </div>
+        <div class="footer">
+          <div class="actions">
+            <button type="button" class="btn btn-secondary btn-back" data-back>Retour</button>
+            <button type="button" class="btn btn-primary btn-wide" data-next>Continuer</button>
+          </div>
+          <div class="dots" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div>
+        </div>
+      </section>
 
-        <!-- 4 · Applications -->
-        <section class="step" data-step="3" aria-label="Étape 4 sur 5 : applications">
-          <div class="head mesh">
-            <div class="head-fade"></div>
-            <div class="tile">
-              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0E9A55" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="4" y="4" width="6.6" height="6.6" rx="1.6"></rect><rect x="13.4" y="4" width="6.6" height="6.6" rx="1.6"></rect><rect x="4" y="13.4" width="6.6" height="6.6" rx="1.6"></rect><rect x="13.4" y="13.4" width="6.6" height="6.6" rx="1.6"></rect>
-              </svg>
+      <!-- 4 · Applications -->
+      <section class="step" data-step="3" aria-label="Étape 4 sur 5 : applications">
+        <div class="head mesh" data-tauri-drag-region>
+          <div class="head-fade"></div>
+          <div class="tile">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0E9A55" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="4" y="4" width="6.6" height="6.6" rx="1.6"></rect><rect x="13.4" y="4" width="6.6" height="6.6" rx="1.6"></rect><rect x="4" y="13.4" width="6.6" height="6.6" rx="1.6"></rect><rect x="13.4" y="13.4" width="6.6" height="6.6" rx="1.6"></rect>
+            </svg>
+          </div>
+        </div>
+        <div class="content">
+          <h1 class="t-headline center">Épargne ce qu’il te faut en pause</h1>
+          <p class="t-body lede">Toute application est bloquée par défaut&nbsp;: c’est ce qui rend la première pause réelle. Tes choix sont enregistrés dès maintenant&nbsp;; aujourd’hui le voile couvre l’écran entier, le voile fenêtre par fenêtre qui les appliquera est prévu.</p>
+          <label class="sr-only" for="app-search">Filtrer les applications</label>
+          <input type="search" id="app-search" class="app-search" placeholder="Filtrer les applications" autocomplete="off" spellcheck="false" />
+          <div class="app-panel">
+            <div id="ob-app-list" aria-live="polite"></div>
+            <div class="divider app-divider"></div>
+            <div class="rowitem">
+              <span class="appicon fallback" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 4.6v2.2M12 17.2v2.2M4.6 12h2.2M17.2 12h2.2M6.8 6.8l1.5 1.5M15.7 15.7l1.5 1.5M17.2 6.8l-1.5 1.5M8.3 15.7l-1.5 1.5"></path></svg>
+              </span>
+              <span class="t-label app-name">Réglages Système</span>
+              <span class="chip chip-neutral chip-fixed">Toujours épargnée</span>
+              <span class="switch on locked" aria-hidden="true"></span>
             </div>
           </div>
-          <div class="content">
-            <h1 class="t-headline" style="text-align: center">Épargne ce qu’il te faut en pause</h1>
-            <p class="t-body" style="text-align: center; max-width: 420px; align-self: center; margin: 0">
-              Toute application est bloquée par défaut — c’est ce qui rend la première pause réelle. Une application épargnée reste utilisable pendant la pause.
-            </p>
-            <div style="display: flex; flex-direction: column; margin-top: 4px; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--outline)">
-              <div id="ob-app-list" style="max-height: 232px; overflow-y: auto">
-                <div id="ob-app-status" class="t-caption" style="padding: 12px; color: var(--ink-3); text-align: center">Lecture des applications installées…</div>
-              </div>
-              <div class="divider" style="margin: 0 12px"></div>
-              <div class="rowitem">
-                <span class="appicon" style="background: linear-gradient(160deg, #9ba3b5, #6c7383)" aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 4.6v2.2M12 17.2v2.2M4.6 12h2.2M17.2 12h2.2M6.8 6.8l1.5 1.5M15.7 15.7l1.5 1.5M17.2 6.8l-1.5 1.5M8.3 15.7l-1.5 1.5"></path></svg>
-                </span>
-                <span class="t-label" style="flex: 1">Réglages Système</span>
-                <span class="chip chip-neutral" style="height: 24px; font-size: 12px">Toujours épargnée</span>
-                <span class="switch on locked" style="opacity: 0.5" aria-hidden="true"></span>
-              </div>
-            </div>
-            <p class="t-caption" style="color: var(--ink-3); text-align: center; margin: 0">Une application de santé ou d’urgence se marque épargnée&nbsp;: Breeze ne peut pas la reconnaître seul.</p>
-            <div class="cta">
-              <div style="display: flex; gap: 12px; align-items: center; justify-content: center">
-                <button type="button" class="btn btn-secondary" data-back style="min-width: 96px">Retour</button>
-                <button type="button" class="btn btn-primary" data-next style="min-width: 200px">Continuer</button>
-              </div>
-              <div class="dots" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot on"></span><span class="dot"></span></div>
-            </div>
+          <p class="t-caption fine" id="app-counter" aria-live="polite">0 application épargnée</p>
+          <p class="t-caption fine">Une application de santé ou d’urgence se marque épargnée&nbsp;: Breeze ne peut pas la reconnaître seul.</p>
+        </div>
+        <div class="footer">
+          <div class="actions">
+            <button type="button" class="btn btn-secondary btn-back" data-back>Retour</button>
+            <button type="button" class="btn btn-primary btn-wide" data-next>Continuer</button>
           </div>
-        </section>
+          <div class="dots" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot on"></span><span class="dot"></span></div>
+        </div>
+      </section>
 
-        <!-- 5 · Démarrage -->
-        <section class="step" data-step="4" aria-label="Étape 5 sur 5 : démarrage">
-          <div class="head mesh">
-            <div class="head-fade"></div>
-            <div class="tile">
-              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0A6FDB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="8.5"></circle><path d="M10.2 8.6v6.8l5.4-3.4Z" fill="#0A6FDB"></path>
-              </svg>
-            </div>
+      <!-- 5 · Démarrage -->
+      <section class="step" data-step="4" aria-label="Étape 5 sur 5 : démarrage">
+        <div class="head mesh" data-tauri-drag-region>
+          <div class="head-fade"></div>
+          <div class="tile">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0A6FDB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.5"></circle><path d="M10.2 8.6v6.8l5.4-3.4Z" fill="#0A6FDB"></path>
+            </svg>
           </div>
-          <div class="content">
-            <h1 class="t-headline" style="text-align: center">Ton premier cycle démarre</h1>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center">
-              <span class="chip chip-tint" id="sum-work">50&nbsp;min de travail</span>
-              <span class="chip chip-mint" id="sum-pause">10&nbsp;min de pause</span>
-              <span class="chip chip-neutral" id="sum-sev">Mode Simple</span>
-            </div>
-            <p class="t-body" style="text-align: center; max-width: 420px; align-self: center; margin: 0">
-              Breeze vit dans la barre de menus, sans icône dans le Dock. Ferme cette fenêtre quand tu veux : ce que tu as choisi est conservé, le reste prend les valeurs par défaut.
-            </p>
-            <p id="start-error" class="t-caption" role="alert" style="text-align: center; color: var(--danger); margin: 0; display: none"></p>
-            <div class="cta">
-              <div style="display: flex; gap: 12px; justify-content: center">
-                <button type="button" class="btn btn-secondary" data-back style="min-width: 96px">Retour</button>
-                <button type="button" class="btn btn-primary" data-finish style="min-width: 200px">Démarrer</button>
-              </div>
-              <div class="dots" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot on"></span></div>
-            </div>
+        </div>
+        <div class="content">
+          <h1 class="t-headline center">Ton premier cycle démarre</h1>
+          <div class="chips">
+            <span class="chip chip-tint" id="sum-work">50&nbsp;min de travail</span>
+            <span class="chip chip-mint" id="sum-pause">10&nbsp;min de pause</span>
+            <span class="chip chip-neutral" id="sum-sev">Mode Simple</span>
+            <span class="chip chip-violet" id="sum-spared">0 application épargnée</span>
           </div>
-        </section>
-      </div>
+          <ul class="points">
+            <li class="point">
+              <span class="point-ico blue" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5v4.5l3 1.8"></path></svg>
+              </span>
+              <span class="point-text">
+                <span class="t-label">À la fin du travail, un préavis</span>
+                <span class="t-caption">Une minute pour finir ta phrase avant la pause.</span>
+              </span>
+            </li>
+            <li class="point">
+              <span class="point-ico mint" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a3 3 0 0 1 0 6h-1"></path><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5Z"></path></svg>
+              </span>
+              <span class="point-text">
+                <span class="t-label">Puis la pause</span>
+                <span class="t-caption" id="plan-pause-desc">Un voile couvre l’écran, puis un nouveau cycle démarre.</span>
+              </span>
+            </li>
+            <li class="point">
+              <span class="point-ico violet" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.2 3.8C11.5 4 5.6 8.9 4.3 15.4c-.5 2.6.9 5 3.2 5 8.8 0 12.9-8 12.7-16.6Z"></path></svg>
+              </span>
+              <span class="point-text">
+                <span class="t-label">Breeze vit dans la barre de menus</span>
+                <span class="t-caption">Clique sur la feuille ou tape <span class="kbd-inline">⌥⌘B</span> pour suspendre ou ajuster.</span>
+              </span>
+            </li>
+          </ul>
+          <p id="start-error" class="t-caption error-text" role="alert" hidden></p>
+          <p class="t-caption fine">Ferme cette fenêtre quand tu veux&nbsp;: ce que tu as choisi est conservé, le reste garde ses valeurs actuelles.</p>
+        </div>
+        <div class="footer">
+          <div class="actions">
+            <button type="button" class="btn btn-secondary btn-back" data-back>Retour</button>
+            <button type="button" class="btn btn-primary btn-wide" data-finish>Démarrer</button>
+          </div>
+          <div class="dots" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot on"></span></div>
+        </div>
+      </section>
     </div>
     <script src="onboarding.js"></script>
   </body>

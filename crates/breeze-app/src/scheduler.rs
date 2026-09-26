@@ -1,8 +1,8 @@
 use crate::enforcer::Enforcer;
 use crate::snapshot::CycleSnapshot;
 use breeze_domain::{
-    CommandError, Countdown, Cycle, CycleState, Instant, InterruptionDoor, PostureDebt, Rhythm,
-    Severity,
+    Absence, AbsenceVerdict, BreakOutcome, CommandError, Cycle, Instant, InterruptionDoor,
+    PostureDebt, Rhythm, Severity, Weekday,
 };
 use breeze_ports::{DisplayEnumerationPort, OverlaySurfacesPort, SessionSignals};
 
@@ -10,6 +10,7 @@ pub struct Scheduler {
     cycle: Cycle,
     enforcer: Enforcer,
     last_input: Instant,
+    recorded_outcomes: usize,
 }
 
 impl Scheduler {
@@ -18,12 +19,16 @@ impl Scheduler {
             cycle,
             enforcer: Enforcer::default(),
             last_input: Instant::EPOCH,
+            recorded_outcomes: 0,
         }
     }
 
+    // Le calendrier s'observe APRÈS l'avance du cycle : un décompte échu au moment où la
+    // plage se ferme lance sa pause (préavis), il n'est pas avalé par [INACTIF].
     pub fn poll<O, D>(
         &mut self,
         now: Instant,
+        in_hours: bool,
         overlay: &mut O,
         displays: &D,
         signals: SessionSignals,
@@ -40,9 +45,43 @@ impl Scheduler {
         }
         self.cycle.freeze_if_idle(now);
         self.cycle.tick(now);
+        self.cycle.observe_calendar(now, in_hours);
         self.enforcer
             .reconcile(self.cycle.state(), overlay, displays);
         CycleSnapshot::of(&self.cycle)
+    }
+
+    // Les heures actives suivent le rythme CONFIGURÉ : une plage modifiée s'applique
+    // sans attendre le cycle suivant.
+    pub fn in_hours(&self, weekday: Weekday, minute_of_day: u16) -> bool {
+        self.cycle
+            .configured_rhythm()
+            .is_active_at(weekday, minute_of_day)
+    }
+
+    pub fn return_from_sleep(
+        &mut self,
+        absence: Absence,
+        now: Instant,
+        asleep_at: (Weekday, u16),
+    ) -> AbsenceVerdict {
+        self.cycle.return_from_sleep(absence, now, asleep_at)
+    }
+
+    // La dette de posture s'efface à minuit, heure locale (§9.2).
+    pub fn clear_debt(&mut self) {
+        self.cycle.clear_debt();
+    }
+
+    // Sorts de pause apparus depuis le dernier appel, chacun rendu une seule fois.
+    pub fn take_new_outcomes(&mut self) -> Vec<BreakOutcome> {
+        let outcomes = self.cycle.outcomes();
+        let fresh = outcomes
+            .get(self.recorded_outcomes..)
+            .map(<[BreakOutcome]>::to_vec)
+            .unwrap_or_default();
+        self.recorded_outcomes = outcomes.len();
+        fresh
     }
 
     pub fn snapshot(&self) -> CycleSnapshot {
@@ -61,8 +100,15 @@ impl Scheduler {
         self.cycle.interrupt_break(now)
     }
 
-    pub fn terminate(&mut self, now: Instant, door: InterruptionDoor) {
+    // Terminer et prélever les sorts d'un seul geste : aucun autre fil ne peut prendre le
+    // sort de la pause interrompue entre les deux et le perdre à la sortie.
+    pub fn terminate_and_take(
+        &mut self,
+        now: Instant,
+        door: InterruptionDoor,
+    ) -> Vec<BreakOutcome> {
         self.cycle.terminate(now, door);
+        self.take_new_outcomes()
     }
 
     pub fn debt(&self) -> PostureDebt {
@@ -89,23 +135,11 @@ impl Scheduler {
         self.cycle.rhythm()
     }
 
-    pub fn next_wake(&self) -> Option<Instant> {
-        deadline_of(self.cycle.state())
+    pub fn start_over(&mut self, now: Instant) -> Result<(), CommandError> {
+        self.cycle.start_over(now)
     }
-}
 
-fn deadline_of(state: CycleState) -> Option<Instant> {
-    match state {
-        CycleState::Working {
-            countdown: Countdown::Running { deadline },
-        }
-        | CycleState::Notice { deadline }
-        | CycleState::BreakActive { deadline, .. }
-        | CycleState::Returning { deadline }
-        | CycleState::Suspended {
-            resume_at: deadline,
-            ..
-        } => Some(deadline),
-        _ => None,
+    pub fn break_is_due(&self) -> bool {
+        self.cycle.break_is_due()
     }
 }

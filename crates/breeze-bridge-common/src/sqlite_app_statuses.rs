@@ -60,6 +60,13 @@ pub(crate) fn replace(
     transaction.commit().map_err(into_error)
 }
 
+pub(crate) fn clear(connection: &Connection) -> Result<(), PersistenceError> {
+    connection
+        .execute("DELETE FROM app_statuses", [])
+        .map(|_| ())
+        .map_err(into_error)
+}
+
 fn stored_name(status: AppStatus) -> Option<&'static str> {
     match status {
         AppStatus::Blocked => None,

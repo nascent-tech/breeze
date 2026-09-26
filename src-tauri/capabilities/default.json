@@ -1,16 +1,20 @@
 {
   "identifier": "default",
-  "description": "Le panneau lit l'instantané du cycle et lui envoie ses commandes.",
-  "windows": ["panel"],
+  "description": "Le panneau lit l'instantané du cycle et lui envoie ses commandes. Il n'écourte jamais une pause : pas d'interrupt_break. Côté fenêtre : se redimensionner à son contenu (setSize) et se déplacer par sa zone data-tauri-drag-region (le double-clic y appelle internal_toggle_maximize, sans effet sur une fenêtre non redimensionnable).",
+  "windows": [
+    "panel"
+  ],
   "permissions": [
-    "core:default",
+    "core:window:allow-set-size",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
     "allow-get-snapshot",
     "allow-suspend",
     "allow-resume",
-    "allow-interrupt-break",
     "allow-set-severity",
     "allow-set-rhythm",
     "allow-open-settings",
-    "allow-quit"
+    "allow-quit",
+    "allow-hide-panel"
   ]
 }

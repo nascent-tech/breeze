@@ -50,7 +50,7 @@ fn steps_through_each_state_in_order_and_records_one_served_break() {
 
     cycle.tick(return_at);
     assert!(matches!(cycle.state(), CycleState::Returning { .. }));
-    assert_eq!(cycle.outcomes(), &[BreakOutcome::Served]);
+    assert_eq!(cycle.outcomes(), &[BreakOutcome::Served { planned: pause }]);
 
     cycle.tick(next_at);
     assert!(matches!(

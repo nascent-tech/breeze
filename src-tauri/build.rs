@@ -27,6 +27,11 @@ fn main() {
         "set_launch_at_login",
         "set_sounds",
         "set_menubar_mode",
+        "get_stats",
+        "get_app_info",
+        "reopen_onboarding",
+        "hide_panel",
+        "open_url",
     ]);
     tauri_build::try_build(Attributes::new().app_manifest(manifest))
         .expect("failed to run tauri-build");

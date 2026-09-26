@@ -30,6 +30,7 @@ fn the_gesture_interrupts_a_hardcore_break_straight_into_a_full_work_cycle() {
     assert_eq!(
         cycle.outcomes(),
         &[BreakOutcome::Interrupted {
+            planned: Duration::from_secs(600),
             unserved: Duration::from_secs(360),
             door: InterruptionDoor::HardcoreExitGesture,
         }]
@@ -52,7 +53,12 @@ fn a_break_whose_deadline_has_passed_is_served_not_interrupted() {
         cycle.interrupt_break(at(3660)),
         Err(CommandError::NotInterruptible)
     );
-    assert_eq!(cycle.outcomes(), &[BreakOutcome::Served]);
+    assert_eq!(
+        cycle.outcomes(),
+        &[BreakOutcome::Served {
+            planned: Duration::from_secs(600)
+        }]
+    );
     assert!(matches!(cycle.state(), CycleState::Returning { .. }));
 }
 
@@ -80,4 +86,26 @@ fn the_gesture_is_refused_outside_a_break() {
         Err(CommandError::NotInterruptible)
     );
     assert!(matches!(cycle.state(), CycleState::Working { .. }));
+}
+
+#[test]
+fn an_interrupted_break_keeps_its_own_pause_even_with_a_new_rhythm_waiting() {
+    let shorter = Rhythm::new(Minutes(25), Minutes(5), None, ActiveDays::everyday()).unwrap();
+    let mut cycle = Cycle::start(rhythm(), Severity::Hardcore, Instant::EPOCH);
+    cycle.change_rhythm(shorter).unwrap();
+    cycle.tick(at(3000));
+    cycle.tick(at(3060));
+
+    cycle.interrupt_break(at(3300)).unwrap();
+
+    // La pause interrompue était de 10 min : le rythme 25/5 ne vaut qu'au cycle suivant.
+    assert_eq!(
+        cycle.outcomes(),
+        &[BreakOutcome::Interrupted {
+            planned: Duration::from_secs(600),
+            unserved: Duration::from_secs(360),
+            door: InterruptionDoor::HardcoreExitGesture,
+        }]
+    );
+    assert_eq!(cycle.rhythm(), shorter);
 }

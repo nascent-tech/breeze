@@ -1,5 +1,6 @@
 mod commands;
 mod transitions;
+mod wake;
 
 use crate::clock::Instant;
 use crate::constants::IDLE_FREEZE;
@@ -69,6 +70,20 @@ impl Cycle {
 
     pub fn rhythm(&self) -> Rhythm {
         self.rhythm
+    }
+
+    pub fn rhythm_pending(&self) -> bool {
+        self.pending_rhythm.is_some()
+    }
+
+    // Hors des heures actives, seul le travail s'éteint : une pause entamée (préavis,
+    // pause, retour) va à son terme, une suspension reste une suspension.
+    pub fn observe_calendar(&mut self, now: Instant, in_hours: bool) {
+        match (self.state, in_hours) {
+            (CycleState::Working { .. }, false) => self.state = CycleState::Inactive,
+            (CycleState::Inactive, true) => _ = self.enter_next_work(now),
+            _ => {}
+        }
     }
 
     pub fn outcomes(&self) -> &[BreakOutcome] {

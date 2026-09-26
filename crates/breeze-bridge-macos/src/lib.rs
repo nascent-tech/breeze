@@ -8,8 +8,12 @@ mod icon;
 mod mac_accessibility;
 #[cfg(target_os = "macos")]
 mod mac_installed_apps;
+#[cfg(target_os = "macos")]
+mod mac_session_signals;
 
 #[cfg(target_os = "macos")]
 pub use mac_accessibility::MacAccessibility;
 #[cfg(target_os = "macos")]
 pub use mac_installed_apps::MacInstalledApps;
+#[cfg(target_os = "macos")]
+pub use mac_session_signals::MacSessionSignals;

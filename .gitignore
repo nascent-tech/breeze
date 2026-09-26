@@ -13,3 +13,9 @@ coverage
 
 .claude
 target/
+
+# Signature / notarisation (jamais dans le dépôt)
+*.p12
+*.p8
+*.cer
+*.certSigningRequest

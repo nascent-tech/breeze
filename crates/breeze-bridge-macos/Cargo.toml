@@ -16,3 +16,4 @@ breeze-ports = { path = "../breeze-ports" }
 plist = "1"
 tempfile = "3"
 macos-accessibility-client = "0.0.2"
+objc2-core-graphics = { version = "0.3", default-features = false, features = ["std", "CGEventSource", "CGEventTypes"] }
