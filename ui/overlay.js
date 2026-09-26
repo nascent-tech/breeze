@@ -7,6 +7,14 @@
 const RING_CIRCUMFERENCE = 2 * Math.PI * 96;
 const POLL_MS = 500;
 const HOLD_MS = 10000;
+const LEGEND = "Maintiens Échap pour sortir";
+// macOS ne laisse aucune application prendre le clavier d'elle-même : tant que la surface ne
+// l'a pas, le premier clic le lui donne.
+const LEGEND_WITHOUT_KEYBOARD = "Clique sur l’écran, puis maintiens Échap pour sortir";
+
+function restingLegend() {
+  return document.hasFocus() ? LEGEND : LEGEND_WITHOUT_KEYBOARD;
+}
 
 const SUGGESTIONS = [
   "Regarde au loin pendant 20 secondes.",
@@ -180,7 +188,8 @@ function paintHold() {
   const remainingMs = Math.max(0, HOLD_MS - held);
   el("hold-fill").style.width = `${Math.min(100, (held / HOLD_MS) * 100)}%`;
   const remainingSeconds = Math.ceil(remainingMs / 1000);
-  el("legend").textContent = `Maintiens Échap encore ${remainingSeconds}\u00a0s`;
+  // La mention reste lisible pendant le maintien (§8.5) ; seul le restant s'y ajoute.
+  el("legend").textContent = `${LEGEND} — encore ${remainingSeconds}\u00a0s`;
 }
 
 function startHold() {
@@ -203,9 +212,13 @@ function resetHold() {
   if (fill) {
     fill.style.width = "0%";
   }
+  paintRestingLegend();
+}
+
+function paintRestingLegend() {
   const legend = el("legend");
-  if (legend) {
-    legend.textContent = "Maintiens Échap pour sortir";
+  if (legend && holdStart === null) {
+    legend.textContent = restingLegend();
   }
 }
 
@@ -262,6 +275,7 @@ function wireGesture() {
   // « Dix secondes consécutives » : si le focus part, la touche est relâchée sans
   // qu'on le sache — on abandonne le maintien plutôt que d'ouvrir la confirmation seul.
   window.addEventListener("blur", resetHold);
+  window.addEventListener("focus", paintRestingLegend);
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       resetHold();
@@ -277,6 +291,7 @@ function wireGesture() {
 document.documentElement.dataset.kind = readKind();
 if (readKind() === "hardcore") {
   wireGesture();
+  paintRestingLegend();
 }
 poll();
 setInterval(poll, POLL_MS);

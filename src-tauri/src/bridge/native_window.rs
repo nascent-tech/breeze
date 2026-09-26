@@ -5,8 +5,17 @@
 mod appkit {
     use breeze_ports::WindowId;
     use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior, NSWindowOrderingMode};
+    use objc2_app_kit::{
+        NSWindow, NSWindowCollectionBehavior, NSWindowLevel, NSWindowOrderingMode,
+    };
+    use objc2_core_graphics::CGShieldingWindowLevel;
     use tauri::WebviewWindow;
+
+    // Le niveau le plus haut qu'une application ordinaire puisse prendre : au-dessus de la
+    // barre de menus, du Dock et des fenêtres « toujours devant » des autres (§5.3).
+    pub fn shielding_level() -> NSWindowLevel {
+        NSWindowLevel::try_from(CGShieldingWindowLevel()).unwrap_or(NSWindowLevel::MAX)
+    }
 
     // Exécute `act` sur le NSWindow d'une fenêtre Tauri. Hors du thread principal, rien
     // n'est fait (journalisé) : AppKit n'y tolère aucun appel.
@@ -40,6 +49,12 @@ mod appkit {
         })
     }
 
+    // Surface Hardcore : portée au niveau de bouclier. Le comportement d'espaces déjà posé
+    // (auxiliaire plein écran, tous les bureaux) est gardé : seul le niveau change.
+    pub fn raise_to_shielding_level(window: &WebviewWindow) -> tauri::Result<()> {
+        with_ns_window(window, |ns_window| ns_window.setLevel(shielding_level()))
+    }
+
     // Range la surface juste au-dessus de la fenêtre cible, dont le numéro CGWindow
     // (kCGWindowNumber) est le `windowNumber` d'AppKit. `orderWindow:relativeTo:` n'active
     // pas l'app et ne rend pas la fenêtre clé : le focus reste où il est.
@@ -62,9 +77,15 @@ mod appkit {
         Ok(())
     }
 
+    pub fn raise_to_shielding_level(_window: &WebviewWindow) -> tauri::Result<()> {
+        Ok(())
+    }
+
     pub fn order_above(_window: &WebviewWindow, _target: WindowId) -> tauri::Result<()> {
         Ok(())
     }
 }
 
-pub use appkit::{join_full_screen_spaces, order_above};
+#[cfg(target_os = "macos")]
+pub use appkit::shielding_level;
+pub use appkit::{join_full_screen_spaces, order_above, raise_to_shielding_level};

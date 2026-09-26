@@ -6,6 +6,7 @@ pub mod display;
 pub mod geometry;
 pub mod overlay;
 pub mod persistence;
+pub mod presentation;
 pub mod session;
 pub mod window;
 
@@ -17,5 +18,6 @@ pub use display::{Display, DisplayEnumerationPort, DisplayId};
 pub use geometry::Rect;
 pub use overlay::{OverlayCapability, OverlaySurfacesPort, SurfaceId, SurfaceKind};
 pub use persistence::{LedgerDay, LedgerEntry, PersistedState, PersistenceError, PersistencePort};
+pub use presentation::PresentationLockPort;
 pub use session::{SessionSignals, SessionSignalsPort};
 pub use window::{FramesUnobservable, WindowFrame, WindowFramesPort, WindowId};

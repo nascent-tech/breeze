@@ -1,11 +1,12 @@
 use breeze_domain::{BreakMode, CycleState, Severity};
 use breeze_ports::{
-    DisplayEnumerationPort, DisplayId, OverlaySurfacesPort, Rect, SurfaceId, SurfaceKind,
-    WindowFrame, WindowId,
+    DisplayEnumerationPort, DisplayId, OverlaySurfacesPort, PresentationLockPort, Rect, SurfaceId,
+    SurfaceKind, WindowFrame, WindowId,
 };
 use std::collections::BTreeMap;
 
 // Ce que l'état du cycle demande de couvrir.
+#[derive(Clone, Copy)]
 enum Coverage {
     Nothing,
     // Un overlay par écran : Hardcore opaque, ou voile Simple dégradé.
@@ -26,22 +27,27 @@ struct WindowVeil {
 pub struct Enforcer {
     covered: BTreeMap<DisplayId, SurfaceId>,
     veiled: BTreeMap<WindowId, WindowVeil>,
+    // Le verrou de présentation est posé : une couverture Hardcore est en cours.
+    locked: bool,
 }
 
 impl Enforcer {
     // `blocked` = fenêtres bloquées visibles ; `None` quand les cadres n'ont pas pu être
     // relevés à ce poll : les voiles déjà posés restent alors tels quels.
-    pub fn reconcile<O, D>(
+    pub fn reconcile<O, L, D>(
         &mut self,
         state: CycleState,
         blocked: Option<&[WindowFrame]>,
         overlay: &mut O,
+        presentation: &mut L,
         displays: &D,
     ) where
         O: OverlaySurfacesPort,
+        L: PresentationLockPort + ?Sized,
         D: DisplayEnumerationPort,
     {
-        match coverage_for(state) {
+        let coverage = coverage_for(state);
+        match coverage {
             Coverage::Nothing => self.lift(overlay),
             Coverage::Screens(kind) => {
                 self.lift_window_veils(overlay);
@@ -53,6 +59,23 @@ impl Enforcer {
                 }
             }
         }
+        let hardcore = matches!(coverage, Coverage::Screens(SurfaceKind::Hardcore));
+        self.keep_presentation(hardcore, presentation);
+    }
+
+    // Après les surfaces : le verrou s'expédie derrière leur création, et sa levée derrière
+    // leur retrait. Posé à l'entrée, tenu à chaque poll, levé une seule fois à la sortie.
+    fn keep_presentation<L>(&mut self, hardcore: bool, presentation: &mut L)
+    where
+        L: PresentationLockPort + ?Sized,
+    {
+        match (hardcore, self.locked) {
+            (true, false) => presentation.lock(),
+            (true, true) => presentation.hold(),
+            (false, true) => presentation.release(),
+            (false, false) => return,
+        }
+        self.locked = hardcore;
     }
 
     fn cover_missing<O, D>(&mut self, kind: SurfaceKind, overlay: &mut O, displays: &D)

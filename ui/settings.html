@@ -334,9 +334,10 @@
               </button>
               <button type="button" class="sev-opt" role="radio" data-value="Hardcore" aria-checked="false" tabindex="-1" aria-labelledby="sev-hardcore-name" aria-describedby="sev-hardcore-desc">
                 <span class="sev-head"><span class="radio-dot" aria-hidden="true"></span><span class="t-label" id="sev-hardcore-name">Hardcore</span><span class="chip chip-tint chip-sm sev-current" data-for="Hardcore" hidden>En cours</span></span>
-                <span class="t-caption" id="sev-hardcore-desc">Couvre chaque écran en entier, sans barre de menus ni Dock. Une seule sortie&nbsp;: maintenir Échap 10&nbsp;s, puis confirmer.</span>
+                <span class="t-caption" id="sev-hardcore-desc">Couvre chaque écran, barre de menus et Dock compris. Au premier clic sur l’écran de pause, Breeze prend le clavier et désactive le changement d’application (⌘Tab). Une seule sortie&nbsp;: maintenir Échap 10&nbsp;s. ⌘Q quitte toujours Breeze.</span>
               </button>
             </div>
+            <p class="inset note t-caption">Aucun mode n’est infaillible&nbsp;: macOS te laisse toujours forcer à quitter ou éteindre. Une application en plein écran natif peut passer devant le Mode Hardcore&nbsp;: macOS ne garantit rien dans ce cas. Et tant que tu n’as pas cliqué sur l’écran de pause, macOS laisse le clavier à l’application recouverte&nbsp;: il ne permet à aucune application de le prendre d’elle-même.</p>
             <p id="severity-pending" class="inset note row-inline" role="status" hidden>
               <span class="chip chip-warn chip-sm">Retour à Simple au cycle suivant</span>
               <span class="t-caption">Le cycle en cours reste en Hardcore jusqu’à la fin de sa pause.</span>
@@ -451,7 +452,7 @@
               <div class="perm-table">
                 <span class="t-micro">MODE</span><span class="t-micro">EFFET</span>
                 <span class="t-label">Simple</span><span class="t-caption">Un voile par fenêtre bloquée. Repli&nbsp;: voile plein écran si macOS ne fournit pas la liste des fenêtres.</span>
-                <span class="t-label">Hardcore</span><span class="t-caption">Chaque écran est couvert en entier.</span>
+                <span class="t-label">Hardcore</span><span class="t-caption">Couvre chaque écran, barre de menus et Dock compris. Au premier clic sur l’écran de pause, Breeze prend le clavier et désactive le changement d’application (⌘Tab). Une seule sortie&nbsp;: maintenir Échap 10&nbsp;s. ⌘Q quitte toujours Breeze. Une application en plein écran natif peut passer devant le Mode Hardcore&nbsp;: macOS ne garantit rien dans ce cas. Et tant que tu n’as pas cliqué sur l’écran de pause, macOS laisse le clavier à l’application recouverte&nbsp;: il ne permet à aucune application de le prendre d’elle-même.</span>
               </div>
             </div>
           </section>
@@ -479,7 +480,8 @@
                 <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
               </button></h2>
               <div class="faq-panel" id="faq-severity" role="region" aria-labelledby="faq-severity-btn" hidden>
-                <p class="t-body">Simple voile chaque fenêtre des applications bloquées&nbsp;; le reste du Mac reste utilisable. Si macOS ne peut pas fournir la liste des fenêtres, un voile plein écran prend le relai. Hardcore couvre chaque écran en entier, sans barre de menus ni Dock, avec la sortie d’urgence pour seule issue.</p>
+                <p class="t-body">Simple voile chaque fenêtre des applications bloquées&nbsp;; le reste du Mac reste utilisable. Si macOS ne peut pas fournir la liste des fenêtres, un voile plein écran prend le relai. Hardcore couvre chaque écran, barre de menus et Dock compris. Au premier clic sur l’écran de pause, Breeze prend le clavier et désactive le changement d’application (⌘Tab). Une seule sortie&nbsp;: maintenir Échap 10&nbsp;s. ⌘Q quitte toujours Breeze.</p>
+                <p class="t-body">Une application en plein écran natif peut passer devant le Mode Hardcore&nbsp;: macOS ne garantit rien dans ce cas. Et tant que tu n’as pas cliqué sur l’écran de pause, macOS laisse le clavier à l’application recouverte&nbsp;: il ne permet à aucune application de le prendre d’elle-même.</p>
                 <p class="t-body">Passer à Hardcore vaut tout de suite&nbsp;; revenir à Simple vaut au cycle suivant. Dès le préavis, la sévérité du cycle est figée.</p>
               </div>
               <h2><button type="button" class="faq-btn" id="faq-apps-btn" aria-expanded="false" aria-controls="faq-apps">
