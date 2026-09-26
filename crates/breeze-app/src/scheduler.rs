@@ -5,7 +5,9 @@ use breeze_domain::{
     Absence, AbsenceVerdict, AppId, AppStatus, AppStatuses, BreakOutcome, CommandError, Cycle,
     Instant, InterruptionDoor, PostureDebt, Rhythm, Severity, StatusChange, Weekday,
 };
-use breeze_ports::{DisplayEnumerationPort, OverlaySurfacesPort, WindowFrame};
+use breeze_ports::{
+    DisplayEnumerationPort, OverlaySurfacesPort, PresentationLockPort, WindowFrame,
+};
 
 pub struct Scheduler {
     cycle: Cycle,
@@ -27,16 +29,18 @@ impl Scheduler {
     // Le calendrier s'observe APRÈS l'avance du cycle : un décompte échu au moment où la
     // plage se ferme lance sa pause (préavis), il n'est pas avalé par [INACTIF]. La capacité
     // « cadres observables » est relevée AVANT : c'est elle que lit une pause qui commence.
-    pub fn poll<O, D>(
+    pub fn poll<O, L, D>(
         &mut self,
         now: Instant,
         in_hours: bool,
         overlay: &mut O,
+        presentation: &mut L,
         displays: &D,
         observation: &Observation,
     ) -> CycleSnapshot
     where
         O: OverlaySurfacesPort,
+        L: PresentationLockPort + ?Sized,
         D: DisplayEnumerationPort,
     {
         self.observe(now, observation);
@@ -46,8 +50,9 @@ impl Scheduler {
         if let Some(blocked) = &blocked {
             self.cycle.observe_blocked_windows(blocked.len());
         }
+        let state = self.cycle.state();
         self.enforcer
-            .reconcile(self.cycle.state(), blocked.as_deref(), overlay, displays);
+            .reconcile(state, blocked.as_deref(), overlay, presentation, displays);
         CycleSnapshot::of(&self.cycle)
     }
 

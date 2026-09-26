@@ -30,4 +30,5 @@ breeze-bridge-common = { path = "../crates/breeze-bridge-common" }
 [target.'cfg(target_os = "macos")'.dependencies]
 breeze-bridge-macos = { path = "../crates/breeze-bridge-macos" }
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSGraphics", "NSResponder", "NSWindow"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSApplication", "NSGraphics", "NSResponder", "NSRunningApplication", "NSScreen", "NSWindow", "NSWorkspace"] }
+objc2-core-graphics = { version = "0.3", default-features = false, features = ["std", "CGDirectDisplay", "CGWindowLevel"] }

@@ -1,4 +1,5 @@
 use breeze_app::{CyclePhase, Observation, Scheduler};
+use breeze_bridge_null::NullPresentationLock;
 use breeze_domain::constants::{NOTICE, RETURN_HOLD};
 use breeze_domain::{
     Absence, ActiveDays, BreakOutcome, Cycle, Instant, InterruptionDoor, Minutes, Rhythm, Severity,
@@ -94,6 +95,7 @@ fn the_scheduler_projects_the_working_phase_at_start_without_covering() {
         Instant::EPOCH,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &displays,
         &active(Instant::EPOCH),
     );
@@ -111,23 +113,51 @@ fn overlays_cover_every_display_on_a_hardcore_break_then_lift_on_return() {
     let mut overlay = SpyOverlay::default();
     let displays = TwoDisplays;
 
-    let snap = sched.poll(break_at, true, &mut overlay, &displays, &active(break_at));
+    let snap = sched.poll(
+        break_at,
+        true,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &displays,
+        &active(break_at),
+    );
     assert_eq!(snap.phase, CyclePhase::Break);
     assert_eq!(overlay.covers, 2, "one surface per display");
     assert_eq!(overlay.last_kind, Some(SurfaceKind::Hardcore));
     assert_eq!(overlay.dismisses, 0);
 
     let mid = break_at.plus(ONE_SEC);
-    sched.poll(mid, true, &mut overlay, &displays, &active(mid));
+    sched.poll(
+        mid,
+        true,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &displays,
+        &active(mid),
+    );
     let late = break_at.plus(pause - ONE_SEC);
-    sched.poll(late, true, &mut overlay, &displays, &active(late));
+    sched.poll(
+        late,
+        true,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &displays,
+        &active(late),
+    );
     assert_eq!(
         overlay.covers, 2,
         "polling again while the break holds poses no new surface"
     );
     assert_eq!(overlay.dismisses, 0);
 
-    sched.poll(return_at, true, &mut overlay, &displays, &active(return_at));
+    sched.poll(
+        return_at,
+        true,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &displays,
+        &active(return_at),
+    );
     assert_eq!(overlay.dismisses, 1, "overlays lift when the break ends");
 }
 
@@ -139,7 +169,14 @@ fn a_simple_break_veils_rather_than_shielding() {
     let mut overlay = SpyOverlay::default();
     let displays = TwoDisplays;
 
-    sched.poll(break_at, true, &mut overlay, &displays, &active(break_at));
+    sched.poll(
+        break_at,
+        true,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &displays,
+        &active(break_at),
+    );
     assert_eq!(overlay.last_kind, Some(SurfaceKind::Veil));
 }
 
@@ -155,6 +192,7 @@ fn a_working_countdown_freezes_once_the_session_signals_report_enough_idle() {
         Instant::EPOCH.plus(IDLE_FREEZE),
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &displays,
         &idle_since(Instant::EPOCH),
     );
@@ -179,6 +217,7 @@ fn fresh_input_thaws_a_frozen_countdown_at_the_next_poll() {
         Instant::EPOCH.plus(IDLE_FREEZE),
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &displays,
         &idle_since(Instant::EPOCH),
     );
@@ -186,7 +225,14 @@ fn fresh_input_thaws_a_frozen_countdown_at_the_next_poll() {
 
     // Une saisie fraîche (last_input avancé) : le décompte reprend une échéance.
     let woke_at = Instant::EPOCH.plus(IDLE_FREEZE);
-    let running = sched.poll(woke_at, true, &mut overlay, &displays, &active(woke_at));
+    let running = sched.poll(
+        woke_at,
+        true,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &displays,
+        &active(woke_at),
+    );
     assert_eq!(running.phase, CyclePhase::Working);
     assert!(running.deadline.is_some());
 }
@@ -199,7 +245,14 @@ fn the_null_bridge_runs_the_cycle_without_ever_covering() {
     let mut sched = Scheduler::new(Cycle::start(r, Severity::Hardcore, Instant::EPOCH));
     let mut overlay = NullOverlay;
     let displays = NullDisplays;
-    let snap = sched.poll(break_at, true, &mut overlay, &displays, &active(break_at));
+    let snap = sched.poll(
+        break_at,
+        true,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &displays,
+        &active(break_at),
+    );
     assert_eq!(snap.phase, CyclePhase::Break);
 }
 
@@ -228,6 +281,7 @@ fn the_calendar_puts_the_cycle_to_rest_outside_the_configured_hours() {
         Instant::EPOCH,
         saturday,
         &mut overlay,
+        &mut NullPresentationLock,
         &displays,
         &active(Instant::EPOCH),
     );
@@ -235,7 +289,14 @@ fn the_calendar_puts_the_cycle_to_rest_outside_the_configured_hours() {
 
     let monday = Instant::EPOCH.plus(ONE_SEC);
     let in_hours = sched.in_hours(Weekday::Monday, 9 * 60);
-    let snap = sched.poll(monday, in_hours, &mut overlay, &displays, &active(monday));
+    let snap = sched.poll(
+        monday,
+        in_hours,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &displays,
+        &active(monday),
+    );
     assert_eq!(snap.phase, CyclePhase::Working);
 }
 
@@ -248,7 +309,14 @@ fn a_countdown_that_ends_as_the_schedule_closes_still_starts_its_break() {
     let displays = TwoDisplays;
 
     let closed = sched.in_hours(Weekday::Tuesday, 18 * 60);
-    let snap = sched.poll(due, closed, &mut overlay, &displays, &active(due));
+    let snap = sched.poll(
+        due,
+        closed,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &displays,
+        &active(due),
+    );
 
     assert!(!closed);
     assert_eq!(snap.phase, CyclePhase::Notice);
@@ -271,7 +339,14 @@ fn waking_the_next_morning_starts_a_full_work_cycle() {
 
     sched.return_from_sleep(absence, wake, (Weekday::Tuesday, 17 * 60 + 50));
     let in_hours = sched.in_hours(Weekday::Wednesday, 9 * 60 + 10);
-    let snap = sched.poll(wake, in_hours, &mut overlay, &displays, &active(wake));
+    let snap = sched.poll(
+        wake,
+        in_hours,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &displays,
+        &active(wake),
+    );
 
     assert_eq!(snap.phase, CyclePhase::Working);
     assert_eq!(snap.deadline, Some(wake.plus(work)));
@@ -287,7 +362,14 @@ fn each_break_outcome_is_handed_out_exactly_once() {
     let displays = TwoDisplays;
 
     assert!(sched.take_new_outcomes().is_empty());
-    sched.poll(back_at, true, &mut overlay, &displays, &active(back_at));
+    sched.poll(
+        back_at,
+        true,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &displays,
+        &active(back_at),
+    );
     assert_eq!(
         sched.take_new_outcomes(),
         vec![BreakOutcome::Served {
@@ -301,6 +383,7 @@ fn each_break_outcome_is_handed_out_exactly_once() {
         next_break,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &displays,
         &active(next_break),
     );
@@ -325,6 +408,7 @@ fn quitting_during_a_break_hands_out_its_interruption_at_once() {
         break_at,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &TwoDisplays,
         &active(break_at),
     );

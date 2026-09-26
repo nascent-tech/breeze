@@ -200,6 +200,9 @@ pub fn run() {
                 if let Some(state) = app.try_state::<AppState>() {
                     state.shut_down(InterruptionDoor::Quit);
                 }
+                // ⌘Q en pause Hardcore : barre de menus et Dock rendus avant la mort du processus.
+                #[cfg(target_os = "macos")]
+                bridge::native_presentation::restore_default();
             }
         });
 }

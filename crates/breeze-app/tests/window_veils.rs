@@ -1,4 +1,5 @@
 use breeze_app::{CyclePhase, Observation, Scheduler, VeilMode};
+use breeze_bridge_null::NullPresentationLock;
 use breeze_domain::constants::{NOTICE, WINDOW_VEIL_CAP};
 use breeze_domain::{
     ActiveDays, AppId, AppStatus, AppStatuses, Cycle, FreezeReason, Instant, Minutes, Rhythm,
@@ -147,6 +148,7 @@ fn a_simple_break_veils_only_the_windows_of_blocked_apps() {
         break_at(),
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(break_at(), windows),
     );
@@ -172,6 +174,7 @@ fn a_window_without_identity_is_veiled_as_unknown() {
         break_at(),
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(break_at(), vec![anonymous]),
     );
@@ -191,6 +194,7 @@ fn a_veil_follows_its_window_and_reuses_its_surface() {
         at,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(at, vec![window(1, "a.b.c", 0)]),
     );
@@ -201,6 +205,7 @@ fn a_veil_follows_its_window_and_reuses_its_surface() {
         still,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(still, vec![window(1, "a.b.c", 0)]),
     );
@@ -211,6 +216,7 @@ fn a_veil_follows_its_window_and_reuses_its_surface() {
         moved,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(moved, vec![window(1, "a.b.c", 80)]),
     );
@@ -226,6 +232,7 @@ fn a_new_window_gets_a_veil_and_a_closed_one_loses_it() {
         at,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(at, vec![window(1, "a.b.c", 0)]),
     );
@@ -236,6 +243,7 @@ fn a_new_window_gets_a_veil_and_a_closed_one_loses_it() {
         later,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(later, vec![window(2, "a.b.c", 600)]),
     );
@@ -258,13 +266,21 @@ fn veils_stay_put_while_the_frames_cannot_be_read() {
         at,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(at, vec![window(1, "a.b.c", 0)]),
     );
     overlay.take();
 
     let later = at.plus(ONE_SEC);
-    let snap = sched.poll(later, true, &mut overlay, &OneDisplay, &unobservable(later));
+    let snap = sched.poll(
+        later,
+        true,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &OneDisplay,
+        &unobservable(later),
+    );
 
     assert!(overlay.take().is_empty());
     assert_eq!(
@@ -283,6 +299,7 @@ fn unobservable_frames_at_the_first_instant_give_a_full_screen_veil() {
         break_at(),
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &unobservable(break_at()),
     );
@@ -304,6 +321,7 @@ fn a_hardcore_break_shields_every_screen_whatever_the_statuses() {
         break_at(),
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(break_at(), windows),
     );
@@ -324,6 +342,7 @@ fn beyond_the_cap_the_window_veils_give_way_to_a_full_screen_veil_once() {
         at,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(at, vec![window(1, "a.b.c", 0)]),
     );
@@ -333,7 +352,14 @@ fn beyond_the_cap_the_window_veils_give_way_to_a_full_screen_veil_once() {
         .map(|n| window(n, "a.b.c", 0))
         .collect();
     let later = at.plus(ONE_SEC);
-    let snap = sched.poll(later, true, &mut overlay, &OneDisplay, &seen(later, crowd));
+    let snap = sched.poll(
+        later,
+        true,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &OneDisplay,
+        &seen(later, crowd),
+    );
 
     assert_eq!(snap.veil_mode, Some(VeilMode::FullScreen));
     assert_eq!(
@@ -349,6 +375,7 @@ fn beyond_the_cap_the_window_veils_give_way_to_a_full_screen_veil_once() {
         calm,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(calm, vec![window(1, "a.b.c", 0)]),
     );
@@ -367,6 +394,7 @@ fn every_surface_lifts_when_the_break_ends() {
         at,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(at, vec![window(1, "a.b.c", 0)]),
     );
@@ -377,6 +405,7 @@ fn every_surface_lifts_when_the_break_ends() {
         back,
         true,
         &mut overlay,
+        &mut NullPresentationLock,
         &OneDisplay,
         &seen(back, vec![window(1, "a.b.c", 0)]),
     );
@@ -400,7 +429,14 @@ fn an_ignored_app_in_front_freezes_the_work_and_says_why() {
         ..seen(at, Vec::new())
     };
 
-    let snap = sched.poll(at, true, &mut overlay, &OneDisplay, &observation);
+    let snap = sched.poll(
+        at,
+        true,
+        &mut overlay,
+        &mut NullPresentationLock,
+        &OneDisplay,
+        &observation,
+    );
 
     assert_eq!(snap.frozen_reason, Some(FreezeReason::IgnoredApp));
     assert_eq!(snap.deadline, None);

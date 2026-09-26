@@ -46,14 +46,22 @@ pub fn build(
         .always_on_top(true)
         .visible_on_all_workspaces(true)
         .skip_taskbar(true)
-        .transparent(matches!(kind, SurfaceKind::Veil))
-        .focused(true)
+        .transparent(kind == SurfaceKind::Veil)
+        // La surface Hardcore ne prend pas le focus à sa création : c'est le verrou de
+        // présentation qui rend clé celle de l'écran principal, une fois toutes posées.
+        .focused(kind == SurfaceKind::Veil)
         .position(position.x, position.y)
         .inner_size(size.width, size.height)
         .build()?;
     // Aussi sur l'espace d'une app en plein écran natif : une app passée en plein écran
     // n'échappe pas à la pause.
-    native_window::join_full_screen_spaces(&window)
+    native_window::join_full_screen_spaces(&window)?;
+    // Le voile Simple reste « toujours devant » ; seul le bouclier Hardcore monte au-dessus
+    // de la barre de menus et du Dock (§8.5).
+    if kind == SurfaceKind::Hardcore {
+        native_window::raise_to_shielding_level(&window)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

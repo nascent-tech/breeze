@@ -4,7 +4,7 @@ use crate::{bridge, lock, AppState, TRAY_ID};
 use breeze_app::{CyclePhase, CycleSnapshot, Observation, Scheduler};
 use breeze_domain::constants::SECONDS_PER_MINUTE;
 use breeze_domain::{Absence, Instant, WallClock};
-use breeze_ports::{ForegroundAppPort, SessionSignalsPort, WindowFramesPort};
+use breeze_ports::{ForegroundAppPort, PresentationLockPort, SessionSignalsPort, WindowFramesPort};
 use core::time::Duration;
 use std::sync::atomic::Ordering;
 use std::thread;
@@ -146,6 +146,7 @@ struct Ticker {
     app: AppHandle,
     monitors: bridge::MonitorCache,
     overlay: bridge::TauriOverlay,
+    presentation: Box<dyn PresentationLockPort>,
     displays: bridge::TauriDisplays,
     signals: Box<dyn SessionSignalsPort>,
     foreground: Box<dyn ForegroundAppPort>,
@@ -161,6 +162,7 @@ impl Ticker {
         let (foreground, frames) = desktop();
         Ticker {
             overlay: bridge::TauriOverlay::new(app.clone()),
+            presentation: bridge::presentation_lock(&app),
             displays: bridge::TauriDisplays::new(monitors.clone()),
             monitors,
             signals: session_signals(),
@@ -194,6 +196,7 @@ impl Ticker {
             now,
             in_hours,
             &mut self.overlay,
+            &mut *self.presentation,
             &self.displays,
             &observation,
         )
