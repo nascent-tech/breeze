@@ -58,11 +58,12 @@ function readKind() {
 
 function paintRing(snap) {
   if (snap.phase === "Returning") {
-    el("ring-arc").setAttribute("stroke-dasharray", `${RING_CIRCUMFERENCE.toFixed(1)} ${RING_CIRCUMFERENCE.toFixed(1)}`);
+    el("ring-arc").setAttribute("stroke-dasharray", `0 ${RING_CIRCUMFERENCE.toFixed(1)}`);
     return;
   }
-  const elapsed = snap.total_secs > 0 ? (snap.total_secs - snap.remaining_secs) / snap.total_secs : 0;
-  const dash = Math.max(0, Math.min(1, elapsed)) * RING_CIRCUMFERENCE;
+  // Comme le minuteur d'Horloge : l'anneau montre ce qu'il reste, pas ce qui est passé.
+  const left = snap.total_secs > 0 ? snap.remaining_secs / snap.total_secs : 0;
+  const dash = Math.max(0, Math.min(1, left)) * RING_CIRCUMFERENCE;
   el("ring-arc").setAttribute("stroke-dasharray", `${dash.toFixed(1)} ${RING_CIRCUMFERENCE.toFixed(1)}`);
 }
 
@@ -73,11 +74,9 @@ function paintPhaseCopy(snap) {
     title.textContent = "C’est fini";
     subtitle.textContent = "Bon retour";
     subtitle.style.display = "block";
-    el("ring-sub").textContent = "RETOUR";
   } else {
-    title.textContent = "Pause en cours";
+    title.textContent = "Pause";
     subtitle.style.display = "none";
-    el("ring-sub").textContent = "TIENS BON";
   }
 }
 

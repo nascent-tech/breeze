@@ -19,3 +19,6 @@ target/
 *.p8
 *.cer
 *.certSigningRequest
+
+# État local de l'outil de design Impeccable
+.impeccable/

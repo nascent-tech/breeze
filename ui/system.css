@@ -1,0 +1,348 @@
+/* Breeze — système visuel « utilitaire natif macOS ».
+   Couleurs sémantiques et échelle typographique calées sur macOS ; apparence claire et
+   sombre suivies. Police système de chaque OS : SF Pro n'est pas redistribuable hors Apple,
+   et Breeze ne charge rien du réseau. */
+
+:root {
+  color-scheme: light dark;
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, "Cantarell", "Ubuntu", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  --label: rgba(0, 0, 0, 0.85);
+  --label-2: rgba(0, 0, 0, 0.55);
+  --label-3: rgba(0, 0, 0, 0.42);
+  --label-4: rgba(0, 0, 0, 0.25);
+  --separator: rgba(0, 0, 0, 0.1);
+  --fill: rgba(0, 0, 0, 0.05);
+  --fill-2: rgba(0, 0, 0, 0.08);
+  --fill-3: rgba(0, 0, 0, 0.12);
+
+  --window: #ECECEC;
+  --window-2: #F5F5F5;
+  --content: #FFFFFF;
+  --popover: rgba(246, 246, 246, 0.94);
+  --sidebar: #E8E8E8;
+
+  --accent: #007AFF;
+  --accent-pressed: #0062CC;
+  --accent-text: #0068DA;
+  --on-accent: #FFFFFF;
+  --focus: rgba(0, 122, 255, 0.5);
+  --selection: rgba(0, 122, 255, 0.24);
+
+  --pause: #0E8A70;
+  --pause-bright: #00C7A4;
+  --pause-tint: rgba(14, 138, 112, 0.12);
+  --notice: #C25E00;
+  --notice-tint: rgba(255, 149, 0, 0.14);
+  --destructive: #D70015;
+  --destructive-tint: rgba(255, 59, 48, 0.12);
+  --hardcore: #5E4BD8;
+  --hardcore-tint: rgba(94, 75, 216, 0.12);
+
+  --shadow-popover: 0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 10px 30px -6px rgba(0, 0, 0, 0.28);
+  --shadow-control: 0 0.5px 1px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+
+  --r-window: 12px;
+  --r-group: 10px;
+  --r-control: 6px;
+  --r-small: 5px;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --label: rgba(255, 255, 255, 0.88);
+    --label-2: rgba(255, 255, 255, 0.58);
+    --label-3: rgba(255, 255, 255, 0.4);
+    --label-4: rgba(255, 255, 255, 0.25);
+    --separator: rgba(255, 255, 255, 0.11);
+    --fill: rgba(255, 255, 255, 0.06);
+    --fill-2: rgba(255, 255, 255, 0.1);
+    --fill-3: rgba(255, 255, 255, 0.15);
+
+    --window: #1E1E1E;
+    --window-2: #262626;
+    --content: #2C2C2E;
+    --popover: rgba(40, 40, 42, 0.94);
+    --sidebar: #232323;
+
+    --accent: #0A84FF;
+    --accent-pressed: #409CFF;
+    --accent-text: #3B9BFF;
+    --focus: rgba(10, 132, 255, 0.55);
+    --selection: rgba(10, 132, 255, 0.34);
+
+    --pause: #3DD9B5;
+    --pause-bright: #3DD9B5;
+    --pause-tint: rgba(61, 217, 181, 0.14);
+    --notice: #FFB340;
+    --notice-tint: rgba(255, 159, 10, 0.16);
+    --destructive: #FF6961;
+    --destructive-tint: rgba(255, 69, 58, 0.16);
+    --hardcore: #A594FF;
+    --hardcore-tint: rgba(165, 148, 255, 0.16);
+
+    --shadow-popover: 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 12px 32px -6px rgba(0, 0, 0, 0.6);
+    --shadow-control: 0 0.5px 0 rgba(255, 255, 255, 0.08) inset, 0 0.5px 1px rgba(0, 0, 0, 0.4);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font: 13px/16px var(--font);
+  color: var(--label);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+::selection {
+  background: var(--selection);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+  border-radius: var(--r-control);
+}
+
+/* ---------- Typographie (styles de texte macOS) ---------- */
+.large-title { font: 700 26px/32px var(--font-display); letter-spacing: 0.01em; }
+.title-1 { font: 700 22px/26px var(--font-display); letter-spacing: -0.01em; }
+.title-2 { font: 700 17px/22px var(--font); letter-spacing: -0.01em; }
+.title-3 { font: 600 15px/20px var(--font); letter-spacing: -0.005em; }
+.headline { font: 600 13px/16px var(--font); }
+.body { font: 400 13px/16px var(--font); }
+.callout { font: 400 12px/15px var(--font); }
+.subheadline { font: 400 11px/14px var(--font); }
+.footnote { font: 400 10px/13px var(--font); }
+.secondary { color: var(--label-2); }
+.tertiary { color: var(--label-3); }
+
+/* ---------- Boutons poussoirs ---------- */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-control);
+  font: 400 13px/1 var(--font);
+  color: var(--label);
+  background: var(--content);
+  box-shadow: var(--shadow-control);
+  white-space: nowrap;
+  cursor: default;
+  transition: background-color 0.12s, box-shadow 0.12s, opacity 0.12s;
+}
+@media (prefers-color-scheme: dark) {
+  .button { background: rgba(255, 255, 255, 0.16); }
+}
+.button:active { background: var(--fill-3); }
+.button:disabled { opacity: 0.45; }
+.button.large { height: 28px; padding: 0 16px; font-size: 13px; border-radius: 7px; }
+.button.xl { height: 34px; padding: 0 20px; font-size: 14px; font-weight: 500; border-radius: 9px; }
+.button.default {
+  color: var(--on-accent);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0)), var(--accent);
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.2), inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}
+.button.default:active { background: var(--accent-pressed); }
+.button.destructive { color: var(--destructive); }
+.button.plain {
+  background: none;
+  box-shadow: none;
+  color: var(--accent-text);
+  padding: 0 4px;
+}
+.button.plain:active { opacity: 0.6; background: none; }
+.button.plain.destructive { color: var(--destructive); }
+
+/* ---------- Contrôle segmenté ---------- */
+.segmented {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 7px;
+  background: var(--fill-2);
+}
+.segmented > button {
+  position: relative;
+  height: 20px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  font: 400 12px/1 var(--font);
+  color: var(--label);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+  transition: background-color 0.16s var(--ease-out), box-shadow 0.16s var(--ease-out);
+}
+.segmented > button:not([aria-checked="true"]):not([aria-pressed="true"]):active { background: var(--fill-2); }
+.segmented > button[aria-checked="true"],
+.segmented > button[aria-pressed="true"],
+.segmented > button.is-on {
+  background: var(--content);
+  box-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.2), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  font-weight: 500;
+}
+@media (prefers-color-scheme: dark) {
+  .segmented > button[aria-checked="true"],
+  .segmented > button[aria-pressed="true"],
+  .segmented > button.is-on { background: rgba(255, 255, 255, 0.22); box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.35); }
+}
+.segmented > button:disabled { color: var(--label-4); }
+.segmented.large > button { height: 24px; font-size: 13px; }
+
+/* ---------- Interrupteur ---------- */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  margin: 0;
+  border-radius: 9px;
+  background: var(--fill-3);
+  transition: background-color 0.2s var(--ease-out);
+  cursor: default;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  transition: transform 0.22s var(--ease-spring);
+}
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(14px); }
+.switch:disabled { opacity: 0.45; }
+.switch:focus-visible { border-radius: 9px; }
+
+/* ---------- Groupes (listes façon Réglages Système) ---------- */
+.group {
+  border-radius: var(--r-group);
+  background: var(--content);
+  box-shadow: 0 0 0 0.5px var(--separator);
+}
+@media (prefers-color-scheme: dark) {
+  .group { background: rgba(255, 255, 255, 0.05); }
+}
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+.row + .row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 0.5px;
+  background: var(--separator);
+}
+.row > .grow { flex: 1; min-width: 0; }
+.row .row-label { display: flex; flex-direction: column; gap: 2px; }
+.row .row-label > .subheadline { color: var(--label-2); }
+.group-title {
+  margin: 0 0 6px 12px;
+  font: 600 13px/16px var(--font);
+  color: var(--label);
+}
+.group-footer {
+  margin: 6px 12px 0;
+  font: 400 11px/14px var(--font);
+  color: var(--label-2);
+}
+
+/* ---------- Pastille d'icône (symboles de Réglages) ---------- */
+.symbol-tile {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  color: #FFFFFF;
+  background: var(--tile, #8E8E93);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.1);
+}
+.symbol-tile svg { width: 13px; height: 13px; }
+.symbol-tile.large { width: 28px; height: 28px; border-radius: 7px; }
+.symbol-tile.large svg { width: 17px; height: 17px; }
+
+/* ---------- Barres de défilement ---------- */
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: var(--fill-3) padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--label-4) padding-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+}
