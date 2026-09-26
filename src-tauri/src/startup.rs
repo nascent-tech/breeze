@@ -1,12 +1,12 @@
 use crate::journal::Journal;
 use crate::local_time::{local_date_of, local_now};
-use crate::{panel, windows, Accessibility, AppState, Clock, InstalledApps, Persistence};
+use crate::{panel, windows, AppState, Clock, InstalledApps, Persistence};
 use crate::{FLAG_MENUBAR_TEXT, FLAG_SOUNDS};
 use breeze_app::Scheduler;
 use breeze_bridge_common::{SqliteStore, SystemClock};
 use breeze_domain::{ActiveDays, AppId, AppStatus, Cycle, Minutes, PostureDebt, Rhythm, Severity};
-use breeze_domain::{SparedApps, TimeRange};
-use breeze_ports::{PersistedState, PersistencePort};
+use breeze_domain::{AppStatuses, SafetyList, SparedApps, TimeRange};
+use breeze_ports::{PersistedState, PersistencePort, SafetyListPort};
 use chrono::NaiveDate;
 use core::time::Duration;
 use std::sync::atomic::AtomicBool;
@@ -95,20 +95,20 @@ fn load_app_statuses(persistence: &Persistence) -> Vec<(AppId, AppStatus)> {
 }
 
 #[cfg(target_os = "macos")]
-fn app_adapters() -> (InstalledApps, Accessibility) {
+fn app_adapters() -> (InstalledApps, SafetyList) {
     (
         Arc::new(breeze_bridge_macos::MacInstalledApps::new()),
-        Arc::new(breeze_bridge_macos::MacAccessibility),
+        breeze_bridge_macos::MacSafetyList.safety_list(),
     )
 }
 
 #[cfg(not(target_os = "macos"))]
-fn app_adapters() -> (InstalledApps, Accessibility) {
-    // Hors macOS : pas de catalogue ni de permission réelle tant que l'adaptateur
-    // de la plateforme n'existe pas. Le produit dégrade honnêtement.
+fn app_adapters() -> (InstalledApps, SafetyList) {
+    // Hors macOS : pas de catalogue ni de liste de sécurité tant que l'adaptateur de la
+    // plateforme n'existe pas. Le produit dégrade honnêtement.
     (
         Arc::new(breeze_bridge_null::NullInstalledApps),
-        Arc::new(breeze_bridge_null::NullAccessibility),
+        breeze_bridge_null::NullSafetyList.safety_list(),
     )
 }
 
@@ -126,11 +126,14 @@ pub fn app_state(app: &App) -> AppState {
     let store = open_store(app);
     let (rhythm, severity, debt) = restore(load_saved(&store), local_now().date);
     let clock: Clock = Arc::new(SystemClock::new());
-    let scheduler =
-        Scheduler::new(Cycle::start(rhythm, severity, clock.monotonic()).with_debt(debt));
     let persistence: Persistence = Arc::new(store);
-    let spared = SparedApps::from_pairs(load_app_statuses(&persistence));
-    let (installed_apps, accessibility) = app_adapters();
+    let (installed_apps, safety) = app_adapters();
+    let chosen = SparedApps::from_pairs(load_app_statuses(&persistence));
+    let scheduler = Scheduler::new(
+        Cycle::start(rhythm, severity, clock.monotonic())
+            .with_debt(debt)
+            .with_app_statuses(AppStatuses::new(chosen, safety)),
+    );
     AppState {
         scheduler: Arc::new(Mutex::new(scheduler)),
         persist_lock: Mutex::new(()),
@@ -141,11 +144,9 @@ pub fn app_state(app: &App) -> AppState {
             FLAG_MENUBAR_TEXT,
             true,
         ))),
-        spared: Arc::new(Mutex::new(spared)),
         clock,
         persistence,
         installed_apps,
-        accessibility,
     }
 }
 

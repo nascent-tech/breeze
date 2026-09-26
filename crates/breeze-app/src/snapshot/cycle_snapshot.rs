@@ -1,5 +1,8 @@
 use crate::snapshot::cycle_phase::CyclePhase;
-use breeze_domain::{BreakOutcome, Countdown, Cycle, CycleState, Instant, Severity};
+use crate::snapshot::veil_mode::VeilMode;
+use breeze_domain::{
+    BreakMode, BreakOutcome, Countdown, Cycle, CycleState, FreezeReason, Instant, Severity,
+};
 use core::time::Duration;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -8,6 +11,9 @@ pub struct CycleSnapshot {
     pub deadline: Option<Instant>,
     // Restant d'un décompte de travail gelé par inactivité (sans échéance tant qu'il dort).
     pub frozen_remaining: Option<Duration>,
+    pub frozen_reason: Option<FreezeReason>,
+    // Tenue de la pause Simple en cours ; `None` hors pause Simple.
+    pub veil_mode: Option<VeilMode>,
     pub severity: Severity,
     pub chosen_severity: Severity,
     pub rhythm_pending: bool,
@@ -27,12 +33,30 @@ impl CycleSnapshot {
             phase,
             deadline,
             frozen_remaining: frozen_remaining(cycle.state()),
+            frozen_reason: cycle.freeze_reason(),
+            veil_mode: veil_mode(cycle.state()),
             severity: cycle.severity(),
             chosen_severity: cycle.chosen_severity(),
             rhythm_pending: cycle.rhythm_pending(),
             served_breaks: u32::try_from(served).unwrap_or(u32::MAX),
             debt_minutes: cycle.debt().minutes(),
         }
+    }
+}
+
+fn veil_mode(state: CycleState) -> Option<VeilMode> {
+    match state {
+        CycleState::BreakActive {
+            severity: Severity::Simple,
+            mode: BreakMode::Nominal,
+            ..
+        } => Some(VeilMode::Windows),
+        CycleState::BreakActive {
+            severity: Severity::Simple,
+            mode: BreakMode::Degraded(_),
+            ..
+        } => Some(VeilMode::FullScreen),
+        _ => None,
     }
 }
 

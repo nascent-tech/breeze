@@ -3,10 +3,11 @@ use crate::clock::Instant;
 use crate::constants::{NOTICE, PAUSE_MAX, RETURN_HOLD};
 use crate::cycle::break_mode::BreakMode;
 use crate::cycle::countdown::Countdown;
+use crate::cycle::degraded_reason::DegradedReason;
 use crate::cycle::state::CycleState;
 use crate::debt::Settlement;
 use crate::outcome::BreakOutcome;
-use crate::settings::Minutes;
+use crate::settings::{Minutes, Severity};
 use core::time::Duration;
 
 impl Cycle {
@@ -56,9 +57,18 @@ impl Cycle {
         self.state = CycleState::BreakActive {
             deadline,
             severity: self.severity,
-            mode: BreakMode::Nominal,
+            mode: self.mode_at_first_instant(),
         };
         true
+    }
+
+    // Le mode d'une pause se fixe ici, une seule fois, sur le relevé des capacités de cet
+    // instant (§10.5) ; seul le Mode Simple dépend des cadres des fenêtres.
+    fn mode_at_first_instant(&self) -> BreakMode {
+        match (self.severity, self.frames_observable) {
+            (Severity::Simple, false) => BreakMode::Degraded(DegradedReason::FramesUnobservable),
+            _ => BreakMode::Nominal,
+        }
     }
 
     pub(super) fn enter_returning(&mut self, from: Instant, settlement: Settlement) -> bool {
@@ -89,6 +99,7 @@ impl Cycle {
         if let Some(severity) = self.pending_severity.take() {
             self.severity = severity;
         }
+        self.apps.roll_over();
         let work = self.rhythm.work().as_duration();
         self.enter_running(from, work)
     }
@@ -104,7 +115,7 @@ impl Cycle {
         let Some(deadline) = from.checked_plus(remaining) else {
             return false;
         };
-        self.last_activity = from;
+        self.reset_freezing(from);
         self.state = CycleState::Working {
             countdown: Countdown::Running { deadline },
         };

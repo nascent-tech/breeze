@@ -286,10 +286,10 @@ froid dans le second.
 | Capacité manquante | Ce qui continue de fonctionner | Ce qui change |
 |---|---|---|
 | **Notifications** seule | Tout | Le préavis passe par la bannière propre à Breeze |
-| **Cadres des fenêtres** (Accessibilité refusée sur macOS), sévérité Hardcore | Tout | Aucune différence : le Mode Hardcore n'en a pas besoin (§8.5) |
-| **Cadres des fenêtres** (Accessibilité refusée sur macOS), sévérité Simple | Le cycle, le préavis, le décompte | Breeze ne peut pas suivre les cadres de fenêtres. Il pose un voile unique couvrant l'écran entier, avec le décompte |
+| **Cadres des fenêtres** (liste des fenêtres illisible sur macOS — macOS expose les cadres sans permission, ce cas ne vient que d'un échec du système), sévérité Hardcore | Tout | Aucune différence : le Mode Hardcore n'en a pas besoin (§8.5) |
+| **Cadres des fenêtres** (liste des fenêtres illisible sur macOS), sévérité Simple | Le cycle, le préavis, le décompte | Breeze ne peut pas suivre les cadres de fenêtres. Il pose un voile plein écran par moniteur, avec le décompte |
 | **Identité au premier plan inconnue** (GNOME Wayland, application élevée sur Windows, session non reconnue) | Le cycle, le préavis, la pause, les deux modes | **Tout usage compte comme du travail.** Le statut `ignorée` n'a aucun effet et Réglages › Applications le dit. Le gel d'inactivité (§10.1) continue de jouer, puisqu'il ne dépend que de l'instant de la dernière action |
-| **Cadres inobservables** (toute session Wayland), sévérité Simple | Le cycle, le préavis, le décompte | Même voile plein écran que la ligne Accessibilité, **un par moniteur**. C'est le comportement nominal sur Wayland, dit dès l'onboarding — pas un incident |
+| **Cadres inobservables** (toute session Wayland), sévérité Simple | Le cycle, le préavis, le décompte | Même voile plein écran que la ligne des cadres illisibles sur macOS, **un par moniteur**. C'est le comportement nominal sur Wayland, dit dès l'onboarding — pas un incident |
 | **Couche overlay refusée par le compositeur** (GNOME Wayland, ou capture clavier exclusive refusée sur KDE/wlroots), sévérité Hardcore | Le cycle, le préavis, la pause, le décompte, le geste de sortie | L'overlay couvre chaque écran mais **les raccourcis du compositeur ne sont pas garantis** : une autre fenêtre peut passer devant, Super ou Alt-Tab peuvent répondre. Dit à froid (§5.7). Une pause servie sans couverture tenue compte comme les autres (décision 15) |
 
 **Le voile dégradé reste un overlay de Mode Simple, pas une promotion vers le Hardcore.** Il ne
@@ -309,8 +309,8 @@ ou pendant tout [PRÉAVIS] vécu — vaut donc pour la pause à venir, sans qu'a
 suivant n'ait à s'en mêler ; et sur le chemin où le préavis est sauté (§10.4), c'est ce même instant —
 le début de [PAUSE ACTIVE] — qui sert d'évaluation, puisqu'aucun autre n'existe sur ce chemin. Il n'y
 a qu'une seule évaluation, faite au bon moment, quel que soit le chemin qui y mène. **La règle ne
-distingue pas la raison du manque** : une Accessibilité retirée à la 49ᵉ minute et un compositeur qui
-refuse la couche produisent la même chose — une pause entière dans le mode fixé à son premier
+distingue pas la raison du manque** : une liste de fenêtres devenue illisible à la 49ᵉ minute et un
+compositeur qui refuse la couche produisent la même chose — une pause entière dans le mode fixé à son premier
 instant.
 
 **Une capacité peut disparaître ou apparaître à tout instant pendant que Breeze tourne** — permission

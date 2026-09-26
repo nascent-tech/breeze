@@ -1,5 +1,6 @@
-// Surface de pause plein écran. Elle ne porte aucune logique produit : le décompte
-// vient de get_snapshot, la sévérité du paramètre d'URL posé par l'hôte. Le seul
+// Surface de pause, plein écran ou posée sur une fenêtre. Elle ne porte aucune logique
+// produit : le décompte vient de get_snapshot, le genre de surface du paramètre d'URL
+// posé par l'hôte. Le seul
 // geste (§8.5) n'existe qu'en Mode Hardcore : maintenir Échap dix secondes remplit
 // un anneau puis ouvre une confirmation ; le décompte ne s'arrête jamais.
 
@@ -38,9 +39,13 @@ function formatHour(date) {
   return `${date.getHours()}:${pad(date.getMinutes())}`;
 }
 
+// « veil » : voile plein écran d'un moniteur ; « window » : voile d'une seule fenêtre
+// bloquée ; « hardcore » : overlay opaque. Toute autre valeur retombe sur le voile.
+const KINDS = ["veil", "window", "hardcore"];
+
 function readKind() {
   const kind = new URLSearchParams(location.search).get("kind");
-  return kind === "hardcore" ? "hardcore" : "veil";
+  return KINDS.includes(kind) ? kind : "veil";
 }
 
 function paintRing(snap) {

@@ -77,7 +77,7 @@ position et la taille des fenêtres d'autrui.
 
 | Plateforme | Ce que la machine impose | Ce qui est déclaré dégradé |
 |---|---|---|
-| macOS | Aucun moyen public de se placer au-dessus d'une **fenêtre précise** d'autrui : Breeze ne peut que suivre le cadre et se poser dessus. Suivre ce cadre exige la permission **Accessibilité**, que l'utilisateur accorde ou retire quand il veut, et qui suit l'**identité signée** du binaire — toute mise à jour doit garder la même identité, sans quoi l'utilisateur ré-autorise à chaque version. macOS ne laisse aucune application retirer sa propre entrée d'Accessibilité | Sans la permission : voile plein écran (§10.5). La désinstallation propre s'arrête là où macOS l'arrête : Breeze **affiche la marche à suivre** pour l'entrée qu'il ne peut pas retirer (§8.6) |
+| macOS | Les cadres des fenêtres d'autrui sont lisibles **sans permission** (liste des fenêtres du système : bornes, propriétaire, couche, numéro — jamais le titre ni le contenu). Breeze suit le cadre et range son voile juste au-dessus de la fenêtre visée, au niveau des fenêtres ordinaires. **L'Accessibilité n'est pas demandée** (décision du 2026-09-26) | Liste des fenêtres illisible : voile plein écran par moniteur (§10.5) |
 | Windows | Les cadres sont publics, sans permission. Une application lancée « en tant qu'administrateur » n'est pas énumérable | Une application élevée n'est pas voilée. Dit dans Réglages › Applications |
 | Linux X11 | Les cadres sont publics sur tout gestionnaire de fenêtres conforme. Une fenêtre sur un autre bureau virtuel n'est pas visible, donc pas voilée | Rien de plus que ce que le bureau virtuel cache déjà |
 | Linux Wayland — tous compositeurs | **Aucun protocole public n'expose la géométrie des fenêtres d'autrui.** Le compositeur donne l'état d'une fenêtre, jamais sa position | **Impossible.** Le Mode Simple pose un **voile unique plein écran par moniteur** avec le décompte — c'est le repli du §10.5, et sur Wayland c'est le comportement nominal, dit dès l'onboarding : « Sur Wayland, le Mode Simple voile tout l'écran plutôt que des fenêtres précises » |
@@ -137,7 +137,7 @@ tout le reste est dit à froid.
 
 | Plateforme | Détection premier plan | Mode Simple par fenêtre | Mode Hardcore devant tout | Icône d'état |
 |---|---|---|---|---|
-| macOS 13+ | Fiable | Fiable (Accessibilité) | Fiable, **sauf plein écran natif (mesure)** | Fiable |
+| macOS 13+ | Fiable | Fiable (sans permission) | Fiable, **sauf plein écran natif (mesure)** | Fiable |
 | Windows 10/11 | Fiable | Fiable | Partiel : **Alt-Tab/Win non neutralisés, retour < 500 ms ; plein écran exclusif et bureau sécurisé passent devant** | Fiable |
 | Linux X11 | Fiable | Fiable | Partiel : **empilement au gestionnaire de fenêtres, retour < 500 ms ; Alt-Tab non neutralisé** | Fiable ; GNOME : extension |
 | Linux Wayland KDE / wlroots | Fiable | **Impossible → voile plein écran** | Fiable via la couche overlay ; **raccourcis du compositeur non garantis** | Fiable |

@@ -15,8 +15,6 @@ fn main() {
         "list_installed_apps",
         "set_app_status",
         "set_spared_apps",
-        "request_accessibility",
-        "accessibility_status",
         "open_settings",
         "finish_onboarding",
         "get_settings",

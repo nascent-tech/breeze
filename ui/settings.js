@@ -7,8 +7,6 @@ const hostInvoke = window.__TAURI__?.core?.invoke;
 const PREVIEW = typeof hostInvoke !== "function";
 const TAB_KEY = "breeze.settings.tab";
 const PAUSE_MAX = 60;
-const AX_POLL_MS = 1500;
-const AX_POLL_TICKS = 8;
 const REPORT_URL = "https://github.com/nascent-tech/breeze/issues/new";
 const KEY_NAMES = { "⌥": "Option", "⌘": "Commande", "⇧": "Maj", "⌃": "Contrôle" };
 
@@ -19,6 +17,7 @@ const ERROR_MESSAGES = {
   "invalid-schedule": "Plage refusée : le début et la fin doivent être différents.",
   "invalid-app-id": "Cette application n’a pas pu être identifiée.",
   "unknown-status": "Statut d’application inconnu.",
+  "locked-app": "Cette application est toujours épargnée : son statut ne peut pas changer.",
   "unknown-severity": "Sévérité inconnue.",
   "persistence-failed": "Réglage non enregistré : Breeze n’a pas pu écrire sur le disque. Réessaie.",
   "autostart-failed": "macOS a refusé de changer l’ouverture à la session. Réessaie dans un instant.",
@@ -30,16 +29,16 @@ const ERROR_MESSAGES = {
   preview: "Aperçu navigateur : cette action n’existe que dans l’application.",
 };
 const SEVERITY_ERRORS = { "break-due": "Une pause est due : change la sévérité après elle." };
-const AX_LOOK = {
-  Granted: { text: "Accordée", tone: "chip-mint" },
-  Denied: { text: "Refusée", tone: "chip-warn" },
-  Unknown: { text: "Non vérifiée", tone: "chip-neutral" },
-};
+const APP_STATUS_ERRORS = { "break-due": "Une pause est due : change le statut après elle." };
+// Phases où l'hôte refuse tout changement de statut (§10.3) : les sélecteurs sont grisés,
+// et l'instantané est relu régulièrement pour les rendre dès la fin de la pause.
+const BREAK_PHASES = new Set(["Notice", "Break", "Returning"]);
+const BREAK_RECHECK_MS = 5000;
 const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 const SHORT_DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
 
 const $ = (id) => document.getElementById(id);
-const state = { settings: null, snapshot: null, apps: [], axStatus: null, axTimer: null, toastTimer: null };
+const state = { settings: null, snapshot: null, apps: [], appsTicket: 0, toastTimer: null, snapshotTimer: null };
 
 const preview = {
   settings: {
@@ -49,10 +48,14 @@ const preview = {
   },
   snapshot: { phase: "Working", rhythm_pending: false, inactive_reason: null, next_start_label: null },
   apps: [
-    ["com.apple.Safari", "Safari", "Blocked"], ["com.apple.mail", "Mail", "Blocked"],
-    ["com.apple.Music", "Musique", "Spared"], ["com.apple.Notes", "Notes", "Blocked"],
-    ["com.tinyspeck.slackmacgap", "Slack", "Ignored"], ["com.microsoft.VSCode", "Visual Studio Code", "Blocked"],
-  ].map(([bundle_id, name, status]) => ({ bundle_id, name, icon_data_url: null, status })),
+    ["com.apple.Safari", "Safari", "Blocked", false], ["com.apple.mail", "Mail", "Blocked", false],
+    ["com.apple.Music", "Musique", "Spared", false], ["com.apple.Notes", "Notes", "Blocked", false],
+    ["com.tinyspeck.slackmacgap", "Slack", "Ignored", false],
+    ["com.microsoft.VSCode", "Visual Studio Code", "Blocked", false],
+    ["com.apple.systempreferences", "Réglages Système", "Spared", true],
+  ].map(([bundle_id, name, status, locked]) => ({
+    bundle_id, name, icon_data_url: null, status, locked, applies_next_cycle: false,
+  })),
 };
 const PREVIEW_MINUTES = [36, 40, 0, 0, 30, 28, 44, 32, 36, 0, 0, 22, 26, 40, 36,
   30, 0, 0, 20, 34, 42, 28, 36, 24, 0, 0, 38, 30, 40, 18];
@@ -84,7 +87,6 @@ const PREVIEW_HOST = {
   get_stats: previewStats,
   get_app_info: () => ({ name: "Breeze", version: "(aperçu)" }),
   list_installed_apps: () => preview.apps.map((app) => ({ ...app })),
-  accessibility_status: () => "Unknown",
   set_launch_at_login: ({ enabled }) => Object.assign(preview.settings, { launch_at_login: enabled }),
   set_sounds: ({ enabled }) => Object.assign(preview.settings, { sounds: enabled }),
   set_update_check: ({ enabled }) => Object.assign(preview.settings, { update_check: enabled }),
@@ -96,7 +98,13 @@ const PREVIEW_HOST = {
   set_active_days: ({ mask }) => Object.assign(preview.settings, { active_days: mask }),
   set_severity: ({ severity }) => Object.assign(preview.settings, { severity, chosen_severity: severity }),
   set_app_status: ({ bundleId, status }) => {
-    preview.apps.find((app) => app.bundle_id === bundleId).status = status;
+    const app = preview.apps.find((candidate) => candidate.bundle_id === bundleId);
+    if (app.locked) throw "locked-app";
+    const rank = { Blocked: 0, Spared: 1, Ignored: 2 };
+    const applies_next_cycle = rank[status] > rank[app.status];
+    app.status = status;
+    app.applies_next_cycle = applies_next_cycle;
+    return { applies_next_cycle };
   },
   reset_settings: () => {
     Object.assign(preview.settings, {
@@ -310,6 +318,9 @@ function applySnapshot(snapshot) {
   const note = $("inactive-note");
   note.textContent = inactiveText(snapshot);
   note.hidden = !note.textContent;
+  applyAppHold();
+  clearTimeout(state.snapshotTimer);
+  if (statusesHeld()) state.snapshotTimer = setTimeout(refreshSnapshot, BREAK_RECHECK_MS);
 }
 
 async function refreshSnapshot() {
@@ -543,16 +554,51 @@ function statusSegment(app) {
   return group;
 }
 
+function lockedChip() {
+  const cell = document.createElement("span");
+  cell.className = "status-col";
+  const chip = document.createElement("span");
+  chip.className = "chip chip-neutral chip-sm";
+  chip.textContent = "Toujours épargnée";
+  cell.appendChild(chip);
+  return cell;
+}
+
 function appRow(app) {
   const row = document.createElement("li");
   row.className = "app-row";
   row.dataset.search = normalize(app.name);
+  const nameCol = document.createElement("div");
+  nameCol.className = "app-name-col";
   const name = document.createElement("span");
   name.className = "t-label app-name";
   name.textContent = app.name;
   name.title = app.name;
-  row.append(appIcon(app), name, statusSegment(app));
+  const note = document.createElement("span");
+  note.className = "t-micro hint app-note";
+  note.textContent = "S’applique au cycle suivant";
+  note.hidden = !app.applies_next_cycle;
+  nameCol.append(name, note);
+  row.append(appIcon(app), nameCol, app.locked ? lockedChip() : statusSegment(app));
   return row;
+}
+
+function updateAppNote(group, app) {
+  const note = group.closest(".app-row")?.querySelector(".app-note");
+  if (note) note.hidden = !app.applies_next_cycle;
+}
+
+function statusesHeld() {
+  return BREAK_PHASES.has(state.snapshot?.phase);
+}
+
+function applyAppHold() {
+  const held = statusesHeld();
+  $("app-list").querySelectorAll('[role="radio"]').forEach((radio) => { radio.disabled = held; });
+}
+
+function updateLockedFallback() {
+  $("app-locked-fallback").hidden = state.apps.some((app) => app.locked);
 }
 
 function skeletonRow() {
@@ -586,23 +632,61 @@ function filterApps() {
   showAppsState(visible ? "" : `Aucune application ne correspond à « ${$("app-search").value.trim()} ».`);
 }
 
-async function loadApps() {
+// Le sélecteur qui a le focus, pour le lui rendre après un rechargement de la liste.
+function focusedRadio() {
+  const radio = document.activeElement?.closest?.('#app-list [role="radio"]');
+  const group = radio?.closest('[role="radiogroup"]');
+  return group ? { bundleId: group.dataset.bundleId, value: radio.dataset.value } : null;
+}
+
+function restoreFocus(focused) {
+  if (!focused) return;
+  const group = Array.from($("app-list").querySelectorAll('[role="radiogroup"]'))
+    .find((candidate) => candidate.dataset.bundleId === focused.bundleId);
+  const radio = Array.from(group?.querySelectorAll('[role="radio"]') || [])
+    .find((candidate) => candidate.dataset.value === focused.value);
+  radio?.focus({ preventScroll: true });
+}
+
+function renderApps(apps) {
+  state.apps = apps;
+  $("app-list").replaceChildren(...apps.map(appRow));
+  showAppsState(apps.length ? "" : "Aucune application installée n’a été trouvée.");
+  updateLockedFallback();
+  applyAppHold();
+  filterApps();
+}
+
+// Au retour du focus (`quiet`), la liste déjà affichée reste en place pendant la lecture :
+// ni squelette, ni saut ; la recherche en cours, la position de défilement et le focus
+// sont gardés. Seule la lecture la plus récente s'affiche.
+async function loadApps({ quiet = false } = {}) {
   const list = $("app-list");
-  showAppsState("");
-  $("app-count").textContent = "";
+  const ticket = ++state.appsTicket;
+  const keepShown = quiet && state.apps.length > 0;
+  if (!keepShown) {
+    showAppsState("");
+    $("app-count").textContent = "";
+    $("app-locked-fallback").hidden = true;
+    list.replaceChildren(...Array.from({ length: 6 }, skeletonRow));
+  }
   list.setAttribute("aria-busy", "true");
-  list.replaceChildren(...Array.from({ length: 6 }, skeletonRow));
   try {
-    state.apps = await call("list_installed_apps");
-    list.replaceChildren(...state.apps.map(appRow));
-    if (!state.apps.length) showAppsState("Aucune application installée n’a été trouvée.");
-    filterApps();
+    const apps = await call("list_installed_apps");
+    if (ticket !== state.appsTicket) return;
+    const panels = $("panels");
+    const scroll = panels.scrollTop;
+    const focused = focusedRadio();
+    renderApps(apps);
+    panels.scrollTop = scroll;
+    restoreFocus(focused);
   } catch (error) {
+    if (ticket !== state.appsTicket || keepShown) return;
     state.apps = [];
     list.replaceChildren();
     showAppsState(errorMessage(error, { preview: ERROR_MESSAGES["enumeration-failed"] }), { retry: true });
   } finally {
-    list.removeAttribute("aria-busy");
+    if (ticket === state.appsTicket) list.removeAttribute("aria-busy");
   }
 }
 
@@ -610,14 +694,20 @@ async function chooseAppStatus(group, value) {
   const app = state.apps.find((candidate) => candidate.bundle_id === group.dataset.bundleId);
   if (!app) return;
   const previous = app.status;
+  const previousNote = app.applies_next_cycle;
   app.status = value;
   markRadio(group, value);
   try {
-    await call("set_app_status", { bundleId: app.bundle_id, status: value });
+    const result = await call("set_app_status", { bundleId: app.bundle_id, status: value });
+    app.applies_next_cycle = Boolean(result?.applies_next_cycle);
+    updateAppNote(group, app);
   } catch (error) {
     app.status = previous;
+    app.applies_next_cycle = previousNote;
     markRadio(group, previous);
-    toastError(error);
+    updateAppNote(group, app);
+    toastError(error, APP_STATUS_ERRORS);
+    if (error === "break-due") refreshSnapshot();
   }
 }
 
@@ -740,59 +830,6 @@ async function loadStats() {
   }
 }
 
-function applyAccessibility(status) {
-  const look = AX_LOOK[status] || AX_LOOK.Unknown;
-  const chip = $("ax-chip");
-  chip.textContent = look.text;
-  chip.className = `chip chip-sm ${look.tone}`;
-  const granted = status === "Granted";
-  $("ax-request").hidden = granted;
-  if (granted) {
-    $("ax-wait").hidden = true;
-    stopAccessibilityPolling();
-    if (state.axStatus && state.axStatus !== "Granted") showToast("Accessibilité accordée.");
-  }
-  state.axStatus = status;
-}
-
-async function refreshAccessibility() {
-  try {
-    applyAccessibility(await call("accessibility_status"));
-  } catch (error) {
-    stopAccessibilityPolling();
-    applyAccessibility("Unknown");
-    toastError(error);
-  }
-}
-
-function stopAccessibilityPolling() {
-  clearInterval(state.axTimer);
-  state.axTimer = null;
-}
-
-function startAccessibilityPolling() {
-  stopAccessibilityPolling();
-  let ticks = 0;
-  state.axTimer = setInterval(() => {
-    ticks += 1;
-    if (ticks >= AX_POLL_TICKS) stopAccessibilityPolling();
-    refreshAccessibility();
-  }, AX_POLL_MS);
-}
-
-async function requestAccessibility() {
-  try {
-    if (await call("request_accessibility")) {
-      applyAccessibility("Granted");
-      return;
-    }
-    $("ax-wait").hidden = false;
-    startAccessibilityPolling();
-  } catch (error) {
-    toastError(error);
-  }
-}
-
 function toggleFaq(button) {
   const expanded = button.getAttribute("aria-expanded") !== "true";
   button.setAttribute("aria-expanded", String(expanded));
@@ -882,10 +919,9 @@ function wireControls() {
   wireSchedule();
   dayButtons().forEach((button, i) => button.addEventListener("click", () => toggleDay(i)));
   $("app-search").addEventListener("input", filterApps);
-  $("app-retry").addEventListener("click", loadApps);
+  $("app-retry").addEventListener("click", () => loadApps());
   $("stats-retry").addEventListener("click", loadStats);
   $("chart-plot").addEventListener("keydown", onChartKeydown);
-  $("ax-request").addEventListener("click", requestAccessibility);
   document.querySelectorAll(".faq-btn").forEach((button) => button.addEventListener("click", () => toggleFaq(button)));
   $("reopen-onboarding").addEventListener("click", () => runHostAction("reopen_onboarding"));
   $("report-issue").addEventListener("click", () => runHostAction("open_url", { url: REPORT_URL }));
@@ -895,7 +931,7 @@ function wireControls() {
 function reloadOnFocus() {
   loadSettings();
   refreshSnapshot();
-  refreshAccessibility();
+  loadApps({ quiet: true });
   loadStats();
 }
 
@@ -908,7 +944,6 @@ function init() {
   refreshSnapshot();
   loadApps();
   loadStats();
-  refreshAccessibility();
   loadAppInfo();
 }
 

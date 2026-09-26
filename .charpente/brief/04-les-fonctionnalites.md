@@ -13,8 +13,8 @@ que Breeze est actif.
 **Ce qu'elle exige.** Rien. C'est la seule fonctionnalité qui tourne sans permission ni
 configuration : un utilisateur qui ferme l'onboarding à la première fenêtre a un cycle qui tourne. Le
 préavis passe par une bannière propre à Breeze plutôt que par une notification système ; c'est
-uniquement quand cette bannière ne peut pas se poser — l'Accessibilité manque sur macOS (§10.5), ou
-le compositeur refuse la couche (§5.3) — que Breeze porte le préavis par une notification système,
+uniquement quand cette bannière ne peut pas se poser — le compositeur refuse la couche (§5.3) — que
+Breeze porte le préavis par une notification système,
 et ne demande la permission correspondante que sur l'OS qui l'exige (§5.5).
 
 **Ce qu'elle refuse.** Aucune commande d'arrêt du cycle. Qui veut arrêter Breeze le suspend, ou le
@@ -73,8 +73,10 @@ effet, ce qui casse la promesse avant qu'elle ait été éprouvée.
 d'un voile qui laisse deviner le contenu sans le rendre lisible, et porte le décompte. Le reste de la
 machine reste utilisable.
 
-**Ce qu'elle exige.** De pouvoir observer le cadre des fenêtres d'autrui : sur macOS, la permission
-Accessibilité ; sur Windows et X11, rien (§5.2). Sur Wayland, aucun compositeur ne l'expose : le Mode
+**Ce qu'elle exige.** De pouvoir observer le cadre des fenêtres d'autrui : sur macOS, Windows et X11,
+aucune permission — macOS expose les cadres sans permission (liste des fenêtres du système : bornes,
+propriétaire, couche, numéro, jamais le titre ni le contenu), et Breeze n'y demande pas
+l'Accessibilité (§5.2). Sur Wayland, aucun compositeur ne l'expose : le Mode
 Simple y est **toujours** le voile plein écran par moniteur du §10.5, et l'onboarding le dit. Quand
 la capacité manque, quelle qu'en soit la raison, le mode dégradé du §10.5 fait autorité, et lui seul.
 
@@ -145,9 +147,9 @@ permet (macOS) ou recouverte par l'overlay (Windows, Linux), et le panneau est d
 c'est voulu, et c'est cohérent avec l'absence de tout levier pendant une pause. **La commande de
 désinstallation n'est pas offerte tant qu'une pause est due ou en cours** — aucune commande n'affaiblit
 une pause en cours (§10.3), et la désinstallation en est une. La désinstallation propre s'arrête là où
-le système l'arrête : Breeze supprime ses données et son élément de démarrage, se quitte, et — sur
-macOS seulement — laisse affichée la marche à suivre pour l'entrée d'Accessibilité qu'il ne peut pas
-retirer lui-même (§5.2). Sur Windows et Linux, rien ne reste à retirer à la main.
+le système l'arrête : Breeze supprime ses données et son élément de démarrage, puis se quitte.
+Breeze ne demandant aucune permission d'Accessibilité, rien ne reste à retirer à la main, sur aucun
+système (§5.2).
 
 ### 8.7 La première ouverture
 
@@ -159,9 +161,8 @@ démarrage.
 **Ce qu'elle exige.** L'écran de la sévérité porte la prévisualisation animée des deux modes — c'est
 le point de décision produit le plus important du parcours, puisque plus rien ne se rattrape après
 coup — **et c'est cet écran qui porte la phrase à froid propre à la session** (§5.7), sous le choix,
-avant qu'il soit fait. Sur macOS, **c'est aussi cet écran qui demande l'Accessibilité**, puisque c'est
-le choix qui la rend nécessaire : choisir Simple y déclenche la demande, choisir Hardcore ne la
-déclenche pas (§8.5). Sur Windows et Linux, aucune permission n'est demandée à l'onboarding.
+avant qu'il soit fait. Aucune permission n'est demandée à l'onboarding, sur aucun système : sur
+macOS, les cadres des fenêtres que le Mode Simple voile se lisent sans permission (§5.2, §8.4).
 
 **Ce qu'elle refuse.** Aucune permission n'est obligatoire pour continuer — Breeze fonctionne alors en
 mode dégradé (§10.5), avec un badge de réparation tant qu'elle manque ; sur une session où la capacité

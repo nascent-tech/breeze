@@ -1,6 +1,6 @@
 {
   "identifier": "onboarding",
-  "description": "Le parcours de première utilisation lit les réglages et le catalogue installé pour partir de l'état courant, applique rythme, sévérité et épargne d'apps, lit et demande l'Accessibilité, puis se conclut. Aucune commande du cycle en cours. Côté fenêtre : zone de déplacement, et onCloseRequested (écoute de tauri://close-requested, event listen/unlisten) pour que fermer vaille « Démarrer ».",
+  "description": "Le parcours de première utilisation lit les réglages et le catalogue installé pour partir de l'état courant, applique rythme, sévérité et épargne d'apps, puis se conclut. Aucune commande du cycle en cours. Côté fenêtre : zone de déplacement, et onCloseRequested (écoute de tauri://close-requested, event listen/unlisten) pour que fermer vaille « Démarrer ».",
   "windows": ["onboarding"],
   "permissions": [
     "core:event:allow-listen",
@@ -12,8 +12,6 @@
     "allow-set-rhythm",
     "allow-set-severity",
     "allow-set-spared-apps",
-    "allow-request-accessibility",
-    "allow-accessibility-status",
     "allow-finish-onboarding"
   ]
 }

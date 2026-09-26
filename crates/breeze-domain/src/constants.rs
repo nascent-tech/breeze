@@ -16,6 +16,10 @@ pub const BREAKER_THRESHOLD: u32 = 3;
 pub const BREAKER_DISARM: Duration =
     Duration::from_secs(HOURS_PER_DAY as u64 * MINUTES_PER_HOUR as u64 * SECONDS_PER_MINUTE);
 
+// Au-delà, une pause Simple ne voile plus fenêtre par fenêtre : elle passe en plein écran
+// pour rester réactive (contrat du voile, décision 7).
+pub const WINDOW_VEIL_CAP: usize = 24;
+
 pub const WORK_MIN: u16 = 5;
 pub const WORK_MAX: u16 = 180;
 pub const PAUSE_MIN: u16 = 1;

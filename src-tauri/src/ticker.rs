@@ -1,10 +1,10 @@
 use crate::dto::remaining_of;
 use crate::local_time::{local_now, LocalNow};
 use crate::{bridge, lock, AppState, TRAY_ID};
-use breeze_app::{CyclePhase, CycleSnapshot, Scheduler};
+use breeze_app::{CyclePhase, CycleSnapshot, Observation, Scheduler};
 use breeze_domain::constants::SECONDS_PER_MINUTE;
 use breeze_domain::{Absence, Instant, WallClock};
-use breeze_ports::SessionSignalsPort;
+use breeze_ports::{ForegroundAppPort, SessionSignalsPort, WindowFramesPort};
 use core::time::Duration;
 use std::sync::atomic::Ordering;
 use std::thread;
@@ -23,6 +23,25 @@ fn session_signals() -> Box<dyn SessionSignalsPort> {
 #[cfg(not(target_os = "macos"))]
 fn session_signals() -> Box<dyn SessionSignalsPort> {
     Box::new(breeze_bridge_null::NullSessionSignals)
+}
+
+// Premier plan et cadres des fenêtres : lus à chaque tick, jamais sous le verrou.
+#[cfg(target_os = "macos")]
+fn desktop() -> (Box<dyn ForegroundAppPort>, Box<dyn WindowFramesPort>) {
+    (
+        Box::new(breeze_bridge_macos::MacForegroundApp::new()),
+        Box::new(breeze_bridge_macos::MacWindowFrames::new()),
+    )
+}
+
+// Sans adaptateur : identité inconnue (tout compte comme travail), cadres inobservables
+// (pause Simple en voile plein écran), §10.5.
+#[cfg(not(target_os = "macos"))]
+fn desktop() -> (Box<dyn ForegroundAppPort>, Box<dyn WindowFramesPort>) {
+    (
+        Box::new(breeze_bridge_null::NullForegroundApp),
+        Box::new(breeze_bridge_null::NullWindowFrames),
+    )
 }
 
 // Titre à côté de l'icône : le décompte des phases qui en ont un, rien sinon (ni
@@ -129,6 +148,8 @@ struct Ticker {
     overlay: bridge::TauriOverlay,
     displays: bridge::TauriDisplays,
     signals: Box<dyn SessionSignalsPort>,
+    foreground: Box<dyn ForegroundAppPort>,
+    frames: Box<dyn WindowFramesPort>,
     last_phase: CyclePhase,
     last_title: Option<String>,
     last_mark: Option<TickMark>,
@@ -137,11 +158,14 @@ struct Ticker {
 impl Ticker {
     fn new(app: AppHandle) -> Self {
         let monitors = bridge::MonitorCache::default();
+        let (foreground, frames) = desktop();
         Ticker {
             overlay: bridge::TauriOverlay::new(app.clone()),
             displays: bridge::TauriDisplays::new(monitors.clone()),
             monitors,
             signals: session_signals(),
+            foreground,
+            frames,
             last_phase: CyclePhase::Inactive,
             last_title: None,
             last_mark: None,
@@ -157,14 +181,31 @@ impl Ticker {
             monotonic: now,
             local: local_now(),
         };
-        let reading = self.signals.poll(now);
+        let observation = self.observe(now);
         let previous = self.last_mark.replace(mark);
         let mut scheduler = lock(&state.scheduler);
+        // Une pause qui démarre au réveil (§10.4) lit la capacité de cet instant-ci.
+        scheduler.observe_frames(observation.frames_observable());
         if let Some(previous) = previous {
             catch_up(&mut scheduler, previous, mark);
         }
         let in_hours = scheduler.in_hours(mark.local.weekday, mark.local.minute_of_day);
-        scheduler.poll(now, in_hours, &mut self.overlay, &self.displays, reading)
+        scheduler.poll(
+            now,
+            in_hours,
+            &mut self.overlay,
+            &self.displays,
+            &observation,
+        )
+    }
+
+    // Relevé du système, fait avant de prendre le verrou du scheduler.
+    fn observe(&mut self, now: Instant) -> Observation {
+        Observation {
+            signals: self.signals.poll(now),
+            foreground: self.foreground.foreground_app(),
+            windows: self.frames.visible_windows(),
+        }
     }
 
     fn refresh_title(&mut self, title: String) {
@@ -183,6 +224,7 @@ impl Ticker {
         self.monitors.refresh_from_main_thread(&app);
         let now = state.clock.monotonic();
         let snapshot = self.advance_cycle(&state, now);
+        self.overlay.keep_window_veils_above_targets();
         if state.record_outcomes() > 0 {
             // L'échec est déjà journalisé par save_state ; le tick suivant retentera.
             _ = state.save_state();
@@ -265,6 +307,18 @@ mod tests {
         let after = WallClock::from_unix_secs(1_000);
         let now = Instant::EPOCH.plus(Duration::from_secs(1));
         assert_eq!(slept_between(before, Instant::EPOCH, after, now), None);
+    }
+
+    #[test]
+    fn a_break_shows_its_own_countdown_in_the_menu_bar() {
+        let mut resting = cycle();
+        let break_at = Instant::EPOCH
+            .plus(Duration::from_secs(50 * 60))
+            .plus(breeze_domain::constants::NOTICE);
+        resting.tick(break_at);
+        let snapshot = CycleSnapshot::of(&resting);
+        assert_eq!(snapshot.phase, CyclePhase::Break);
+        assert_eq!(tray_title(&snapshot, break_at, true), "10:00");
     }
 
     #[test]

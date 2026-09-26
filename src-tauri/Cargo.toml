@@ -17,6 +17,7 @@ tauri = { version = "2", features = ["macos-private-api", "tray-icon", "image-pn
 tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
@@ -28,3 +29,5 @@ breeze-bridge-common = { path = "../crates/breeze-bridge-common" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 breeze-bridge-macos = { path = "../crates/breeze-bridge-macos" }
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSGraphics", "NSResponder", "NSWindow"] }

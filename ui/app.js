@@ -27,6 +27,7 @@ const REFUSALS = {
   "invalid-schedule": "Plage horaire invalide.",
   "invalid-app-id": "Application inconnue.",
   "unknown-status": "Statut inconnu.",
+  "locked-app": "Cette application est toujours épargnée : son statut ne peut pas changer.",
   "persistence-failed": "Échec d’enregistrement : réessaie.",
   "autostart-failed": "Impossible de configurer le lancement au démarrage.",
   "enumeration-failed": "Échec de la liste des applications.",
@@ -91,7 +92,10 @@ function inactiveTitle(reason) {
 
 function workingCopy(snap) {
   if (snap.frozen) {
-    return { title: "Travail en cours", sub: "Décompte gelé : tu es inactif", ringSub: "Gelé" };
+    const sub = snap.frozen_reason === "ignored_app"
+      ? "Décompte gelé : application ignorée au premier plan"
+      : "Décompte gelé : tu es inactif";
+    return { title: "Travail en cours", sub, ringSub: "Gelé" };
   }
   const pauseAt = wallTimeIn(snap.break_in_secs);
   return { title: "Travail en cours", sub: "Cycle en cours", ringSub: `Pause à ${pauseAt}` };

@@ -2,7 +2,7 @@
 type: architecture
 titre: Breeze — architecture
 cree_le: 2026-09-21T00:00:00+0000
-mis_a_jour_le: 2026-09-21T00:00:00+0000
+mis_a_jour_le: 2026-09-26T00:00:00+0000
 branche: main
 statut: a_valider
 source: .charpente/decisions/2026-09-21-fondations-D1-D4.md
@@ -78,8 +78,9 @@ cœur testable par des scénarios temporels déterministes (« à t0… avance d
 ```
 Inactive                                  hors plage horaire ou jour inactif
 Working { countdown }                      countdown = Running{deadline} | Frozen{remaining} | Due{since}
+                                           gel = inactivité | app Ignorée au premier plan (FreezeReason)
 Notice  { deadline }                       PRÉAVIS — 1 minute, constante
-BreakActive { deadline, severity, mode }   mode = Nominal | Degraded(reasons)
+BreakActive { deadline, severity, mode }   mode = Nominal | Degraded(FramesUnobservable | TooManyWindows)
 Returning { deadline }                     RETOUR — 3 secondes, constante
 ```
 
@@ -93,13 +94,24 @@ porte la retenue de la détection de session profonde (§9.3 du brief), qui n'en
 
 ### 3.2 Ce que le domaine porte, sans exception
 
-- `Severity = Simple | Hardcore` · `AppStatus = Blocked | Spared | Ignored` · `SafetyListed`.
+- `Severity = Simple | Hardcore` · `AppStatus = Blocked | Spared | Ignored` · `SafetyList`.
+- **Les statuts d'applications** (`AppStatuses`, tenus par le cycle) : les statuts **choisis** par
+  l'utilisateur, les statuts **effectifs** du cycle en cours, et la **liste de sécurité** de l'OS
+  (fournie par l'adaptateur), qui prime toujours — une app qui y figure vaut `Spared` et refuse toute
+  modification (`CommandError::LockedApp`). Toute app inconnue est `Blocked`. Affaiblir un statut
+  (Bloquée → Épargnée/Ignorée, Épargnée → Ignorée) n'agit qu'au travail suivant, au même instant que
+  le rythme et la sévérité en attente ; renforcer agit tout de suite.
+- **Le gel du décompte** a deux causes cumulables : l'inactivité (§10.1) et une application
+  **Ignorée effective au premier plan** (§8.3), tant que le décompte n'est pas échu. Il ne repart que
+  quand aucune des deux ne tient plus ; la raison est exposée (`idle | ignored_app`). Une identité au
+  premier plan inconnue compte comme du travail (§10.5).
 - `Rhythm { work: 5..=180 min, pause: 1..=60 min, pause ≤ work, schedule, active_days }` — les trois
   refus de saisie du brief sont des **erreurs typées** (`NoActiveDay`, `DegenerateRange`,
   `PauseLongerThanWork`).
 - **La règle du sens** : un réglage qui **affaiblit** la contrainte attend le cycle suivant
-  (`PendingSettings`) ; un réglage qui **renforce** s'applique tout de suite ; tout réglage est refusé
-  dès qu'une pause est due (`SettingsError::BreakDue`).
+  (`PendingSettings`) ; un réglage qui **renforce** s'applique tout de suite ; tout réglage — rythme,
+  sévérité, statut d'une application — est refusé dès qu'une pause est due, préavis, pause et retour
+  compris (`CommandError::BreakDue`, code `break-due`).
 - **Le sort de chaque pause** : `BreakOutcome = Served | ValidatedByAbsence | Interrupted { unserved,
   door }`, avec `door = Quit | TrayMenu | HardcoreExitGesture | SuspensionOverrun | Crash`. Ce sort
   est **enregistré dès le lancement** (un registre `ledger`) pour que la dette de posture (§9.2)
@@ -111,9 +123,12 @@ porte la retenue de la détection de session profonde (§9.3 du brief), qui n'en
   pour le cycle suivant. La sortie doit exister **avant** le défaut qui la rend nécessaire.
 - **L'horloge** : les échéances sont **murales** mais comparées au **temps monotone réellement
   écoulé** ; un recul d'horloge ne recule aucune échéance (§10.7 du brief).
-- **Le relevé de capacités** `EnforcementCapabilities { foreground, frames, overlay, tray }` est
-  évalué **au premier instant d'une pause** pour figer son mode une fois pour toutes. C'est la règle
-  d'ancrage du §10.5, généralisée de « l'Accessibilité manque » à « une capacité manque ».
+- **Le mode d'une pause** se fixe **au premier instant de [PAUSE ACTIVE]**, sur la capacité « cadres
+  observables » relevée à cet instant (y compris quand la pause démarre au réveil, §10.4) : en Mode
+  Simple, cadres observables → `Nominal` (un voile par fenêtre bloquée), inobservables → `Degraded`
+  (voile plein écran par moniteur). Il ne bouge plus jusqu'à [RETOUR], sauf une seule bascule
+  possible, et une seule fois : au-delà de **24 fenêtres bloquées visibles** (`WINDOW_VEIL_CAP`), la
+  pause passe en `Degraded(TooManyWindows)` pour rester réactive. Le Mode Hardcore n'en dépend pas.
 
 Le domaine est testé **sans aucun double** : scénarios temporels + propriétés d'invariant (« aucune
 commande n'écourte une pause », « une pause due n'est jamais coupée par l'horloge », « le
@@ -121,16 +136,17 @@ coupe-circuit prime sur toute escalade »).
 
 ---
 
-## 4. Les ports — neuf ponts système, une horloge
+## 4. Les ports — des ponts système étroits, une horloge
 
 `breeze-ports` déclare des **traits** Rust (des contrats), un par besoin **du produit**, jamais un par
 API d'OS. Le domaine n'en importe aucun ; c'est `breeze-app` qui les consomme.
 
 | Port | Ce qu'il apporte au produit | Capacité rapportée |
 |---|---|---|
-| `ForegroundAppPort` | Quelle application est devant (identité seule, jamais le titre) | `Reliable \| Unknown` |
-| `WindowFramesPort` | La position/taille des fenêtres d'une application bloquée (Mode Simple) ; porte aussi la permission d'Accessibilité (macOS) | `Observable \| Unobservable` |
-| `OverlaySurfacesPort` | Poser/déplacer/retirer les surfaces qui recouvrent | `Layered \| BestEffort \| PlainFullscreen` |
+| `ForegroundAppPort` | Quelle application est devant (identité seule, jamais le titre) ; `None` = inconnue | — |
+| `WindowFramesPort` | Les fenêtres visibles des autres applications : numéro, identité de l'app, cadre en points globaux (origine en haut à gauche de l'écran principal) ; jamais le titre | `Ok` = observables, `Err(FramesUnobservable)` |
+| `OverlaySurfacesPort` | Poser un overlay par écran (`cover_display`), un voile par fenêtre (`cover_window`), le faire suivre (`reframe`), le retirer (`dismiss`, `dismiss_all`) | `Layered \| BestEffort \| PlainFullscreen` |
+| `SafetyListPort` | La liste de sécurité de l'OS courant (§10.6), fixe | — |
 | `DisplayEnumerationPort` | Les écrans présents et leurs changements | — |
 | `SessionSignalsPort` | Inactivité (instant, jamais contenu), veille, verrouillage | `Reliable \| Inferred` |
 | `NotificationsPort` | Le préavis quand la bannière propre ne peut pas se poser | `Granted \| Denied \| NotApplicable` |
@@ -138,13 +154,18 @@ API d'OS. Le domaine n'en importe aucun ; c'est `breeze-app` qui les consomme.
 | `PersistencePort` | L'instantané, le journal borné, les statistiques 30 j, l'export | — |
 | `UpdateCheckPort` | La seule sortie réseau, désactivable | — |
 | `ClockPort` | Temps monotone + horloge murale (port du **domaine**). La détection de saut est *stateful* et vit chez celui qui *poll* (palier absence/§10.7), pas dans l'adaptateur sans état | — |
-| `InstalledAppsPort` | Le catalogue des applications installées et leur **vraie** icône, pour que l'utilisateur choisisse ce qu'il épargne | — |
-| `AccessibilityPermissionPort` | L'état de la permission d'Accessibilité (macOS) et l'invite système | `Granted \| Denied \| Unknown` |
+| `InstalledAppsPort` | Le catalogue des applications installées et leur **vraie** icône, pour que l'utilisateur choisisse ce qu'il épargne (les apps de la liste de sécurité installées y figurent, verrouillées) | — |
 
-`InstalledAppsPort` et `AccessibilityPermissionPort` portent une décision du produit — quelle app
-est épargnée, ce que le Mode Simple peut voiler — donc ce sont des ports (l'identité d'une app est une
+`InstalledAppsPort`, `SafetyListPort` et `WindowFramesPort` portent une décision du produit — quelle
+app est épargnée, ce que le Mode Simple voile — donc ce sont des ports (l'identité d'une app est une
 notion métier, `AppId`). L'icône voyage en PNG déjà rendu ; l'extraction native (macOS : `sips` +
 `Info.plist`) vit dans l'adaptateur `breeze-bridge-macos`, jamais dans le port.
+
+**Aucune permission d'Accessibilité n'est demandée.** Sur macOS, les cadres des fenêtres viennent de
+`CGWindowListCopyWindowInfo(onScreenOnly | excludeDesktopElements)`, qui rend sans permission les
+bornes, le PID, la couche et le numéro de chaque fenêtre — Breeze n'en lit jamais le titre. Le PID
+devient une identité par `NSRunningApplication`, l'app au premier plan vient de
+`NSWorkspace.frontmostApplication`.
 
 Deux choses ne sont **pas** des ports, car elles ne portent aucune décision du domaine : l'icône
 d'état et l'instance unique. Ce sont des adaptateurs de l'enveloppe Tauri. La présence de l'icône
@@ -159,12 +180,18 @@ Chaque adaptateur implémente les ports pour **un** OS, et rapporte honnêtement
 
 | Crate | Réalise | Avec (bibliothèques natives) |
 |---|---|---|
-| `breeze-bridge-macos` | les neuf ports | `objc2-app-kit`, `core-graphics` (niveau `CGShieldingWindowLevel`, `presentationOptions`), AX (Accessibilité), `SMAppService`, `UNUserNotificationCenter` |
+| `breeze-bridge-macos` | catalogue d'apps, liste de sécurité, premier plan, cadres des fenêtres, inactivité | `objc2-app-kit` (`NSWorkspace`, `NSRunningApplication`), `objc2-core-graphics` (`CGWindowListCopyWindowInfo`, `CGEventSource`), `objc2-core-foundation` ; à venir : `CGShieldingWindowLevel`, `SMAppService`, `UNUserNotificationCenter` |
 | `breeze-bridge-windows` | les neuf ports | crate `windows` (Win32, DWM, WTS, Power — fenêtres `WS_EX_TOOLWINDOW` topmost par moniteur), notifications WinRT |
 | `breeze-bridge-linux-x11` | foreground, frames, overlay, écrans, session | `x11rb` (EWMH, RandR, MIT-SCREEN-SAVER — fenêtres override-redirect), `zbus` (logind, notifications, icône SNI) |
 | `breeze-bridge-linux-wayland` | idem, selon le compositeur | `wayland-client`, protocoles `wlr`/`plasma`, `gtk-layer-shell` (overlay), `ext-idle-notify` / Mutter / logind |
 | `breeze-bridge-common` | persistance, MàJ, démarrage auto, horloge | `rusqlite` (WAL, écriture atomique), plugins Tauri officiels |
-| `breeze-bridge-null` | les neuf ports en **non-op déclaré** | — (mode de production : coupe-circuit et sessions inconnues) |
+| `breeze-bridge-null` | les ports en **non-op déclaré** : premier plan inconnu, cadres inobservables, liste de sécurité vide | — (mode de production : coupe-circuit et sessions inconnues) |
+
+`breeze-bridge-macos` refuse le code non sûr (`deny(unsafe_code)`) sauf dans un seul module,
+`cf_containers`, qui affirme à objc2 que les conteneurs Core Foundation rendus par Core Graphics ne
+contiennent que des objets CF (`CFType`) — l'invariant y est écrit ; chaque valeur lue est ensuite
+vérifiée à l'exécution. Les clés du dictionnaire de fenêtre sont recréées par leur nom plutôt que lues
+dans les constantes externes (accès non sûr).
 
 Le choix de l'adaptateur Linux se fait **au lancement**, sur `XDG_SESSION_TYPE` et la présence
 effective des protocoles Wayland — **jamais sur le nom du bureau**. `breeze-bridge-null` n'est pas
@@ -188,6 +215,37 @@ Le **planificateur** (`Scheduler`) est la **seule** boucle : il réveille le dom
 plantage. L'**exécuteur** (`Enforcer`) traduit l'état du cycle en appels d'`OverlaySurfacesPort`, en
 respectant les délais de pose (≤ 200 ms pour un overlay Hardcore à l'échéance ; ≤ 500 ms pour un
 écran ou une application apparus en cours de pause).
+
+À chaque tick (250 ms), l'hôte relève **hors du verrou** l'instant de la dernière saisie,
+l'application au premier plan et les fenêtres visibles (`Observation`), puis le planificateur les
+passe au domaine et l'exécuteur réconcilie :
+
+| Pause | Ce qui est posé |
+|---|---|
+| Hardcore | un overlay opaque plein écran par écran |
+| Simple, `Degraded` (cadres inobservables, ou plus de 24 fenêtres bloquées) | un voile plein écran par écran |
+| Simple, `Nominal` | un voile par fenêtre **bloquée effective** (et par fenêtre sans identité, donc inconnue) : posé pour une fenêtre apparue, déplacé/redimensionné pour une fenêtre qui bouge, retiré pour une fenêtre fermée ou minimisée ; la surface existante est toujours réutilisée |
+
+Les fenêtres de Breeze, celles d'une couche ≠ 0, les fenêtres transparentes et celles de moins de
+40 × 40 points ne sont jamais voilées. Un relevé de cadres qui échoue en cours de pause laisse les
+voiles tels quels. Côté Tauri, un voile de fenêtre est une `WebviewWindow` `overlay.html?kind=window`
+sans décorations, transparente, **non focusable** (l'app épargnée garde le focus), au niveau de
+fenêtre **normal** et rangée juste au-dessus de sa fenêtre cible
+(`NSWindow orderWindow:relativeTo:` avec le numéro CGWindow de la cible, qui est le `windowNumber`
+d'AppKit) : une application épargnée placée devant la fenêtre bloquée, ou amenée par-dessus, reste
+devant le voile et utilisable (§8.3, §10.6). Ce rangement est refait à chaque tick, pour que le voile
+repasse au-dessus d'une app bloquée que l'utilisateur ramène devant ; il n'active jamais Breeze. Un
+voile de fenêtre appartient à l'espace de sa fenêtre (pas à tous les bureaux) ; il porte, comme les
+surfaces plein écran (elles, sur tous les bureaux et au-dessus de tout), le comportement
+`FullScreenAuxiliary`, qui le laisse paraître sur l'espace d'une app en plein écran natif. Les points
+de `CGWindowList` et les positions **logiques** de Tauri partagent le même repère (origine en haut à
+gauche de l'écran principal, écrans secondaires en coordonnées globales), le cadre se pose donc tel
+quel ; au déplacement, la taille est posée **avant** la position (AppKit redimensionne en gardant le
+coin bas-gauche, la position posée en dernier fixe le coin haut-gauche). Création, déplacement et
+retrait sont **expédiés** au thread principal sous le verrou du planificateur (l'exécuteur les
+demande depuis `poll`), sans attendre (`run_on_main_thread`) ; leur **exécution** a lieu plus tard,
+sur la boucle d'événements, hors verrou. Le rangement de chaque tick est expédié juste après, une
+fois le verrou rendu.
 
 ---
 
@@ -220,8 +278,8 @@ l'OS : `~/Library/Application Support/Breeze/` (macOS), `%APPDATA%\Breeze\` (Win
 le journal local (**circulaire, borné à 7 jours ou 5 Mo**, exportable par l'utilisateur seul), les
 statistiques (30 jours glissants), les réglages.
 
-**Ce que Breeze lit** : le nom et l'identité de l'application au premier plan, la position et la
-taille de ses fenêtres. **Ce qu'il ne lit jamais** : le titre d'une fenêtre, le contenu de l'écran,
+**Ce que Breeze lit** : l'identité de l'application au premier plan, la position et la taille des
+fenêtres visibles (et le PID qui les rattache à une application). **Ce qu'il ne lit jamais** : le titre d'une fenêtre, le contenu de l'écran,
 les frappes clavier. Le journal ne contient jamais de titre ni de contenu applicatif. **Rien ne sort
 de la machine**, hors la vérification de mise à jour — déclarée, visible, désactivable, et jamais
 effectuée pendant une pause ou un préavis.
@@ -237,12 +295,12 @@ effectuée pendant une pause ou un préavis.
   Breeze est une application utilisateur ordinaire — celui qui subit la contrainte est celui qui l'a
   posée.
 - **Aucune permission demandée pour une fonctionnalité qui ne s'en sert pas** : ni enregistrement
-  d'écran, ni pilotage d'autres applications, ni micro, ni caméra. La seule permission demandée est
-  l'Accessibilité (macOS), et seulement au choix du Mode Simple.
+  d'écran, ni pilotage d'autres applications, ni micro, ni caméra, ni Accessibilité — le voile
+  fenêtre par fenêtre s'appuie sur `CGWindowList`, qui ne demande rien.
 - **Isolation Tauri** : pas de Node dans le rendu ; une **capacité IPC déclarée par fenêtre**
   (`src-tauri/capabilities/`) — le panneau ne peut pas ce que l'overlay peut.
-- **La notarisation d'un binaire Tauri** portant `CGShieldingWindowLevel` et l'Accessibilité est un
-  point **bloquant, sans repli** : elle se mesure avant toute écriture de fonctionnalité.
+- **La notarisation d'un binaire Tauri** portant `CGShieldingWindowLevel` est un point **bloquant,
+  sans repli** : elle se mesure avant toute écriture de fonctionnalité.
 
 ---
 
@@ -277,7 +335,7 @@ breeze/
 ├── Cargo.toml                       # [workspace] members = crates/*, src-tauri
 ├── crates/
 │   ├── breeze-domain/               # PUR — aucune dépendance système
-│   ├── breeze-ports/                # 10 traits, un fichier chacun
+│   ├── breeze-ports/                # un trait par besoin, un fichier chacun
 │   ├── breeze-app/                  # cas d'usage, Scheduler, Enforcer, projections
 │   ├── breeze-bridge-common/        # persistance, update-check, autostart, clock
 │   ├── breeze-bridge-macos/
@@ -300,7 +358,7 @@ breeze/
 - **La machine à états côté TypeScript** — le cycle doit survivre à un webview gelé et tourner sans
   fenêtre.
 - **Un bus d'événements ou une saga** — un seul processus, une seule boucle, un seul écrivain de l'état.
-- **Un super-port `SystemBridge` à trente méthodes** — neuf ports étroits, remplaçables un à un.
+- **Un super-port `SystemBridge` à trente méthodes** — des ports étroits, remplaçables un à un.
 - **Un ORM** — un fichier SQLite, un instantané JSON versionné, un journal borné.
 - **Le scaffold Electron** — supprimé, pas conservé « au cas où » : deux hôtes de fenêtrage, deux fois les bugs.
 - **Que le domaine connaisse les OS** — toute astuce d'empilement vit dans un adaptateur, derrière le

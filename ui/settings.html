@@ -103,7 +103,9 @@
       .status-col { width: 236px; flex: none; }
       .app-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 4px 12px; }
       .app-list > .app-row + .app-row { border-top: 1px solid var(--outline); }
-      .app-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .app-name-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .app-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .app-note { color: var(--ink-3); }
       .appicon.has-img { background: transparent; box-shadow: none; }
       .appicon img { width: 22px; height: 22px; border-radius: 5px; display: block; }
       .appicon.fallback { background: linear-gradient(160deg, #9BA3B5, #6C7383); }
@@ -146,9 +148,9 @@
       .empty { padding: 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
       .empty-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--primary-tint); color: var(--primary); }
 
-      /* ---------- Permissions ---------- */
+      /* ---------- Confidentialité ---------- */
       .perm-ico { width: 28px; height: 28px; border-radius: 8px; }
-      .perm-table { display: grid; grid-template-columns: 128px 1fr 1fr; }
+      .perm-table { display: grid; grid-template-columns: 128px 1fr; }
       .perm-table > * { padding: 8px 12px 8px 0; border-top: 1px solid var(--outline); }
       .perm-table > .t-micro { color: var(--ink-3); border-top: 0; padding-top: 0; }
 
@@ -193,7 +195,7 @@
             <span class="navico ico-stats"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><path d="M5 19V12M12 19V5M19 19v-9"></path></svg></span><span class="tab-label">Statistiques</span>
           </button>
           <button type="button" class="navitem" role="tab" id="tab-permissions" data-tab="permissions" aria-controls="panel-permissions" aria-selected="false" tabindex="-1">
-            <span class="navico ico-perms"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="4.5"></circle><path d="M12.2 12.2 20 20M16.5 16.5l2.3-2.3M14 19l1.8-1.8"></path></svg></span><span class="tab-label">Permissions</span>
+            <span class="navico ico-perms"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12s3.6-6.5 8.5-6.5 8.5 6.5 8.5 6.5-3.6 6.5-8.5 6.5S3.5 12 3.5 12Z"></path><circle cx="12" cy="12" r="2.3"></circle></svg></span><span class="tab-label">Confidentialité</span>
           </button>
           <button type="button" class="navitem" role="tab" id="tab-aide" data-tab="aide" aria-controls="panel-aide" aria-selected="false" tabindex="-1">
             <span class="navico ico-help"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><path d="M9.2 9a2.9 2.9 0 1 1 4 2.7c-.9.4-1.2 1-1.2 1.9v.4"></path><path d="M12 17.6l.02.02"></path></svg></span><span class="tab-label">Aide</span>
@@ -328,7 +330,7 @@
             <div id="severity-group" class="sev-grid" role="radiogroup" aria-label="Sévérité des pauses">
               <button type="button" class="sev-opt" role="radio" data-value="Simple" aria-checked="false" tabindex="-1" aria-labelledby="sev-simple-name" aria-describedby="sev-simple-desc">
                 <span class="sev-head"><span class="radio-dot" aria-hidden="true"></span><span class="t-label" id="sev-simple-name">Simple</span><span class="chip chip-tint chip-sm sev-current" data-for="Simple" hidden>En cours</span></span>
-                <span class="t-caption" id="sev-simple-desc">Un voile translucide couvre l’écran pendant la pause. Aucun geste à apprendre&nbsp;: il se lève à la fin.</span>
+                <span class="t-caption" id="sev-simple-desc">Un voile couvre chaque fenêtre des applications bloquées&nbsp;; le reste du Mac reste utilisable. Repli en plein écran si macOS ne peut pas fournir la liste des fenêtres.</span>
               </button>
               <button type="button" class="sev-opt" role="radio" data-value="Hardcore" aria-checked="false" tabindex="-1" aria-labelledby="sev-hardcore-name" aria-describedby="sev-hardcore-desc">
                 <span class="sev-head"><span class="radio-dot" aria-hidden="true"></span><span class="t-label" id="sev-hardcore-name">Hardcore</span><span class="chip chip-tint chip-sm sev-current" data-for="Hardcore" hidden>En cours</span></span>
@@ -372,15 +374,17 @@
                 <span id="app-state-text" class="t-caption"></span>
                 <button type="button" id="app-retry" class="btn btn-secondary btn-sm" hidden>Réessayer</button>
               </div>
-              <div class="divider"></div>
-              <div class="app-row">
-                <span class="appicon sm fallback"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 4.6v2.2M12 17.2v2.2M4.6 12h2.2M17.2 12h2.2M6.8 6.8l1.5 1.5M15.7 15.7l1.5 1.5M17.2 6.8l-1.5 1.5M8.3 15.7l-1.5 1.5"></path></svg></span>
-                <span class="t-label app-name">Réglages Système</span>
-                <span class="status-col"><span class="chip chip-neutral chip-sm">Toujours épargnée</span></span>
+              <div id="app-locked-fallback" hidden>
+                <div class="divider"></div>
+                <div class="app-row">
+                  <span class="appicon sm fallback"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 4.6v2.2M12 17.2v2.2M4.6 12h2.2M17.2 12h2.2M6.8 6.8l1.5 1.5M15.7 15.7l1.5 1.5M17.2 6.8l-1.5 1.5M8.3 15.7l-1.5 1.5"></path></svg></span>
+                  <span class="t-label app-name">Réglages Système</span>
+                  <span class="status-col"><span class="chip chip-neutral chip-sm">Toujours épargnée</span></span>
+                </div>
               </div>
             </div>
-            <p class="inset note t-caption"><strong>Bloquée</strong>&nbsp;: couverte pendant la pause. <strong>Épargnée</strong>&nbsp;: reste utilisable. <strong>Ignorée</strong>&nbsp;: l’utiliser ne fige pas le décompte de la pause.</p>
-            <p class="inset note t-caption">Aujourd’hui, le voile couvre l’écran entier&nbsp;; le voile fenêtre par fenêtre, qui appliquera ces statuts, est prévu. Tes choix sont enregistrés dès maintenant.</p>
+            <p class="inset note t-caption"><strong>Bloquée</strong>&nbsp;: voilée pendant la pause. <strong>Épargnée</strong>&nbsp;: utilisable, compte comme du travail. <strong>Ignorée</strong>&nbsp;: utilisable, et son usage ne compte pas comme du travail — le décompte se gèle quand elle est au premier plan.</p>
+            <p class="inset note t-caption">Ignorer une application, ou épargner une application bloquée, vaut au cycle suivant&nbsp;; bloquer une application, ou cesser de l’ignorer, vaut tout de suite. Pendant une pause, les statuts attendent qu’elle se termine.</p>
           </section>
 
           <!-- Statistiques -->
@@ -422,25 +426,32 @@
             </div>
           </section>
 
-          <!-- Permissions -->
+          <!-- Confidentialité -->
           <section class="panel" role="tabpanel" id="panel-permissions" data-panel="permissions" aria-labelledby="tab-permissions" tabindex="-1" hidden>
-            <p class="t-caption">macOS accorde et retire cette permission quand tu veux&nbsp;; Breeze la revérifie chaque fois que tu reviens sur cette fenêtre.</p>
+            <p class="t-caption">Breeze n’a besoin d’aucune permission macOS pour fonctionner.</p>
             <div class="card group">
               <div class="row row-top">
-                <span class="navico perm-ico ico-severity"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="5" r="1.8"></circle><path d="M5 9l7 1.5L19 9M12 10.5V15l-3 5M12 15l3 5"></path></svg></span>
+                <span class="navico perm-ico ico-perms"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12s3.6-6.5 8.5-6.5 8.5 6.5 8.5 6.5-3.6 6.5-8.5 6.5S3.5 12 3.5 12Z"></path><circle cx="12" cy="12" r="2.3"></circle></svg></span>
                 <div class="row-text">
-                  <span class="row-inline"><span class="t-label">Accessibilité</span><span id="ax-chip" class="chip chip-neutral chip-sm" role="status">Vérification…</span></span>
-                  <span class="t-caption">Servira au voile fenêtre par fenêtre du Mode Simple&nbsp;: Breeze lira le cadre des fenêtres, jamais leur contenu, leurs titres ni le clavier.</span>
+                  <span class="t-label">Ce que Breeze lit</span>
+                  <span class="t-caption">La position et la taille des fenêtres, l’application qui possède chacune d’elles, et l’application au premier plan.</span>
                 </div>
-                <button type="button" id="ax-request" class="btn btn-secondary btn-sm">Ouvrir Réglages Système</button>
               </div>
-              <p id="ax-wait" class="inset note t-caption" hidden>Active Breeze dans Réglages Système › Confidentialité et sécurité › Accessibilité, puis reviens ici&nbsp;: l’état se met à jour tout seul.</p>
+              <div class="divider"></div>
+              <div class="row row-top">
+                <span class="navico perm-ico ico-perms"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12s3.6-6.5 8.5-6.5 8.5 6.5 8.5 6.5-3.6 6.5-8.5 6.5S3.5 12 3.5 12Z"></path><path d="M4.5 4.5l15 15"></path></svg></span>
+                <div class="row-text">
+                  <span class="t-label">Ce que Breeze ne lit jamais</span>
+                  <span class="t-caption">Le contenu des fenêtres, leurs titres, ni le clavier.</span>
+                </div>
+              </div>
             </div>
             <div class="card group">
-              <span class="t-label">Ce qui change selon la permission</span>
+              <span class="t-label">Ce que fait chaque mode</span>
               <div class="perm-table">
-                <span class="t-micro">PERMISSION</span><span class="t-micro">ACCORDÉE</span><span class="t-micro">REFUSÉE</span>
-                <span class="t-label">Accessibilité</span><span class="t-caption">Voile fenêtre par fenêtre (prévu)</span><span class="t-caption">Un seul voile plein écran en Mode Simple</span>
+                <span class="t-micro">MODE</span><span class="t-micro">EFFET</span>
+                <span class="t-label">Simple</span><span class="t-caption">Un voile par fenêtre bloquée. Repli&nbsp;: voile plein écran si macOS ne fournit pas la liste des fenêtres.</span>
+                <span class="t-label">Hardcore</span><span class="t-caption">Chaque écran est couvert en entier.</span>
               </div>
             </div>
           </section>
@@ -468,8 +479,16 @@
                 <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
               </button></h2>
               <div class="faq-panel" id="faq-severity" role="region" aria-labelledby="faq-severity-btn" hidden>
-                <p class="t-body">Simple pose un voile translucide pendant la pause. Hardcore couvre chaque écran en entier, sans barre de menus ni Dock, avec la sortie d’urgence pour seule issue.</p>
+                <p class="t-body">Simple voile chaque fenêtre des applications bloquées&nbsp;; le reste du Mac reste utilisable. Si macOS ne peut pas fournir la liste des fenêtres, un voile plein écran prend le relai. Hardcore couvre chaque écran en entier, sans barre de menus ni Dock, avec la sortie d’urgence pour seule issue.</p>
                 <p class="t-body">Passer à Hardcore vaut tout de suite&nbsp;; revenir à Simple vaut au cycle suivant. Dès le préavis, la sévérité du cycle est figée.</p>
+              </div>
+              <h2><button type="button" class="faq-btn" id="faq-apps-btn" aria-expanded="false" aria-controls="faq-apps">
+                <span class="row-text"><span class="t-label">Bloquée, épargnée, ignorée</span><span class="t-caption">Ce que devient chaque application en pause.</span></span>
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+              </button></h2>
+              <div class="faq-panel" id="faq-apps" role="region" aria-labelledby="faq-apps-btn" hidden>
+                <p class="t-body">Bloquée&nbsp;: voilée pendant la pause. Épargnée&nbsp;: utilisable, et son usage compte comme du travail. Ignorée&nbsp;: utilisable, mais son usage ne compte pas comme du travail — le décompte se gèle tant qu’elle reste au premier plan.</p>
+                <p class="t-body">Ignorer une application, ou épargner une application bloquée, vaut au cycle suivant&nbsp;; bloquer une application, ou cesser de l’ignorer, vaut tout de suite. Une application inconnue est bloquée par défaut, et certaines applications système restent toujours épargnées.</p>
               </div>
               <h2><button type="button" class="faq-btn" id="faq-exit-btn" aria-expanded="false" aria-controls="faq-exit">
                 <span class="row-text"><span class="t-label">Sortir en urgence</span><span class="t-caption">Maintenir Échap 10&nbsp;s, confirmer, et ce que ça coûte.</span></span>

@@ -1,6 +1,6 @@
-use breeze_app::{CyclePhase, CycleSnapshot};
+use breeze_app::{CyclePhase, CycleSnapshot, VeilMode};
 use breeze_domain::constants::{NOTICE, RETURN_HOLD};
-use breeze_domain::{Instant, Rhythm, Severity};
+use breeze_domain::{FreezeReason, Instant, Rhythm, Severity};
 use core::time::Duration;
 use serde::Serialize;
 
@@ -11,6 +11,10 @@ pub struct SnapshotDto {
     pub total_secs: u64,
     pub break_in_secs: u64,
     pub frozen: bool,
+    // Pourquoi le décompte est gelé : "idle" | "ignored_app" ; null s'il court.
+    pub frozen_reason: Option<&'static str>,
+    // Tenue de la pause Simple : "windows" | "fullscreen" ; null hors pause Simple.
+    pub veil_mode: Option<&'static str>,
     pub severity: String,
     pub chosen_severity: String,
     pub rhythm_pending: bool,
@@ -52,6 +56,20 @@ fn phase_total(phase: CyclePhase, rhythm: &Rhythm) -> Duration {
     }
 }
 
+fn freeze_reason_name(reason: FreezeReason) -> &'static str {
+    match reason {
+        FreezeReason::Idle => "idle",
+        FreezeReason::IgnoredApp => "ignored_app",
+    }
+}
+
+fn veil_mode_name(mode: VeilMode) -> &'static str {
+    match mode {
+        VeilMode::Windows => "windows",
+        VeilMode::FullScreen => "fullscreen",
+    }
+}
+
 pub fn severity_name(severity: Severity) -> &'static str {
     match severity {
         Severity::Simple => "Simple",
@@ -89,6 +107,8 @@ pub fn to_dto(
         total_secs: phase_total(snapshot.phase, active).as_secs(),
         break_in_secs: seconds_until_break(snapshot.phase, remaining),
         frozen: snapshot.frozen_remaining.is_some(),
+        frozen_reason: snapshot.frozen_reason.map(freeze_reason_name),
+        veil_mode: snapshot.veil_mode.map(veil_mode_name),
         severity: severity_name(snapshot.severity).to_owned(),
         chosen_severity: severity_name(snapshot.chosen_severity).to_owned(),
         rhythm_pending: snapshot.rhythm_pending,
@@ -139,6 +159,8 @@ mod tests {
         );
         assert_eq!(dto.severity, "Simple");
         assert!(!dto.frozen);
+        assert_eq!(dto.frozen_reason, None);
+        assert_eq!(dto.veil_mode, None);
         assert_eq!(dto.work_minutes, 50);
         assert_eq!(dto.pause_minutes, 10);
     }
@@ -192,8 +214,35 @@ mod tests {
 
         let expected = (r.work().as_duration() - IDLE_FREEZE).as_secs();
         assert!(dto.frozen);
+        assert_eq!(dto.frozen_reason, Some("idle"));
         assert_eq!(dto.remaining_secs, expected);
         assert_eq!(dto.break_in_secs, expected + NOTICE.as_secs());
+    }
+
+    #[test]
+    fn a_simple_break_reports_how_it_is_veiled() {
+        let r = rhythm();
+        let mut cycle = Cycle::start(r, Severity::Simple, Instant::EPOCH);
+        cycle.observe_frames(true);
+        let break_at = Instant::EPOCH.plus(r.work().as_duration()).plus(NOTICE);
+        cycle.tick(break_at);
+        assert_eq!(dto_of(&cycle, break_at, &r, &r).veil_mode, Some("windows"));
+
+        let mut blind = Cycle::start(r, Severity::Simple, Instant::EPOCH);
+        blind.tick(break_at);
+        assert_eq!(
+            dto_of(&blind, break_at, &r, &r).veil_mode,
+            Some("fullscreen")
+        );
+    }
+
+    #[test]
+    fn a_hardcore_break_has_no_veil_mode() {
+        let r = rhythm();
+        let mut cycle = Cycle::start(r, Severity::Hardcore, Instant::EPOCH);
+        let break_at = Instant::EPOCH.plus(r.work().as_duration()).plus(NOTICE);
+        cycle.tick(break_at);
+        assert_eq!(dto_of(&cycle, break_at, &r, &r).veil_mode, None);
     }
 
     #[test]
