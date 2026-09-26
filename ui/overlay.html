@@ -4,88 +4,152 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Breeze — pause</title>
-    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="system.css" />
     <style>
       html,
       body {
         height: 100%;
         margin: 0;
         overflow: hidden;
-        user-select: none;
-        cursor: default;
       }
       body {
         display: grid;
         place-items: center;
-        color: var(--ink);
       }
-      /* Voile : laisse deviner, ne laisse pas lire. La fenêtre Tauri est transparente. */
+
+      /* Voile plein écran (Mode Simple) : on devine l'écran, on ne peut plus le lire.
+         La fenêtre Tauri est transparente ; le voile suit l'apparence du système. */
+      html[data-kind="veil"] {
+        --label-2: rgba(0, 0, 0, 0.7);
+        --label-3: rgba(0, 0, 0, 0.6);
+      }
       html[data-kind="veil"] body {
-        background: rgba(251, 252, 254, 0.84);
+        background: rgba(236, 236, 236, 0.9);
       }
-      /* Hardcore : fond opaque, identique sur tous les écrans (§8.5). */
+      @media (prefers-color-scheme: dark) {
+        html[data-kind="veil"] {
+          --label-2: rgba(255, 255, 255, 0.7);
+          --label-3: rgba(255, 255, 255, 0.6);
+        }
+        html[data-kind="veil"] body {
+          background: rgba(22, 22, 24, 0.9);
+        }
+      }
+
+      /* Hardcore : opaque et identique sur tous les écrans (§8.5), toujours sombre. */
+      html[data-kind="hardcore"] {
+        color-scheme: dark;
+        --label: rgba(255, 255, 255, 0.92);
+        --label-2: rgba(255, 255, 255, 0.58);
+        --label-3: rgba(255, 255, 255, 0.4);
+        --fill: rgba(255, 255, 255, 0.06);
+        --fill-2: rgba(255, 255, 255, 0.1);
+        --fill-3: rgba(255, 255, 255, 0.15);
+        --content: #2C2C2E;
+        --accent: #0071E3;
+        --accent-pressed: #0062CC;
+        --on-accent: #FFFFFF;
+        --focus: #409CFF;
+        --shadow-control: 0 0.5px 0 rgba(255, 255, 255, 0.08) inset, 0 0.5px 1px rgba(0, 0, 0, 0.4);
+        --pause: #3DD9B5;
+      }
       html[data-kind="hardcore"] body {
-        background: var(--ink);
-        color: #fbfcfe;
+        background: #0B0B0C;
       }
+
       #card {
-        position: relative;
-        width: 360px;
-        border-radius: 28px;
-        padding: 36px 32px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 16px;
+        text-align: center;
       }
-      html[data-kind="hardcore"] #card {
-        background: rgba(255, 255, 255, 0.06);
-        border-color: rgba(255, 255, 255, 0.12);
-        box-shadow: none;
+
+      #phase-title {
+        font: 600 28px/34px var(--font-display);
+        letter-spacing: -0.01em;
+        color: var(--label);
+      }
+      #phase-subtitle,
+      #suggestion {
+        margin-top: 6px;
+        font: 400 17px/22px var(--font);
+        color: var(--label-2);
       }
       #phase-subtitle {
-        margin-top: -8px;
         display: none;
       }
+
+      /* Le minuteur : l'anneau montre ce qu'il reste, comme l'app Horloge. */
       .ring-wrap {
         position: relative;
         display: grid;
         place-items: center;
+        width: min(340px, 56vmin);
+        aspect-ratio: 1;
+        margin-top: 44px;
+      }
+      .ring-wrap svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+      #ring-track {
+        stroke: var(--fill-2);
+      }
+      #ring-arc {
+        stroke: var(--pause);
+        transition: stroke-dasharray 0.5s linear;
+      }
+      html[data-phase="Returning"] #ring-arc {
+        opacity: 0;
       }
       .ring-center {
-        position: absolute;
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
       }
       #countdown {
-        font-size: 56px;
-        font-weight: 700;
-        letter-spacing: -0.03em;
+        font: 200 min(84px, 13.5vmin) / 1 var(--font-display);
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+        color: var(--label);
       }
-      .muted {
-        color: var(--ink-3);
-      }
-      html[data-kind="hardcore"] .muted {
-        color: rgba(251, 252, 254, 0.72);
-      }
-      /* Piste de l'anneau : sombre sur clair en Voile, claire translucide en
-         Hardcore (sinon invisible sur fond --ink). */
-      #ring-track {
-        stroke: rgba(28, 33, 48, 0.08);
-      }
-      html[data-kind="hardcore"] #ring-track {
-        stroke: rgba(255, 255, 255, 0.18);
-      }
-      #resume-at,
-      #suggestion {
+      #resume-at {
         display: none;
+        align-items: center;
+        font: 500 15px/20px var(--font);
+        color: var(--label-2);
+        font-variant-numeric: tabular-nums;
+      }
+      #resume-at::before {
+        content: "";
+        display: inline-block;
+        width: 13px;
+        height: 13px;
+        margin-right: 6px;
+        vertical-align: -1px;
+        background: currentColor;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1.5a5 5 0 0 0-5 5v2.7L1.8 11a.6.6 0 0 0 .5 1h11.4a.6.6 0 0 0 .5-1L13 9.2V6.5a5 5 0 0 0-5-5Zm-1.9 11.8a2 2 0 0 0 3.8 0Z'/%3E%3C/svg%3E") center / contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1.5a5 5 0 0 0-5 5v2.7L1.8 11a.6.6 0 0 0 .5 1h11.4a.6.6 0 0 0 .5-1L13 9.2V6.5a5 5 0 0 0-5-5Zm-1.9 11.8a2 2 0 0 0 3.8 0Z'/%3E%3C/svg%3E") center / contain no-repeat;
+      }
+
+      /* Bas d'écran : consigne (Simple) ou geste de sortie (Hardcore). */
+      #hint,
+      #exit {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 40px;
         text-align: center;
       }
-      /* Le geste de sortie n'existe qu'en Mode Hardcore (§8.5). */
       #hint {
         display: none;
+        font: 400 13px/16px var(--font);
+        color: var(--label-3);
       }
       html[data-kind="veil"] #hint {
         display: block;
@@ -93,12 +157,12 @@
       html[data-phase="Returning"] #hint {
         display: none;
       }
+
       #exit {
         display: none;
         flex-direction: column;
         align-items: center;
-        gap: 8px;
-        width: 100%;
+        gap: 10px;
       }
       html[data-kind="hardcore"] #exit {
         display: flex;
@@ -106,177 +170,228 @@
       html[data-kind="hardcore"][data-phase="Returning"] #exit {
         display: none;
       }
-      html[data-kind="hardcore"] .t-title {
-        color: #fbfcfe;
+      #legend {
+        font: 400 13px/16px var(--font);
+        color: var(--label-2);
+        font-variant-numeric: tabular-nums;
       }
       .hold-track {
-        width: 200px;
-        height: 4px;
-        border-radius: 3px;
-        background: rgba(251, 252, 254, 0.14);
+        width: 160px;
+        height: 3px;
+        border-radius: 2px;
+        background: var(--fill-2);
         overflow: hidden;
       }
       #hold-fill {
         height: 100%;
         width: 0%;
-        border-radius: 3px;
-        background: #fbfcfe;
+        border-radius: 2px;
+        background: var(--label);
         transition: width 0.08s linear;
       }
+
+      /* Confirmation de sortie : une alerte macOS, Annuler par défaut. */
       #confirm {
         display: none;
-        flex-direction: column;
-        align-items: center;
-        gap: 14px;
-        position: absolute;
+        position: fixed;
         inset: 0;
-        border-radius: 28px;
-        background: rgba(28, 33, 48, 0.92);
-        justify-content: center;
-        padding: 24px;
-        text-align: center;
+        z-index: 10;
+        place-items: center;
+        background: rgba(0, 0, 0, 0.45);
       }
       html[data-confirm="open"] #confirm {
+        display: grid;
+      }
+      .alert {
         display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 260px;
+        padding: 20px 16px 16px;
+        border-radius: 12px;
+        text-align: center;
+        background: #2A2A2C;
+        box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 24px 60px -10px rgba(0, 0, 0, 0.7);
+        animation: alert-in 0.22s var(--ease-spring);
+      }
+      @keyframes alert-in {
+        from {
+          opacity: 0;
+          transform: scale(1.06);
+        }
+      }
+      .alert-symbol {
+        display: grid;
+        place-items: center;
+        width: 52px;
+        height: 52px;
+        margin-bottom: 12px;
+        border-radius: 12px;
+        color: #FFFFFF;
+        background: linear-gradient(180deg, #4BE3C1, #0E8A70);
+        box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.2);
+      }
+      #confirm-title {
+        font: 700 13px/16px var(--font);
+        color: var(--label);
+      }
+      #confirm-desc {
+        margin-top: 6px;
+        font: 400 11px/14px var(--font);
+        color: var(--label-2);
       }
       .confirm-row {
-        display: flex;
-        gap: 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+        margin-top: 16px;
       }
-      #confirm .btn {
-        height: 40px;
-        padding: 0 20px;
-        border-radius: 12px;
-        font: inherit;
-        font-weight: 600;
-        border: 0;
-        cursor: default;
+      .confirm-row .button {
+        width: 100%;
       }
-      #confirm .btn-cancel {
-        background: #fbfcfe;
-        color: var(--ink);
+      #confirm-ok {
+        color: #FF8A82;
+        background: rgba(255, 255, 255, 0.1);
       }
-      #confirm .btn-cancel:hover {
-        background: #edeff3;
+      #confirm-ok:active {
+        background: rgba(255, 255, 255, 0.18);
       }
-      /* Voile d'une fenêtre bloquée (Mode Simple nominal) : le voile remplit la fenêtre
-         qu'il couvre, la carte se resserre sur le décompte. Ni anneau, ni suggestion,
-         ni geste : la sortie Échap n'existe qu'en Hardcore (§8.5). */
+
+      /* Voile d'une fenêtre bloquée (Mode Simple nominal) : le décompte seul, sans
+         anneau ni geste — la sortie Échap n'existe qu'en Hardcore (§8.5). */
       html[data-kind="window"],
       html[data-kind="window"] body {
         background: transparent;
       }
       html[data-kind="window"] body {
-        background: rgba(251, 252, 254, 0.86);
-        border-radius: 12px;
-        overflow: hidden;
-        padding: 12px;
-        box-sizing: border-box;
+        border-radius: 10px;
+        background: rgba(236, 236, 236, 0.92);
+        box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
       }
-      html[data-kind="window"] #card {
+      @media (prefers-color-scheme: dark) {
+        html[data-kind="window"] body {
+          background: rgba(30, 30, 32, 0.92);
+          box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+        }
+      }
+      html[data-kind="window"] #phase-title {
+        font: 600 15px/20px var(--font);
+      }
+      html[data-kind="window"] .ring-wrap {
         width: auto;
-        max-width: 280px;
-        padding: 20px 28px;
-        border-radius: 22px;
-        gap: 6px;
+        aspect-ratio: auto;
+        margin-top: 8px;
       }
-      html[data-kind="window"] .ring-wrap svg {
-        display: none;
-      }
-      html[data-kind="window"] .ring-center {
-        position: static;
-      }
-      html[data-kind="window"] #countdown {
-        font-size: 44px;
-      }
-      html[data-kind="window"] #ring-sub,
+      html[data-kind="window"] .ring-wrap svg,
       html[data-kind="window"] #suggestion,
       html[data-kind="window"] #exit,
       html[data-kind="window"] #confirm {
-        display: none;
+        display: none !important;
+      }
+      html[data-kind="window"] #countdown {
+        font-size: 52px;
+        font-weight: 250;
+      }
+      html[data-kind="window"] #resume-at {
+        font-size: 13px;
       }
       html[data-kind="window"] #hint {
+        position: static;
         display: block;
-        text-align: center;
+        margin-top: 14px;
+        font-size: 12px;
       }
       html[data-kind="window"][data-phase="Returning"] #hint {
         display: none;
       }
-      /* Petite fenêtre : le décompte seul, sans carte. */
+      /* Petite fenêtre : le décompte seul. */
       @media (max-width: 320px), (max-height: 200px) {
-        html[data-kind="window"] body {
-          padding: 4px;
-        }
-        html[data-kind="window"] #card {
-          background: none;
-          border: 0;
-          box-shadow: none;
-          -webkit-backdrop-filter: none;
-          backdrop-filter: none;
-          padding: 0;
-        }
         html[data-kind="window"] #phase-title,
         html[data-kind="window"] #phase-subtitle,
         html[data-kind="window"] #resume-at,
         html[data-kind="window"] #hint {
           display: none !important;
         }
+        html[data-kind="window"] .ring-wrap {
+          margin-top: 0;
+        }
         html[data-kind="window"] #countdown {
-          font-size: clamp(18px, 14vmin, 36px);
+          font-size: clamp(18px, 16vmin, 40px);
         }
       }
-      @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-          transition-duration: 0s !important;
-          animation-duration: 0s !important;
+
+      /* Arrivée de la pause : le minuteur se pose, une fois. */
+      /* Chaque enfant se pose, pas #card : un transform sur #card en ferait le repère
+         de #hint, fixé en bas d'écran, le temps de l'animation. */
+      #card > * {
+        animation: settle 0.6s var(--ease-out) backwards;
+      }
+      #card > #hint {
+        animation-name: fade-in;
+      }
+      @keyframes fade-in {
+        from {
+          opacity: 0;
+        }
+      }
+      @keyframes settle {
+        from {
+          opacity: 0;
+          transform: scale(0.96);
+          filter: blur(6px);
         }
       }
     </style>
   </head>
   <body>
-    <div id="card" class="glass">
-      <span class="t-title" id="phase-title">Pause en cours</span>
-      <span class="t-body-lg muted" id="phase-subtitle"></span>
+    <div id="card">
+      <span id="phase-title">Pause</span>
+      <span id="phase-subtitle"></span>
+      <span id="suggestion"></span>
       <div class="ring-wrap">
-        <svg width="220" height="220" viewBox="0 0 220 220">
-          <circle id="ring-track" cx="110" cy="110" r="96" fill="none" stroke-width="10"></circle>
+        <svg viewBox="0 0 220 220" aria-hidden="true">
+          <circle id="ring-track" cx="110" cy="110" r="96" fill="none" stroke-width="7"></circle>
           <circle
             id="ring-arc"
             cx="110"
             cy="110"
             r="96"
             fill="none"
-            stroke="#16B37E"
-            stroke-width="10"
+            stroke-width="7"
             stroke-linecap="round"
             stroke-dasharray="0 603.2"
             transform="rotate(-90 110 110)"
           ></circle>
         </svg>
         <div class="ring-center">
-          <span class="num" id="countdown" aria-hidden="true">—:—</span>
-          <span class="t-micro muted" id="ring-sub">TIENS BON</span>
+          <span id="countdown" aria-hidden="true">—:—</span>
+          <span id="resume-at"></span>
         </div>
       </div>
-      <span class="t-caption muted" id="resume-at"></span>
-      <span class="t-body muted" id="suggestion"></span>
-      <span class="t-caption muted" id="hint">Rien à faire. Regarde ailleurs.</span>
-      <div id="exit">
-        <span class="t-caption muted" id="legend">Maintiens Échap pour sortir</span>
-        <div class="hold-track"><div id="hold-fill"></div></div>
-      </div>
-      <div id="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-desc">
-        <span class="t-title" id="confirm-title">Terminer la pause&nbsp;?</span>
-        <span class="t-caption muted" id="confirm-desc">La pause sera comptée interrompue. Les minutes non prises s’ajouteront aux prochaines pauses.</span>
-        <div class="confirm-row">
-          <button type="button" class="btn btn-cancel" id="confirm-cancel">Annuler</button>
-          <button type="button" class="btn btn-danger" id="confirm-ok">Terminer</button>
-        </div>
-      </div>
-      <span class="sr-only" id="sr-remaining" aria-live="polite"></span>
+      <span id="hint">Rien à faire. Regarde ailleurs.</span>
     </div>
+    <div id="exit">
+      <span id="legend">Maintiens Échap pour sortir</span>
+      <div class="hold-track"><div id="hold-fill"></div></div>
+    </div>
+    <div id="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-desc">
+      <div class="alert">
+        <div class="alert-symbol" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6.5" y="5" width="3.6" height="14" rx="1.4"></rect>
+            <rect x="13.9" y="5" width="3.6" height="14" rx="1.4"></rect>
+          </svg>
+        </div>
+        <span id="confirm-title">Terminer la pause&nbsp;?</span>
+        <span id="confirm-desc">Elle sera comptée comme interrompue. Les minutes non prises s’ajouteront aux prochaines pauses.</span>
+        <div class="confirm-row">
+          <button type="button" class="button large" id="confirm-ok">Terminer</button>
+          <button type="button" class="button large default" id="confirm-cancel">Annuler</button>
+        </div>
+      </div>
+    </div>
+    <span class="sr-only" id="sr-remaining" aria-live="polite"></span>
     <script src="overlay.js"></script>
   </body>
 </html>

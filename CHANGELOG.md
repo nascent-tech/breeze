@@ -19,6 +19,7 @@ Toutes les modifications notables de Breeze sont consignées ici. Le format suit
 
 ### Modifié
 
+- L'écran de pause prend l'apparence de macOS : typographie système, voile clair ou sombre selon l'apparence du Mac en Mode Simple, fond toujours sombre en Mode Hardcore. L'anneau montre le temps qui reste, comme le minuteur de l'app Horloge.
 - Relâcher le statut d'une application (épargner, ignorer, débloquer) ne vaut qu'au cycle suivant ; bloquer ou cesser d'ignorer vaut tout de suite. Pendant le préavis, la pause et le retour, les statuts ne changent pas.
 
 ### Retiré
