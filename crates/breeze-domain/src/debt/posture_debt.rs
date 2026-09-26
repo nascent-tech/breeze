@@ -23,6 +23,11 @@ impl PostureDebt {
         self.owed
     }
 
+    // Allongement prêté à la pause en cours, pas encore remboursé.
+    pub fn absorbed(self) -> Duration {
+        self.absorbed
+    }
+
     pub fn total(self) -> Duration {
         self.owed.saturating_add(self.absorbed)
     }

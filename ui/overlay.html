@@ -36,12 +36,16 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 18px;
+        gap: 16px;
       }
       html[data-kind="hardcore"] #card {
         background: rgba(255, 255, 255, 0.06);
         border-color: rgba(255, 255, 255, 0.12);
         box-shadow: none;
+      }
+      #phase-subtitle {
+        margin-top: -8px;
+        display: none;
       }
       .ring-wrap {
         position: relative;
@@ -64,7 +68,20 @@
         color: var(--ink-3);
       }
       html[data-kind="hardcore"] .muted {
-        color: rgba(251, 252, 254, 0.6);
+        color: rgba(251, 252, 254, 0.72);
+      }
+      /* Piste de l'anneau : sombre sur clair en Voile, claire translucide en
+         Hardcore (sinon invisible sur fond --ink). */
+      #ring-track {
+        stroke: rgba(28, 33, 48, 0.08);
+      }
+      html[data-kind="hardcore"] #ring-track {
+        stroke: rgba(255, 255, 255, 0.18);
+      }
+      #resume-at,
+      #suggestion {
+        display: none;
+        text-align: center;
       }
       /* Le geste de sortie n'existe qu'en Mode Hardcore (§8.5). */
       #hint {
@@ -72,6 +89,9 @@
       }
       html[data-kind="veil"] #hint {
         display: block;
+      }
+      html[data-phase="Returning"] #hint {
+        display: none;
       }
       #exit {
         display: none;
@@ -82,6 +102,12 @@
       }
       html[data-kind="hardcore"] #exit {
         display: flex;
+      }
+      html[data-kind="hardcore"][data-phase="Returning"] #exit {
+        display: none;
+      }
+      html[data-kind="hardcore"] .t-title {
+        color: #fbfcfe;
       }
       .hold-track {
         width: 200px;
@@ -108,6 +134,7 @@
         background: rgba(28, 33, 48, 0.92);
         justify-content: center;
         padding: 24px;
+        text-align: center;
       }
       html[data-confirm="open"] #confirm {
         display: flex;
@@ -116,30 +143,39 @@
         display: flex;
         gap: 10px;
       }
-      .btn {
-        border: none;
+      #confirm .btn {
+        height: 40px;
+        padding: 0 20px;
         border-radius: 12px;
-        padding: 10px 18px;
         font: inherit;
         font-weight: 600;
-        cursor: pointer;
+        border: 0;
+        cursor: default;
       }
-      .btn-cancel {
+      #confirm .btn-cancel {
         background: #fbfcfe;
         color: var(--ink);
       }
-      .btn-confirm {
-        background: rgba(251, 252, 254, 0.12);
-        color: #fbfcfe;
+      #confirm .btn-cancel:hover {
+        background: #edeff3;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition-duration: 0s !important;
+          animation-duration: 0s !important;
+        }
       }
     </style>
   </head>
   <body>
     <div id="card" class="glass">
       <span class="t-title" id="phase-title">Pause en cours</span>
+      <span class="t-body-lg muted" id="phase-subtitle"></span>
       <div class="ring-wrap">
         <svg width="220" height="220" viewBox="0 0 220 220">
-          <circle cx="110" cy="110" r="96" fill="none" stroke="rgba(28,33,48,.08)" stroke-width="10"></circle>
+          <circle id="ring-track" cx="110" cy="110" r="96" fill="none" stroke-width="10"></circle>
           <circle
             id="ring-arc"
             cx="110"
@@ -154,23 +190,26 @@
           ></circle>
         </svg>
         <div class="ring-center">
-          <span class="num" id="countdown">—:—</span>
+          <span class="num" id="countdown" aria-hidden="true">—:—</span>
           <span class="t-micro muted" id="ring-sub">TIENS BON</span>
         </div>
       </div>
+      <span class="t-caption muted" id="resume-at"></span>
+      <span class="t-body muted" id="suggestion"></span>
       <span class="t-caption muted" id="hint">Rien à faire. Regarde ailleurs.</span>
       <div id="exit">
         <span class="t-caption muted" id="legend">Maintiens Échap pour sortir</span>
         <div class="hold-track"><div id="hold-fill"></div></div>
       </div>
-      <div id="confirm">
-        <span class="t-title" style="color: #fbfcfe">Terminer la pause ?</span>
-        <span class="t-caption muted">Elle sera comptée interrompue.</span>
+      <div id="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-desc">
+        <span class="t-title" id="confirm-title">Terminer la pause&nbsp;?</span>
+        <span class="t-caption muted" id="confirm-desc">La pause sera comptée interrompue. Les minutes non prises s’ajouteront aux prochaines pauses.</span>
         <div class="confirm-row">
-          <button class="btn btn-cancel" id="confirm-cancel">Annuler</button>
-          <button class="btn btn-confirm" id="confirm-ok">Terminer</button>
+          <button type="button" class="btn btn-cancel" id="confirm-cancel">Annuler</button>
+          <button type="button" class="btn btn-danger" id="confirm-ok">Terminer</button>
         </div>
       </div>
+      <span class="sr-only" id="sr-remaining" aria-live="polite"></span>
     </div>
     <script src="overlay.js"></script>
   </body>

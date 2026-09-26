@@ -1,21 +1,28 @@
 {
   "identifier": "settings",
-  "description": "La fenêtre de réglages lit le catalogue d'applications installées, écrit leur statut de pause, et lit/demande la permission d'Accessibilité. Aucune commande du cycle.",
+  "description": "La fenêtre de réglages lit et écrit les réglages (rythme, sévérité, jours, plage, apps, confort), lit l'instantané et les statistiques, et rouvre l'accueil. Aucune commande qui écourte une pause. Côté fenêtre : seulement la zone de déplacement (les feux tricolores sont natifs).",
   "windows": ["settings"],
   "permissions": [
-    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "allow-get-snapshot",
     "allow-list-installed-apps",
     "allow-set-app-status",
     "allow-request-accessibility",
     "allow-accessibility-status",
     "allow-get-settings",
     "allow-set-rhythm",
+    "allow-set-severity",
     "allow-set-active-days",
     "allow-set-schedule",
     "allow-set-update-check",
     "allow-reset-settings",
     "allow-set-launch-at-login",
     "allow-set-sounds",
-    "allow-set-menubar-mode"
+    "allow-set-menubar-mode",
+    "allow-get-stats",
+    "allow-get-app-info",
+    "allow-reopen-onboarding",
+    "allow-open-url"
   ]
 }

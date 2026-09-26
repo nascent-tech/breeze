@@ -7,6 +7,21 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * 96;
 const POLL_MS = 500;
 const HOLD_MS = 10000;
 
+const SUGGESTIONS = [
+  "Regarde au loin pendant 20 secondes.",
+  "Lève-toi et marche un peu.",
+  "Bois un verre d’eau.",
+  "Étire tes épaules.",
+  "Respire lentement, quelques cycles.",
+];
+
+function pickSuggestion() {
+  const buffer = new Uint32Array(1);
+  crypto.getRandomValues(buffer);
+  return SUGGESTIONS[buffer[0] % SUGGESTIONS.length];
+}
+const suggestion = pickSuggestion();
+
 const el = (id) => document.getElementById(id);
 
 function pad(n) {
@@ -18,20 +33,91 @@ function formatClock(totalSeconds) {
   return `${Math.floor(s / 60)}:${pad(s % 60)}`;
 }
 
+// Même écriture que le panneau et l'hôte : « 9:05 ».
+function formatHour(date) {
+  return `${date.getHours()}:${pad(date.getMinutes())}`;
+}
+
 function readKind() {
   const kind = new URLSearchParams(location.search).get("kind");
   return kind === "hardcore" ? "hardcore" : "veil";
 }
 
 function paintRing(snap) {
+  if (snap.phase === "Returning") {
+    el("ring-arc").setAttribute("stroke-dasharray", `${RING_CIRCUMFERENCE.toFixed(1)} ${RING_CIRCUMFERENCE.toFixed(1)}`);
+    return;
+  }
   const elapsed = snap.total_secs > 0 ? (snap.total_secs - snap.remaining_secs) / snap.total_secs : 0;
   const dash = Math.max(0, Math.min(1, elapsed)) * RING_CIRCUMFERENCE;
   el("ring-arc").setAttribute("stroke-dasharray", `${dash.toFixed(1)} ${RING_CIRCUMFERENCE.toFixed(1)}`);
 }
 
+function paintPhaseCopy(snap) {
+  const title = el("phase-title");
+  const subtitle = el("phase-subtitle");
+  if (snap.phase === "Returning") {
+    title.textContent = "C’est fini";
+    subtitle.textContent = "Bon retour";
+    subtitle.style.display = "block";
+    el("ring-sub").textContent = "RETOUR";
+  } else {
+    title.textContent = "Pause en cours";
+    subtitle.style.display = "none";
+    el("ring-sub").textContent = "TIENS BON";
+  }
+}
+
+function paintResumeAt(snap) {
+  const resumeAt = el("resume-at");
+  if (snap.phase !== "Break" || snap.remaining_secs <= 0) {
+    resumeAt.style.display = "none";
+    return;
+  }
+  const at = new Date(Date.now() + snap.remaining_secs * 1000);
+  resumeAt.textContent = `Reprise à ${formatHour(at)}`;
+  resumeAt.style.display = "block";
+}
+
+function paintSuggestion(snap) {
+  const box = el("suggestion");
+  if (readKind() !== "veil" || snap.phase !== "Break") {
+    box.style.display = "none";
+    return;
+  }
+  box.textContent = suggestion;
+  box.style.display = "block";
+}
+
+let lastAnnounced = null;
+
+function announceRemaining(snap) {
+  const region = el("sr-remaining");
+  if (snap.phase === "Returning") {
+    if (lastAnnounced !== "returning") {
+      region.textContent = "C’est fini, bon retour.";
+      lastAnnounced = "returning";
+    }
+    return;
+  }
+  const minutes = Math.ceil(snap.remaining_secs / 60);
+  if (minutes === lastAnnounced) return;
+  lastAnnounced = minutes;
+  const plural = minutes > 1 ? "s" : "";
+  region.textContent = minutes > 0 ? `${minutes} minute${plural} restante${plural}.` : "Moins d’une minute restante.";
+}
+
+let currentPhase = null;
+
 function render(snap) {
+  currentPhase = snap.phase;
+  document.documentElement.dataset.phase = snap.phase;
   el("countdown").textContent = formatClock(snap.remaining_secs);
   paintRing(snap);
+  paintPhaseCopy(snap);
+  paintResumeAt(snap);
+  paintSuggestion(snap);
+  announceRemaining(snap);
   // Si l'échéance de la pause tombe pendant le maintien ou la confirmation, la pause
   // est servie et la confirmation se ferme sans effet (§8.5/§10.1).
   if (snap.phase !== "Break") {
@@ -55,45 +141,66 @@ async function send(command) {
   }
 }
 
+let polling = false;
+
 async function poll() {
   const invoke = invoker();
   if (!invoke) {
     el("phase-title").textContent = "En attente de l’hôte…";
     return;
   }
+  if (polling) return; // évite d'empiler des appels si l'hôte répond lentement
+  polling = true;
   try {
     render(await invoke("get_snapshot"));
   } catch (_e) {
     // host busy; keep the last frame
+  } finally {
+    polling = false;
   }
 }
 
+// L'échéance du maintien est une minuterie, pas l'animation : le geste aboutit même
+// si le rendu est ralenti. L'intervalle ne sert qu'à peindre la jauge et la légende.
+const HOLD_PAINT_MS = 50;
 let holdStart = null;
-let holdRaf = null;
+let holdPaint = null;
+let holdDone = null;
 
-function tickHold() {
+function paintHold() {
   if (holdStart === null) {
     return;
   }
   const held = performance.now() - holdStart;
+  const remainingMs = Math.max(0, HOLD_MS - held);
   el("hold-fill").style.width = `${Math.min(100, (held / HOLD_MS) * 100)}%`;
-  if (held >= HOLD_MS) {
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+  el("legend").textContent = `Maintiens Échap encore ${remainingSeconds}\u00a0s`;
+}
+
+function startHold() {
+  holdStart = performance.now();
+  paintHold();
+  holdPaint = setInterval(paintHold, HOLD_PAINT_MS);
+  holdDone = setTimeout(() => {
     resetHold();
     openConfirm();
-    return;
-  }
-  holdRaf = requestAnimationFrame(tickHold);
+  }, HOLD_MS);
 }
 
 function resetHold() {
   holdStart = null;
-  if (holdRaf !== null) {
-    cancelAnimationFrame(holdRaf);
-    holdRaf = null;
-  }
+  clearInterval(holdPaint);
+  clearTimeout(holdDone);
+  holdPaint = null;
+  holdDone = null;
   const fill = el("hold-fill");
   if (fill) {
     fill.style.width = "0%";
+  }
+  const legend = el("legend");
+  if (legend) {
+    legend.textContent = "Maintiens Échap pour sortir";
   }
 }
 
@@ -110,8 +217,24 @@ function closeConfirm() {
   delete document.documentElement.dataset.confirm;
 }
 
+const CONFIRM_FOCUSABLE_IDS = ["confirm-cancel", "confirm-ok"];
+
+function trapConfirmFocus(event) {
+  if (event.key !== "Tab" || !confirmIsOpen()) return;
+  const focusables = CONFIRM_FOCUSABLE_IDS.map(el);
+  const index = focusables.indexOf(document.activeElement);
+  event.preventDefault();
+  const step = event.shiftKey ? -1 : 1;
+  const next = (index + step + focusables.length) % focusables.length;
+  focusables[next].focus();
+}
+
 function wireGesture() {
   window.addEventListener("keydown", (event) => {
+    if (event.key === "Tab") {
+      trapConfirmFocus(event);
+      return;
+    }
     if (event.key !== "Escape" || event.repeat) {
       return;
     }
@@ -120,11 +243,11 @@ function wireGesture() {
       closeConfirm();
       return;
     }
-    if (holdStart !== null) {
+    // Le geste n'existe que pendant la pause : ni au retour, ni avant le premier instantané.
+    if (holdStart !== null || currentPhase !== "Break") {
       return;
     }
-    holdStart = performance.now();
-    holdRaf = requestAnimationFrame(tickHold);
+    startHold();
   });
   window.addEventListener("keyup", (event) => {
     if (event.key === "Escape") {

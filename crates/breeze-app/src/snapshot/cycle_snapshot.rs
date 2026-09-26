@@ -1,11 +1,16 @@
 use crate::snapshot::cycle_phase::CyclePhase;
 use breeze_domain::{BreakOutcome, Countdown, Cycle, CycleState, Instant, Severity};
+use core::time::Duration;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct CycleSnapshot {
     pub phase: CyclePhase,
     pub deadline: Option<Instant>,
+    // Restant d'un décompte de travail gelé par inactivité (sans échéance tant qu'il dort).
+    pub frozen_remaining: Option<Duration>,
     pub severity: Severity,
+    pub chosen_severity: Severity,
+    pub rhythm_pending: bool,
     pub served_breaks: u32,
     pub debt_minutes: u16,
 }
@@ -15,16 +20,28 @@ impl CycleSnapshot {
         let served = cycle
             .outcomes()
             .iter()
-            .filter(|outcome| matches!(outcome, BreakOutcome::Served))
+            .filter(|outcome| matches!(outcome, BreakOutcome::Served { .. }))
             .count();
         let (phase, deadline) = project(cycle.state());
         CycleSnapshot {
             phase,
             deadline,
+            frozen_remaining: frozen_remaining(cycle.state()),
             severity: cycle.severity(),
+            chosen_severity: cycle.chosen_severity(),
+            rhythm_pending: cycle.rhythm_pending(),
             served_breaks: u32::try_from(served).unwrap_or(u32::MAX),
             debt_minutes: cycle.debt().minutes(),
         }
+    }
+}
+
+fn frozen_remaining(state: CycleState) -> Option<Duration> {
+    match state {
+        CycleState::Working {
+            countdown: Countdown::Frozen { remaining },
+        } => Some(remaining),
+        _ => None,
     }
 }
 

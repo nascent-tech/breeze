@@ -75,6 +75,20 @@ fn interrupting_a_lengthened_break_credits_what_was_not_lived() {
     let mut cycle = hardcore_break_with_debt(secs(480)); // pause de 1080 s, échéance 4140
     cycle.interrupt_break(at(3780)).unwrap(); // 12 min vécues (3060 + 720)
     assert_eq!(cycle.debt().total(), secs(360)); // 8 anciennes − 2 vécues = 6 min
+                                                 // La pause prévue compte l'allongement : 12 min tenues sur 18.
+    assert_eq!(cycle.outcomes()[0].held(), secs(720));
+}
+
+#[test]
+fn a_lengthened_break_served_to_its_end_counts_its_extension_as_held() {
+    let mut cycle = hardcore_break_with_debt(secs(480)); // pause de 1080 s, échéance 4140
+    cycle.tick(at(4140));
+    assert_eq!(
+        cycle.outcomes(),
+        &[BreakOutcome::Served {
+            planned: secs(1080)
+        }]
+    );
 }
 
 #[test]
@@ -91,7 +105,11 @@ fn an_absence_that_serves_a_lengthened_break_freezes_the_debt() {
     cycle.return_from_absence(absence, at(9000));
 
     assert_eq!(cycle.debt().total(), secs(480)); // gelée : ni remboursée ni recréditée
-    assert_eq!(cycle.outcomes(), &[BreakOutcome::Served]);
+                                                 // Servie par l'absence, la pause n'a tenu que sa durée réglée : l'allongement reste dû.
+    assert_eq!(
+        cycle.outcomes(),
+        &[BreakOutcome::Served { planned: secs(600) }]
+    );
 }
 
 #[test]

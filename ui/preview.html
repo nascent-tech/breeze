@@ -9,25 +9,34 @@
       html,
       body {
         height: 100%;
+        margin: 0;
+        background: #cfd3dc;
         overflow: hidden;
       }
-      #desktop {
-        position: relative;
+
+      [hidden] {
+        display: none !important;
+      }
+
+      #panel {
+        box-sizing: border-box;
         width: 100vw;
         height: 100vh;
-        overflow: hidden;
-      }
-      #panel {
-        position: absolute;
-        top: 38px;
-        left: 12px;
-        right: 12px;
-        border-radius: 18px;
-        padding: 16px;
+        border-radius: 16px;
+        background: rgba(251, 252, 254, 0.72);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 6px;
+        padding: 12px 16px;
       }
+
+      #header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
       .leaf-badge {
         width: 30px;
         height: 30px;
@@ -35,13 +44,34 @@
         display: grid;
         place-items: center;
         flex: none;
-        transition: background 0.4s ease;
+        transition: background 0.3s ease, opacity 0.3s ease;
       }
+
+      .header-text {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .header-text > span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
       .ring-wrap {
+        position: relative;
         display: grid;
         place-items: center;
         padding: 2px 0;
       }
+
+      .ring-wrap.frozen svg,
+      .ring-wrap.inactive svg {
+        opacity: 0.55;
+      }
+
       .ring-center {
         position: absolute;
         display: flex;
@@ -49,11 +79,13 @@
         align-items: center;
         gap: 1px;
       }
+
       #countdown {
         font-size: 30px;
         font-weight: 700;
         letter-spacing: -0.02em;
       }
+
       .levers {
         display: flex;
         flex-direction: column;
@@ -61,155 +93,338 @@
         border-radius: 14px;
         padding: 2px;
       }
+
+      .lever-label {
+        flex: 1;
+      }
+
+      .control-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .note {
+        margin: -4px 0 0;
+      }
+
+      .rhythm-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: -4px;
+      }
+
+      .rhythm-footer .note {
+        margin: 0;
+        flex: 1;
+      }
+
+      .link-btn {
+        background: none;
+        border: 0;
+        padding: 0;
+        margin: 0;
+        font: inherit;
+        color: var(--primary);
+        font-weight: 600;
+      }
+
+      .link-btn:hover {
+        color: var(--primary-deep);
+      }
+
+      .link-btn.danger {
+        color: var(--danger);
+      }
+
+      .link-btn.danger:hover {
+        color: #ae2239;
+      }
+
       .stat-box {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 4px;
         background: rgba(255, 255, 255, 0.5);
         border-radius: 14px;
-        padding: 12px 14px;
+        padding: 10px 14px;
       }
+
+      .stat-row {
+        display: flex;
+        align-items: center;
+      }
+
+      .stat-row .label {
+        flex: 1;
+        color: var(--ink);
+      }
+
       .footer {
         display: flex;
         align-items: center;
-        padding: 0 2px;
+        justify-content: space-between;
+        gap: 12px;
       }
-      .muted {
-        color: var(--ink-3);
+
+      .quit-confirm {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: var(--danger-tint);
+        border-radius: 12px;
+        padding: 10px 12px;
       }
-      .chev {
-        opacity: 0.6;
+
+      .confirm-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      #rhythm-row {
+        align-items: flex-start;
+      }
+
+      #rhythm-seg {
+        flex-wrap: wrap;
+        row-gap: 4px;
+      }
+
+      #preview-strip {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+        padding: 6px;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 10;
+      }
+
+      #preview-strip button {
+        font: inherit;
+        font-size: 11px;
+        color: #fff;
+        background: rgba(255, 255, 255, 0.15);
+        border: 0;
+        border-radius: 6px;
+        padding: 4px 8px;
       }
     </style>
     <script>
       // Aperçu design uniquement : un hôte simulé, hors de l'app livrée.
-      // Cycle compressé pour voir tous les états en ~25 s.
+      // Cycle compressé pour voir tous les états en ~35 s ; §buttons en bas
+      // permettent de figer une phase précise pour l'inspection.
       (function () {
-        const phases = [
-          ["Working", 8],
-          ["Notice", 4],
-          ["Break", 8],
-          ["Returning", 3],
+        const CYCLE = [
+          { phase: "Working", secs: 6, frozen: false },
+          { phase: "Working", secs: 4, frozen: true },
+          { phase: "Notice", secs: 4 },
+          { phase: "Break", secs: 6 },
+          { phase: "Returning", secs: 3 },
+          { phase: "Suspended", secs: 5 },
+          { phase: "Inactive", secs: 5, inactiveReason: "day" },
+          { phase: "Inactive", secs: 5, inactiveReason: "schedule" },
         ];
+
         let i = 0;
-        let remaining = phases[0][1];
+        let remaining = CYCLE[0].secs;
         let served = 0;
-        let workMinutes = 50;
+        let servedToday = 0;
+        let workMinutes = 45;
         let pauseMinutes = 10;
+        let chosenSeverity = "Simple";
+        let severity = "Hardcore";
+        let forcedIndex = null;
+
+        function currentStep() {
+          return CYCLE[forcedIndex !== null ? forcedIndex : i];
+        }
+
         function snapshot() {
-          const phase = phases[i][0];
-          const total = phases[i][1];
-          const breakIn =
-            phase === "Working" ? remaining + 60 : phase === "Notice" ? remaining : 0;
+          const step = currentStep();
+          const breakIn = step.phase === "Working" ? remaining + 90 : step.phase === "Notice" ? remaining : 0;
           const dto = {
-            phase,
+            phase: step.phase,
             remaining_secs: remaining,
-            total_secs: total,
+            total_secs: step.secs,
             break_in_secs: breakIn,
-            severity: "Simple",
+            frozen: !!step.frozen,
+            severity,
+            chosen_severity: chosenSeverity,
+            rhythm_pending: workMinutes !== 45 || pauseMinutes !== 10,
             served_breaks: served,
+            served_today: servedToday,
             work_minutes: workMinutes,
             pause_minutes: pauseMinutes,
+            debt_minutes: 6,
+            inactive_reason: step.inactiveReason || null,
+            next_start_label: step.phase === "Inactive" ? (step.inactiveReason === "day" ? "demain 9:00" : "9:00") : null,
           };
-          remaining -= 0.5;
-          if (remaining <= 0) {
-            if (phase === "Break") served += 1;
-            i = (i + 1) % phases.length;
-            remaining = phases[i][1];
+          if (forcedIndex === null) {
+            remaining -= 0.5;
+            if (remaining <= 0) {
+              if (step.phase === "Break") {
+                served += 1;
+                servedToday += 1;
+              }
+              i = (i + 1) % CYCLE.length;
+              remaining = CYCLE[i].secs;
+            }
           }
           return dto;
         }
+
         window.__TAURI__ = {
           core: {
             invoke: async (cmd, args) => {
-              if (cmd === "get_snapshot") return snapshot();
+              if (cmd === "get_snapshot") {
+                return snapshot();
+              }
               if (cmd === "set_rhythm") {
                 workMinutes = args.workMinutes;
                 pauseMinutes = args.pauseMinutes;
+              }
+              if (cmd === "set_severity") {
+                chosenSeverity = args.severity;
               }
               return null;
             },
           },
         };
+
+        window.addEventListener("DOMContentLoaded", () => {
+          const strip = document.createElement("div");
+          strip.id = "preview-strip";
+          CYCLE.forEach((step, index) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = step.frozen ? `${step.phase} (gelé)` : step.inactiveReason ? `${step.phase} (${step.inactiveReason})` : step.phase;
+            btn.addEventListener("click", () => {
+              forcedIndex = forcedIndex === index ? null : index;
+              i = index;
+              remaining = step.secs;
+            });
+            strip.appendChild(btn);
+          });
+          document.body.appendChild(strip);
+        });
       })();
     </script>
   </head>
   <body>
-    <div id="desktop" class="mesh">
-      <div class="menubar" style="justify-content: flex-end">
-        <span class="num" id="menubar-clock" style="font-size: 12.5px">—</span>
-      </div>
-      <div id="panel" class="glass">
-        <div style="display: flex; align-items: center; gap: 10px">
-          <div class="leaf-badge" id="leaf-badge" style="background: var(--primary-tint)">
-            <svg width="17" height="17" viewBox="0 0 24 24">
-              <path id="leaf-path" fill="#0A6FDB" d="M20.2 3.8C11.5 4 5.6 8.9 4.3 15.4c-.5 2.6.9 5 3.2 5 8.8 0 12.9-8 12.7-16.6Z"></path>
-            </svg>
-          </div>
-          <div style="flex: 1; display: flex; flex-direction: column">
-            <span class="t-title" id="phase-title">Travail en cours</span>
-            <span class="t-caption muted" id="phase-sub">Cycle de la journée</span>
-          </div>
-          <span class="chip chip-neutral" id="severity-chip">Simple</span>
-        </div>
-        <div class="ring-wrap" style="position: relative">
-          <svg width="128" height="128" viewBox="0 0 128 128">
-            <circle cx="64" cy="64" r="54" fill="rgba(255,255,255,.65)"></circle>
-            <circle cx="64" cy="64" r="54" fill="none" stroke="rgba(28,33,48,.08)" stroke-width="8"></circle>
-            <circle id="ring-arc" cx="64" cy="64" r="54" fill="none" stroke="#1B9DF5" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 339.3" transform="rotate(-90 64 64)"></circle>
+    <div id="panel" class="glass-soft">
+      <div id="header" data-tauri-drag-region>
+        <div class="leaf-badge" id="leaf-badge">
+          <svg width="17" height="17" viewBox="0 0 24 24">
+            <path
+              id="leaf-path"
+              fill="#0A6FDB"
+              d="M20.2 3.8C11.5 4 5.6 8.9 4.3 15.4c-.5 2.6.9 5 3.2 5 8.8 0 12.9-8 12.7-16.6Z"
+            ></path>
           </svg>
-          <div class="ring-center">
-            <span class="num" id="countdown">—:—</span>
-            <span class="t-micro muted" id="ring-sub">PAUSE À —</span>
+        </div>
+        <div class="header-text">
+          <span class="t-title" id="phase-title">Breeze</span>
+          <span class="t-caption muted" id="phase-sub">—</span>
+        </div>
+      </div>
+
+      <p id="live-region" class="sr-only" aria-live="polite"></p>
+
+      <div class="ring-wrap" id="ring-wrap">
+        <svg width="128" height="128" viewBox="0 0 128 128">
+          <circle cx="64" cy="64" r="54" fill="rgba(255,255,255,.65)"></circle>
+          <circle cx="64" cy="64" r="54" fill="none" stroke="rgba(28,33,48,.08)" stroke-width="8"></circle>
+          <circle
+            id="ring-arc"
+            cx="64"
+            cy="64"
+            r="54"
+            fill="none"
+            stroke="#1B9DF5"
+            stroke-width="8"
+            stroke-linecap="round"
+            stroke-dasharray="0 339.3"
+            transform="rotate(-90 64 64)"
+          ></circle>
+        </svg>
+        <div class="ring-center">
+          <span class="num" id="countdown">—:—</span>
+          <span class="t-micro muted" id="ring-sub">—</span>
+        </div>
+      </div>
+
+      <div class="levers" id="levers">
+        <div class="rowitem" style="gap: 8px">
+          <span class="t-label lever-label">Suspendre</span>
+          <div class="seg" id="suspend-seg">
+            <button class="seg-item" type="button" data-suspend="15">15&nbsp;min</button>
+            <button class="seg-item" type="button" data-suspend="60">1&nbsp;h</button>
+            <button class="seg-item" type="button" data-suspend="dawn">Jusqu’à demain 6&nbsp;h</button>
           </div>
         </div>
-        <div class="levers" id="levers">
-          <div class="rowitem" style="gap: 8px">
-            <span class="t-label" style="flex: 1">Suspendre</span>
-            <span class="seg">
-              <span class="seg-item" data-suspend="15">15&nbsp;min</span>
-              <span class="seg-item" data-suspend="60">1&nbsp;h</span>
-              <span class="seg-item" data-suspend="dawn">demain 6&nbsp;h</span>
-            </span>
-          </div>
+      </div>
+
+      <div class="levers" id="resume-box" hidden>
+        <div class="rowitem">
+          <span class="t-label lever-label" id="resume-label">Suspendu</span>
+          <button class="btn btn-primary btn-sm" id="resume-btn" type="button">Reprendre</button>
         </div>
-        <div class="levers" id="resume-box" style="display: none">
-          <div class="rowitem">
-            <span class="t-label" style="flex: 1">Suspendu</span>
-            <span class="seg"><span class="seg-item on" id="resume-btn">Reprendre</span></span>
-          </div>
+      </div>
+
+      <div class="control-row" id="severity-row">
+        <span class="t-label">Sévérité</span>
+        <div class="seg" id="severity-seg" role="radiogroup" aria-label="Sévérité">
+          <button class="seg-item" type="button" role="radio" data-sev="Simple">Simple</button>
+          <button class="seg-item" type="button" role="radio" data-sev="Hardcore">Hardcore</button>
         </div>
-        <div id="severity-row" style="display: flex; align-items: center; gap: 10px">
-          <span class="t-label" style="flex: 1">Sévérité</span>
-          <span class="seg" id="severity-seg">
-            <span class="seg-item on" data-sev="Simple">Simple</span>
-            <span class="seg-item" data-sev="Hardcore">Hardcore</span>
-          </span>
+      </div>
+      <p class="t-caption muted note" id="severity-note" hidden></p>
+
+      <div class="control-row" id="rhythm-row">
+        <span class="t-label">Rythme</span>
+        <div class="seg" id="rhythm-seg" role="radiogroup" aria-label="Rythme">
+          <button class="seg-item" type="button" role="radio" data-work="25" data-pause="5">25/5</button>
+          <button class="seg-item" type="button" role="radio" data-work="50" data-pause="10">50/10</button>
+          <button class="seg-item" type="button" role="radio" data-work="90" data-pause="15">90/15</button>
+          <button class="seg-item" type="button" role="radio" id="rhythm-custom" disabled hidden></button>
         </div>
-        <div id="rhythm-row" style="display: flex; align-items: center; gap: 10px">
-          <span class="t-label" style="flex: 1">Rythme</span>
-          <span class="seg" id="rhythm-seg">
-            <span class="seg-item" data-work="25" data-pause="5">25/5</span>
-            <span class="seg-item on" data-work="50" data-pause="10">50/10</span>
-            <span class="seg-item" data-work="90" data-pause="15">90/15</span>
-          </span>
+      </div>
+      <div class="rhythm-footer">
+        <p class="t-caption muted note" id="rhythm-note" hidden></p>
+        <button class="t-caption link-btn" id="adjust-rhythm" type="button">Ajuster…</button>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-row">
+          <span class="t-caption label">Aujourd’hui</span>
+          <span class="t-caption" id="today-line">0 pause servie</span>
         </div>
-        <div class="stat-box">
-          <div style="display: flex; align-items: center">
-            <span class="t-caption" style="flex: 1; color: var(--ink)">Aujourd’hui</span>
-            <span class="t-caption" id="today-line">0 pause servie</span>
-          </div>
-        </div>
-        <div class="footer">
-          <span class="t-caption" style="flex: 1; color: var(--ink)">Réglages…</span>
-          <span class="t-caption" id="quit">Quitter Breeze</span>
-        </div>
-        <div class="footer" style="gap: 12px">
-          <a class="t-caption" href="overlay.html?kind=veil" style="color: var(--mint)">Aperçu voile</a>
-          <a class="t-caption" href="overlay.html?kind=hardcore" style="color: var(--violet)">Aperçu hardcore</a>
+        <p class="t-caption muted" id="debt-line" hidden></p>
+      </div>
+
+      <div class="footer">
+        <button class="t-caption link-btn" id="open-settings" type="button">Réglages…</button>
+        <button class="t-caption link-btn danger" id="quit-btn" type="button">Quitter Breeze</button>
+      </div>
+
+      <div class="quit-confirm" id="quit-confirm" hidden>
+        <p class="t-caption muted">Quitter maintenant compte la pause comme interrompue.</p>
+        <div class="confirm-actions">
+          <button class="btn btn-secondary btn-sm" id="quit-cancel" type="button">Annuler</button>
+          <button class="btn btn-danger btn-sm" id="quit-confirm-btn" type="button">Quitter</button>
         </div>
       </div>
     </div>
+
+    <div class="toast" id="toast" role="status"></div>
+
     <script src="app.js"></script>
   </body>
 </html>

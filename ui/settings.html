@@ -6,416 +6,527 @@
     <title>Breeze — réglages</title>
     <link rel="stylesheet" href="tokens.css" />
     <style>
-      html,
-      body {
-        height: 100%;
-        margin: 0;
-        overflow: hidden;
-      }
-      body {
-        display: grid;
-        place-items: center;
-        background: #eef1f7;
-      }
-      #win {
-        width: 820px;
-        height: 660px;
-        display: flex;
-      }
-      .shell {
-        flex: 1;
-        display: flex;
-        border-radius: 16px;
-        overflow: hidden;
-      }
+      [hidden] { display: none !important; }
+      html, body { height: 100%; margin: 0; overflow: hidden; }
+      body { background: var(--surface); }
+      h1, h2, p, ul { margin: 0; }
+      ul { padding: 0; list-style: none; }
+      .hint { color: var(--ink-3); }
+      .msg-warn { color: var(--warn); }
+
+      /* ---------- Fenêtre : barre latérale + contenu ---------- */
+      #win { display: grid; grid-template-columns: 220px minmax(0, 1fr); width: 100vw; height: 100vh; }
       .sidebar {
-        width: 220px;
-        flex: none;
-        border-radius: 0;
-        border: 0;
+        display: flex; flex-direction: column; min-height: 0;
         border-right: 1px solid var(--outline);
-        box-shadow: none;
-        padding: 16px 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
+        box-shadow: inset -1px 0 0 rgba(255, 255, 255, .6);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, .3)),
+          radial-gradient(90% 40% at 0% 0%, #CBE5FF 0%, rgba(203, 229, 255, 0) 100%),
+          radial-gradient(80% 36% at 100% 32%, #E5DDFF 0%, rgba(229, 221, 255, 0) 100%),
+          radial-gradient(90% 40% at 100% 100%, #D2F2E3 0%, rgba(210, 242, 227, 0) 100%),
+          radial-gradient(80% 40% at 0% 78%, #FCE7F0 0%, rgba(252, 231, 240, 0) 100%),
+          #F1F4FA;
       }
-      .navitem {
-        cursor: default;
+      .sidebar-drag { height: 52px; flex: none; }
+      .navlist { display: flex; flex-direction: column; gap: 4px; padding: 0 12px; }
+      .navlist > button.navitem { font-size: 13.5px; font-weight: 500; }
+      .navlist > button.navitem.on { font-weight: 600; }
+      .navitem:not(.on):active { background: rgba(28, 33, 48, .09); }
+      button.btn { font-size: 14px; font-weight: 600; }
+      button.btn.btn-sm { font-size: 13px; }
+      .seg > button.seg-item { font-size: 12.5px; font-weight: 600; line-height: 16px; }
+      .seg > button.seg-item:active { background: rgba(255, 255, 255, .8); }
+      .sidebar-foot { flex: 1; display: flex; align-items: flex-end; padding: 16px; }
+      .ico-general { background: #6C7383; }
+      .ico-rhythm { background: #0A6FDB; }
+      .ico-severity { background: #6D4FD4; }
+      .ico-apps { background: #0E9A55; }
+      .ico-stats { background: #E8940F; }
+      .ico-perms { background: #D65C7A; }
+      .ico-help { background: #9BA3B5; }
+
+      .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface); }
+      .pane-head { flex: none; height: 52px; display: flex; align-items: center; padding: 0 32px; transition: box-shadow .15s ease; }
+      .pane-head.scrolled { box-shadow: 0 1px 0 var(--outline); }
+      .panels { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 4px 32px 32px; }
+      .panel { display: flex; flex-direction: column; gap: 16px; }
+      .stack { display: flex; flex-direction: column; gap: 16px; }
+      .panel:focus-visible { outline-offset: 4px; border-radius: 12px; }
+
+      /* ---------- Briques ---------- */
+      .group { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+      .row { display: flex; align-items: center; gap: 12px; }
+      .row-top { align-items: flex-start; }
+      .row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+      .row-inline { display: flex; align-items: center; gap: 8px; }
+      .note { padding: 12px 16px; }
+      .chip-sm { height: 24px; padding: 0 10px; flex: none; white-space: nowrap; }
+      .kbd-group { display: flex; gap: 4px; }
+      .section-actions { display: flex; align-items: center; gap: 8px; }
+
+      /* ---------- Rythme ---------- */
+      .slider-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 64px; align-items: center; gap: 16px; }
+      .slider-value { text-align: right; }
+      .time-row { display: flex; align-items: center; gap: 8px; }
+      .days { display: flex; gap: 8px; }
+      .day-toggle { border-radius: 999px; }
+      .day-toggle .chip { transition: background-color .15s ease, transform .08s ease; }
+      .day-toggle:hover .chip-tint { background: #D3E8FB; }
+      .day-toggle:hover .chip-neutral { background: rgba(28, 33, 48, .1); }
+      .day-toggle:active .chip { transform: scale(.95); }
+
+      /* ---------- Sévérité ---------- */
+      .sev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .sev-opt { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--outline-2); transition: background-color .15s ease, box-shadow .15s ease; }
+      .sev-opt:hover { background: rgba(28, 33, 48, .035); }
+      .sev-opt:active { background: rgba(28, 33, 48, .07); }
+      .sev-opt[aria-checked="true"] { background: var(--primary-tint); box-shadow: inset 0 0 0 2px var(--primary); }
+      .sev-head { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+      .sev-head .t-label { flex: 1; }
+      .radio-dot { width: 16px; height: 16px; flex: none; border-radius: 999px; box-shadow: inset 0 0 0 1.5px var(--outline-control); display: grid; place-items: center; }
+      [aria-checked="true"] > .sev-head .radio-dot { background: var(--primary); box-shadow: none; }
+      [aria-checked="true"] > .sev-head .radio-dot::after { content: ""; width: 6px; height: 6px; border-radius: 999px; background: #FBFCFE; }
+
+      /* ---------- Applications ---------- */
+      .search { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 10px; background: rgba(28, 33, 48, .06); box-shadow: inset 0 0 0 1px var(--outline); transition: background-color .15s ease, box-shadow .15s ease; }
+      .search:hover { background: rgba(28, 33, 48, .08); }
+      .search:focus-within { background: var(--surface); box-shadow: inset 0 0 0 2px var(--primary); }
+      .search input { flex: 1; min-width: 0; height: 100%; border: 0; padding: 0; background: transparent; font: inherit; font-size: 13px; color: var(--ink); outline: none; }
+      .search input::placeholder { color: var(--ink-3); }
+      .apps-toolbar { display: flex; align-items: center; gap: 12px; }
+      .apps-toolbar .search { flex: 1; }
+      .apps-card { padding: 4px 8px; display: flex; flex-direction: column; }
+      .apps-head { display: flex; align-items: center; gap: 12px; padding: 8px 12px; }
+      .apps-head .t-micro { color: var(--ink-3); }
+      .apps-head .t-micro:first-child { flex: 1; }
+      .status-col { width: 236px; flex: none; }
+      .app-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 4px 12px; }
+      .app-list > .app-row + .app-row { border-top: 1px solid var(--outline); }
+      .app-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .appicon.has-img { background: transparent; box-shadow: none; }
+      .appicon img { width: 22px; height: 22px; border-radius: 5px; display: block; }
+      .appicon.fallback { background: linear-gradient(160deg, #9BA3B5, #6C7383); }
+      .status-seg { display: flex; }
+      .status-seg .seg-item { flex: 1; padding: 5px 0; }
+      .app-state { display: flex; align-items: center; gap: 12px; padding: 16px 12px; }
+      .app-state .t-caption { flex: 1; }
+      .skeleton .skl { height: 10px; }
+      .skl-icon { width: 22px; height: 22px; border-radius: 6px; background: rgba(28, 33, 48, .09); flex: none; }
+      .skl-name { width: 36%; }
+      .skl-seg { width: 236px; height: 26px !important; border-radius: 10px; margin-left: auto; }
+      .skeleton { animation: pulse 1.4s ease-in-out infinite; }
+      @keyframes pulse { 50% { opacity: .5; } }
+
+      /* ---------- Statistiques ---------- */
+      .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+      .kpi { padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; }
+      .chart { display: grid; grid-template-columns: 32px minmax(0, 1fr); grid-template-rows: 176px auto; gap: 8px; }
+      .chart-y { position: relative; }
+      .chart-y span { position: absolute; right: 0; transform: translateY(-50%); color: var(--ink-3); }
+      .chart-y span:nth-child(1) { top: 0; }
+      .chart-y span:nth-child(2) { top: 50%; }
+      .chart-y span:nth-child(3) { top: 100%; }
+      .chart-plot {
+        position: relative; display: flex; align-items: flex-end; gap: 4px; padding: 0 2px;
+        border-bottom: 1px solid var(--outline-2);
+        background:
+          linear-gradient(var(--outline), var(--outline)) 0 0 / 100% 1px no-repeat,
+          linear-gradient(var(--outline), var(--outline)) 0 50% / 100% 1px no-repeat;
       }
-      .content {
-        flex: 1;
-        display: flex;
-      }
-      .panel {
-        display: none;
-        flex: 1;
-        background: #fbfcfe;
-        padding: 30px 32px;
-        flex-direction: column;
-        gap: 16px;
-      }
-      .panel.on {
-        display: flex;
-      }
+      .bar-col { flex: 1; height: 100%; display: flex; align-items: flex-end; border-radius: 4px 4px 0 0; }
+      .bar-fill { width: 100%; border-radius: 4px 4px 0 0; background: var(--primary-bright); transition: filter .15s ease; }
+      .bar-col.today .bar-fill { background: var(--primary-deep); }
+      .bar-col.zero .bar-fill { height: 2px; background: var(--outline-2); }
+      .bar-col:hover .bar-fill, .bar-col:focus-visible .bar-fill { filter: brightness(.86); }
+      .chart-x { grid-column: 2; display: flex; justify-content: space-between; color: var(--ink-3); }
+      .chart-tip { position: absolute; z-index: 2; pointer-events: none; transform: translateX(-50%); padding: 8px 12px; border-radius: 10px; white-space: nowrap; display: flex; flex-direction: column; gap: 2px; background: var(--surface); box-shadow: 0 10px 24px -10px rgba(28, 33, 48, .35), 0 0 0 1px var(--outline); }
+      .chart-legend { display: inline-flex; align-items: center; gap: 6px; }
+      .legend-swatch { width: 10px; height: 10px; border-radius: 3px; background: var(--primary-deep); }
+      .empty { padding: 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+      .empty-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--primary-tint); color: var(--primary); }
+
+      /* ---------- Permissions ---------- */
+      .perm-ico { width: 28px; height: 28px; border-radius: 8px; }
+      .perm-table { display: grid; grid-template-columns: 128px 1fr 1fr; }
+      .perm-table > * { padding: 8px 12px 8px 0; border-top: 1px solid var(--outline); }
+      .perm-table > .t-micro { color: var(--ink-3); border-top: 0; padding-top: 0; }
+
+      /* ---------- Aide ---------- */
+      .faq { padding: 4px 8px; }
+      .faq h2 + h2, .faq .faq-panel + h2 { border-top: 1px solid var(--outline); }
+      .faq-btn { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px; border: 0; border-radius: 10px; background: none; text-align: left; transition: background-color .15s ease; }
+      .faq-btn:hover { background: rgba(28, 33, 48, .045); }
+      .faq-btn:active { background: rgba(28, 33, 48, .08); }
+      .faq-btn svg { flex: none; transition: transform .18s ease; }
+      .faq-btn[aria-expanded="true"] svg { transform: rotate(90deg); }
+      .faq-panel { padding: 0 8px 16px; display: flex; flex-direction: column; gap: 8px; }
+      .help-foot { display: flex; align-items: center; gap: 8px; padding-top: 16px; border-top: 1px solid var(--outline); }
+      .help-foot .hint { margin-left: auto; }
+
+      /* ---------- Dialogue de confirmation ---------- */
+      .dialog { border: 0; padding: 0; width: 400px; max-width: calc(100vw - 32px); border-radius: 16px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 48px -16px rgba(28, 33, 48, .45), 0 0 0 1px var(--outline); }
+      .dialog::backdrop { background: rgba(28, 33, 48, .28); }
+      .dialog-body { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+      .dialog-ico { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--danger-tint); color: var(--danger); }
+      .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
     </style>
   </head>
   <body>
     <div id="win">
-      <div class="shell">
-        <div class="glass sidebar">
-          <div class="traffic" style="padding: 2px 6px 18px"><i class="tr-r"></i><i class="tr-y"></i><i class="tr-g"></i></div>
-          <div class="navitem on" data-nav="general">
-            <span class="navico" style="background: #6c7383"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="3.4"></circle><path d="M12 3.5v2.6M12 17.9v2.6M3.5 12h2.6M17.9 12h2.6M6 6l1.8 1.8M16.2 16.2 18 18M18 6l-1.8 1.8M7.8 16.2 6 18"></path></svg></span>Général
-          </div>
-          <div class="navitem" data-nav="rythme">
-            <span class="navico" style="background: #0a6fdb"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3.4 2"></path></svg></span>Rythme
-          </div>
-          <div class="navitem" data-nav="severite">
-            <span class="navico" style="background: #6d4fd4"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6v5.5c0 4.6 3 7.7 7 9 4-1.3 7-4.4 7-9V6Z"></path></svg></span>Sévérité
-          </div>
-          <div class="navitem" data-nav="applications">
-            <span class="navico" style="background: #0e9a55"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><rect x="4" y="4" width="6.6" height="6.6" rx="1.6"></rect><rect x="13.4" y="4" width="6.6" height="6.6" rx="1.6"></rect><rect x="4" y="13.4" width="6.6" height="6.6" rx="1.6"></rect><rect x="13.4" y="13.4" width="6.6" height="6.6" rx="1.6"></rect></svg></span>Applications
-          </div>
-          <div class="navitem" data-nav="statistiques">
-            <span class="navico" style="background: #e8940f"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><path d="M5 19V12M12 19V5M19 19v-9"></path></svg></span>Statistiques
-          </div>
-          <div class="navitem" data-nav="permissions">
-            <span class="navico" style="background: #d65c7a"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="4.5"></circle><path d="M12.2 12.2 20 20M16.5 16.5l2.3-2.3M14 19l1.8-1.8"></path></svg></span>Permissions
-          </div>
-          <div class="navitem" data-nav="aide">
-            <span class="navico" style="background: #9ba3b5"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><path d="M9.2 9a2.9 2.9 0 1 1 4 2.7c-.9.4-1.2 1-1.2 1.9v.4"></path><path d="M12 17.6l.02.02"></path></svg></span>Aide
-          </div>
+      <aside class="sidebar">
+        <div class="sidebar-drag" data-tauri-drag-region></div>
+        <nav class="navlist" role="tablist" aria-orientation="vertical" aria-label="Sections des réglages">
+          <button type="button" class="navitem" role="tab" id="tab-general" data-tab="general" aria-controls="panel-general" aria-selected="false" tabindex="-1">
+            <span class="navico ico-general"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="3.4"></circle><path d="M12 3.5v2.6M12 17.9v2.6M3.5 12h2.6M17.9 12h2.6M6 6l1.8 1.8M16.2 16.2 18 18M18 6l-1.8 1.8M7.8 16.2 6 18"></path></svg></span><span class="tab-label">Général</span>
+          </button>
+          <button type="button" class="navitem" role="tab" id="tab-rythme" data-tab="rythme" aria-controls="panel-rythme" aria-selected="false" tabindex="-1">
+            <span class="navico ico-rhythm"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3.4 2"></path></svg></span><span class="tab-label">Rythme</span>
+          </button>
+          <button type="button" class="navitem" role="tab" id="tab-severite" data-tab="severite" aria-controls="panel-severite" aria-selected="false" tabindex="-1">
+            <span class="navico ico-severity"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6v5.5c0 4.6 3 7.7 7 9 4-1.3 7-4.4 7-9V6Z"></path></svg></span><span class="tab-label">Sévérité</span>
+          </button>
+          <button type="button" class="navitem" role="tab" id="tab-applications" data-tab="applications" aria-controls="panel-applications" aria-selected="false" tabindex="-1">
+            <span class="navico ico-apps"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><rect x="4" y="4" width="6.6" height="6.6" rx="1.6"></rect><rect x="13.4" y="4" width="6.6" height="6.6" rx="1.6"></rect><rect x="4" y="13.4" width="6.6" height="6.6" rx="1.6"></rect><rect x="13.4" y="13.4" width="6.6" height="6.6" rx="1.6"></rect></svg></span><span class="tab-label">Applications</span>
+          </button>
+          <button type="button" class="navitem" role="tab" id="tab-statistiques" data-tab="statistiques" aria-controls="panel-statistiques" aria-selected="false" tabindex="-1">
+            <span class="navico ico-stats"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><path d="M5 19V12M12 19V5M19 19v-9"></path></svg></span><span class="tab-label">Statistiques</span>
+          </button>
+          <button type="button" class="navitem" role="tab" id="tab-permissions" data-tab="permissions" aria-controls="panel-permissions" aria-selected="false" tabindex="-1">
+            <span class="navico ico-perms"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="4.5"></circle><path d="M12.2 12.2 20 20M16.5 16.5l2.3-2.3M14 19l1.8-1.8"></path></svg></span><span class="tab-label">Permissions</span>
+          </button>
+          <button type="button" class="navitem" role="tab" id="tab-aide" data-tab="aide" aria-controls="panel-aide" aria-selected="false" tabindex="-1">
+            <span class="navico ico-help"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.4" stroke-linecap="round"><path d="M9.2 9a2.9 2.9 0 1 1 4 2.7c-.9.4-1.2 1-1.2 1.9v.4"></path><path d="M12 17.6l.02.02"></path></svg></span><span class="tab-label">Aide</span>
+          </button>
+        </nav>
+        <div class="sidebar-foot" data-tauri-drag-region>
+          <span id="preview-chip" class="chip chip-warn chip-sm" hidden>Aperçu hors application</span>
         </div>
+      </aside>
 
-        <div class="content">
+      <main class="main">
+        <header id="pane-head" class="pane-head" data-tauri-drag-region>
+          <h1 id="pane-title" class="t-headline" data-tauri-drag-region>Général</h1>
+        </header>
+
+        <div id="panels" class="panels">
           <!-- Général -->
-          <section class="panel on" data-panel="general">
-            <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px">
-              <div class="t-headline" style="font-size: 22px; line-height: 28px">Général</div>
-              <div class="t-caption">Réglages de confort. Aucun ne rend une pause plus facile à éviter&nbsp;: ils s’appliquent tout de suite.</div>
-            </div>
-            <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
-              <div style="display: flex; align-items: center; gap: 12px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
-                  <span class="t-label">Ouvrir Breeze à l’ouverture de session</span>
-                  <span class="t-caption">Le cycle reprend là où la plage horaire le place. Désactivé, Breeze ne démarre qu’à la main.</span>
+          <section class="panel" role="tabpanel" id="panel-general" data-panel="general" aria-labelledby="tab-general" tabindex="-1" hidden>
+            <p class="t-caption">Réglages de confort. Aucun ne rend une pause plus facile à éviter&nbsp;: ils s’appliquent tout de suite.</p>
+            <div class="card group">
+              <div class="row">
+                <div class="row-text">
+                  <span class="t-label" id="launch-label">Ouvrir Breeze à l’ouverture de session</span>
+                  <span class="t-caption" id="launch-desc">Désactivé, Breeze ne démarre que si tu l’ouvres toi-même.</span>
                 </div>
-                <span id="launch-switch" class="switch" role="switch" aria-checked="false" tabindex="0" style="cursor: default"></span>
+                <button type="button" id="launch-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="launch-label" aria-describedby="launch-desc"></button>
               </div>
               <div class="divider"></div>
-              <div style="display: flex; align-items: center; gap: 12px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
-                  <span class="t-label">Barre de menus</span>
+              <div class="row">
+                <div class="row-text">
+                  <span class="t-label" id="menubar-label">Barre de menus</span>
                   <span class="t-caption">Ce qui accompagne l’icône pendant le travail et la pause.</span>
                 </div>
-                <span id="menubar-seg" class="seg"><span class="seg-item on" data-mode="text">Temps restant</span><span class="seg-item" data-mode="icon">Icône seule</span></span>
+                <div id="menubar-seg" class="seg" role="radiogroup" aria-labelledby="menubar-label">
+                  <button type="button" class="seg-item" role="radio" data-value="text" aria-checked="false" tabindex="-1">Temps restant</button>
+                  <button type="button" class="seg-item" role="radio" data-value="icon" aria-checked="false" tabindex="-1">Icône seule</button>
+                </div>
               </div>
             </div>
-            <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
-              <div style="display: flex; align-items: center; gap: 12px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
-                  <span class="t-label">Son de début et de fin de pause</span>
-                  <span class="t-caption">Un carillon discret au début et à la fin de chaque pause.</span>
+            <div class="card group">
+              <div class="row">
+                <div class="row-text">
+                  <span class="t-label" id="sounds-label">Son de début et de fin de pause</span>
+                  <span class="t-caption" id="sounds-desc">Un carillon discret au début et à la fin de chaque pause.</span>
                 </div>
-                <span id="sounds-switch" class="switch on" role="switch" aria-checked="true" tabindex="0" style="cursor: default"></span>
+                <button type="button" id="sounds-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="sounds-label" aria-describedby="sounds-desc"></button>
               </div>
               <div class="divider"></div>
-              <div style="display: flex; align-items: center; gap: 12px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+              <div class="row">
+                <div class="row-text">
                   <span class="t-label">Raccourci du panneau</span>
                   <span class="t-caption">Ouvre le panneau depuis n’importe quelle application.</span>
                 </div>
-                <span style="display: flex; gap: 4px"><span class="kbd">⌥</span><span class="kbd">⌘</span><span class="kbd">B</span></span>
+                <span class="kbd-group js-shortcut" role="img" aria-label="Option Commande B"><span class="kbd">⌥</span><span class="kbd">⌘</span><span class="kbd">B</span></span>
               </div>
             </div>
-            <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
-              <div style="display: flex; align-items: center; gap: 12px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
-                  <span class="t-label">Vérifier les mises à jour</span>
-                  <span class="t-caption">La seule sortie réseau de Breeze&nbsp;: envoie la version installée et ton adresse IP au serveur de publication, rien d’autre. Désactivé, Breeze ne contacte jamais aucun serveur.</span>
+            <div class="card group">
+              <div class="row">
+                <div class="row-text">
+                  <span class="t-label" id="update-label">Autoriser la vérification des mises à jour</span>
+                  <span class="t-caption" id="update-desc">Cette version ne contacte encore aucun serveur. Quand la vérification arrivera, elle n’enverra que la version installée, et seulement si ce réglage est activé.</span>
                 </div>
-                <span id="update-check-switch" class="switch on" role="switch" aria-checked="true" tabindex="0" style="cursor: default"></span>
+                <button type="button" id="update-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="update-label" aria-describedby="update-desc"></button>
               </div>
             </div>
-            <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
-              <div style="display: flex; align-items: center; gap: 12px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+            <div class="card group">
+              <div class="row">
+                <div class="row-text">
                   <span class="t-label">Réinitialiser les réglages</span>
-                  <span class="t-caption">Revient à 50/10, Mode Simple, toutes les applications bloquées. Les statistiques sont conservées.</span>
+                  <span class="t-caption">Revient à 50/10, tous les jours sans plage horaire, Mode Simple, sons et temps restant activés, toutes les applications bloquées. Les statistiques sont conservées.</span>
                 </div>
-                <span id="reset-settings" class="btn btn-secondary btn-sm" role="button" tabindex="0">Réinitialiser&hellip;</span>
+                <button type="button" id="reset-open" class="btn btn-secondary btn-sm" aria-haspopup="dialog">Réinitialiser&hellip;</button>
               </div>
             </div>
           </section>
 
           <!-- Rythme -->
-          <section class="panel" data-panel="rythme">
-            <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px">
-              <div class="t-headline" style="font-size: 22px; line-height: 28px">Rythme</div>
-              <div class="t-caption">Un changement s’applique au cycle suivant&nbsp;— jamais à une pause déjà due ou en cours.</div>
-            </div>
-            <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 16px">
-              <div style="display: flex; align-items: center; gap: 16px">
-                <span class="t-label" style="width: 104px; flex: none">Travail</span>
-                <div class="slidertrack" style="flex: 1"><div id="rhythm-work-fill" class="sliderfill" style="width: 26%"></div><div id="rhythm-work-knob" class="sliderknob" style="left: calc(26% - 10px)"></div></div>
-                <span id="rhythm-work-value" class="num t-label" style="width: 56px; text-align: right">50&nbsp;min</span>
+          <section class="panel" role="tabpanel" id="panel-rythme" data-panel="rythme" aria-labelledby="tab-rythme" tabindex="-1" hidden>
+            <p class="t-caption">Un changement s’applique au cycle suivant&nbsp;— jamais à une pause déjà due ou en cours.</p>
+            <p id="inactive-note" class="inset note t-caption" role="status" hidden></p>
+            <div class="card group">
+              <div class="row">
+                <span class="t-label">Durées</span>
+                <span id="rhythm-pending" class="chip chip-violet chip-sm" hidden>S’applique au cycle suivant</span>
               </div>
-              <div style="display: flex; align-items: center; gap: 16px">
-                <span class="t-label" style="width: 104px; flex: none">Pause</span>
-                <div class="slidertrack" style="flex: 1"><div id="rhythm-pause-fill" class="sliderfill" style="width: 15%"></div><div id="rhythm-pause-knob" class="sliderknob" style="left: calc(15% - 10px)"></div></div>
-                <span id="rhythm-pause-value" class="num t-label" style="width: 56px; text-align: right">10&nbsp;min</span>
+              <div class="slider-row">
+                <label class="t-label" for="work-range">Travail</label>
+                <input id="work-range" class="range" type="range" min="5" max="180" step="5" value="50" aria-describedby="rhythm-hint" />
+                <output id="work-value" class="t-label num slider-value" for="work-range">50 min</output>
               </div>
-              <div class="t-caption" style="color: var(--ink-3)">Travail&nbsp;: 5 à 180&nbsp;min &middot; Pause&nbsp;: 1 à 60&nbsp;min, jamais plus longue que le travail.</div>
+              <div class="slider-row">
+                <label class="t-label" for="pause-range">Pause</label>
+                <input id="pause-range" class="range" type="range" min="1" max="60" step="1" value="10" aria-describedby="rhythm-hint" />
+                <output id="pause-value" class="t-label num slider-value" for="pause-range">10 min</output>
+              </div>
+              <p id="rhythm-hint" class="t-caption hint">Travail&nbsp;: 5 à 180&nbsp;min &middot; Pause&nbsp;: 1 à 60&nbsp;min, jamais plus longue que le travail.</p>
             </div>
-            <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
-              <div style="display: flex; align-items: center; gap: 12px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
-                  <span class="t-label">Plage horaire</span>
-                  <span class="t-caption">Hors de la plage, le cycle est inactif. Une pause commencée va à son terme&nbsp;; une plage peut traverser minuit.</span>
+            <div class="card group">
+              <div class="row">
+                <div class="row-text">
+                  <span class="t-label" id="schedule-label">Plage horaire</span>
+                  <span class="t-caption" id="schedule-desc">Hors de la plage, le cycle est en veille. Une pause commencée va à son terme&nbsp;; une plage peut traverser minuit.</span>
                 </div>
-                <span id="schedule-switch" class="switch on" role="switch" aria-checked="true" tabindex="0" style="cursor: default"></span>
+                <button type="button" id="schedule-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="schedule-label" aria-describedby="schedule-desc"></button>
               </div>
-              <div style="display: flex; align-items: center; gap: 10px">
-                <span id="schedule-start" class="chip chip-neutral num" style="height: 30px; font-size: 13px">09:00</span>
-                <span class="t-caption" style="color: var(--ink-3)">à</span>
-                <span id="schedule-end" class="chip chip-neutral num" style="height: 30px; font-size: 13px">18:30</span>
+              <div class="time-row">
+                <label class="t-caption" for="schedule-start">De</label>
+                <input id="schedule-start" class="time-input" type="time" step="300" value="09:00" />
+                <label class="t-caption" for="schedule-end">à</label>
+                <input id="schedule-end" class="time-input" type="time" step="300" value="18:30" />
               </div>
+              <p id="schedule-msg" class="t-caption msg-warn" role="alert" hidden></p>
             </div>
-            <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
-              <span class="t-label" id="jours-label">Jours actifs</span>
-              <div role="group" aria-labelledby="jours-label" style="display: flex; gap: 8px">
-                <button type="button" class="day-toggle" aria-pressed="true" aria-label="Lundi"><span class="chip chip-tint">L</span></button>
-                <button type="button" class="day-toggle" aria-pressed="true" aria-label="Mardi"><span class="chip chip-tint">M</span></button>
-                <button type="button" class="day-toggle" aria-pressed="true" aria-label="Mercredi"><span class="chip chip-tint">M</span></button>
-                <button type="button" class="day-toggle" aria-pressed="true" aria-label="Jeudi"><span class="chip chip-tint">J</span></button>
-                <button type="button" class="day-toggle" aria-pressed="true" aria-label="Vendredi"><span class="chip chip-tint">V</span></button>
+            <div class="card group">
+              <span class="t-label" id="days-label">Jours actifs</span>
+              <div class="days" role="group" aria-labelledby="days-label">
+                <button type="button" class="day-toggle" aria-pressed="false" aria-label="Lundi"><span class="chip chip-neutral">L</span></button>
+                <button type="button" class="day-toggle" aria-pressed="false" aria-label="Mardi"><span class="chip chip-neutral">M</span></button>
+                <button type="button" class="day-toggle" aria-pressed="false" aria-label="Mercredi"><span class="chip chip-neutral">M</span></button>
+                <button type="button" class="day-toggle" aria-pressed="false" aria-label="Jeudi"><span class="chip chip-neutral">J</span></button>
+                <button type="button" class="day-toggle" aria-pressed="false" aria-label="Vendredi"><span class="chip chip-neutral">V</span></button>
                 <button type="button" class="day-toggle" aria-pressed="false" aria-label="Samedi"><span class="chip chip-neutral">S</span></button>
                 <button type="button" class="day-toggle" aria-pressed="false" aria-label="Dimanche"><span class="chip chip-neutral">D</span></button>
               </div>
-              <span class="t-caption" style="color: var(--ink-3)">Au moins un jour reste actif&nbsp;: tout désactiver enfermerait le cycle sans sortie.</span>
+              <p id="days-msg" class="t-caption hint" aria-live="polite">Au moins un jour reste actif&nbsp;: tout désactiver enfermerait le cycle sans sortie.</p>
             </div>
           </section>
 
           <!-- Sévérité -->
-          <section class="panel" data-panel="severite">
-            <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px">
-              <div class="t-headline" style="font-size: 22px; line-height: 28px">Sévérité</div>
-              <div class="t-caption">Tu choisis à froid. La sévérité se fige dès que le préavis commence et se libère à la fin de la pause. Passer à Hardcore vaut tout de suite&nbsp;; revenir à Simple vaut au cycle suivant.</div>
+          <section class="panel" role="tabpanel" id="panel-severite" data-panel="severite" aria-labelledby="tab-severite" tabindex="-1" hidden>
+            <p class="t-caption">Tu choisis à froid. La sévérité se fige dès que le préavis commence et se libère à la fin de la pause. Passer à Hardcore vaut tout de suite&nbsp;; revenir à Simple vaut au cycle suivant.</p>
+            <div id="severity-group" class="sev-grid" role="radiogroup" aria-label="Sévérité des pauses">
+              <button type="button" class="sev-opt" role="radio" data-value="Simple" aria-checked="false" tabindex="-1" aria-labelledby="sev-simple-name" aria-describedby="sev-simple-desc">
+                <span class="sev-head"><span class="radio-dot" aria-hidden="true"></span><span class="t-label" id="sev-simple-name">Simple</span><span class="chip chip-tint chip-sm sev-current" data-for="Simple" hidden>En cours</span></span>
+                <span class="t-caption" id="sev-simple-desc">Un voile translucide couvre l’écran pendant la pause. Aucun geste à apprendre&nbsp;: il se lève à la fin.</span>
+              </button>
+              <button type="button" class="sev-opt" role="radio" data-value="Hardcore" aria-checked="false" tabindex="-1" aria-labelledby="sev-hardcore-name" aria-describedby="sev-hardcore-desc">
+                <span class="sev-head"><span class="radio-dot" aria-hidden="true"></span><span class="t-label" id="sev-hardcore-name">Hardcore</span><span class="chip chip-tint chip-sm sev-current" data-for="Hardcore" hidden>En cours</span></span>
+                <span class="t-caption" id="sev-hardcore-desc">Couvre chaque écran en entier, sans barre de menus ni Dock. Une seule sortie&nbsp;: maintenir Échap 10&nbsp;s, puis confirmer.</span>
+              </button>
             </div>
-            <div style="display: flex; gap: 12px">
-              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; box-shadow: inset 0 0 0 2px var(--primary); background: var(--primary-tint)">
-                <div style="display: flex; align-items: center; gap: 8px"><span style="width: 16px; height: 16px; border-radius: 999px; background: var(--primary); display: grid; place-items: center; flex: none"><span style="width: 6px; height: 6px; border-radius: 999px; background: #fbfcfe"></span></span><span class="t-label" style="flex: 1">Simple</span><span class="chip chip-tint" style="height: 24px; font-size: 12px">Actuel</span></div>
-                <span class="t-caption">Voile les applications bloquées. Le reste du Mac reste utilisable, la musique continue.</span>
-              </div>
-              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--outline-2)">
-                <div style="display: flex; align-items: center; gap: 8px"><span style="width: 16px; height: 16px; border-radius: 999px; box-shadow: inset 0 0 0 1.5px var(--outline-2); flex: none"></span><span class="t-label" style="flex: 1">Hardcore</span></div>
-                <span class="t-caption">Couvre chaque écran en entier, sans barre de menus ni Dock. Une seule sortie&nbsp;: maintenir Échap 10&nbsp;s.</span>
-              </div>
-            </div>
-            <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
-              <div style="display: flex; align-items: center; gap: 12px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+            <p id="severity-pending" class="inset note row-inline" role="status" hidden>
+              <span class="chip chip-warn chip-sm">Retour à Simple au cycle suivant</span>
+              <span class="t-caption">Le cycle en cours reste en Hardcore jusqu’à la fin de sa pause.</span>
+            </p>
+            <div class="card group">
+              <div class="row">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+                <div class="row-text">
                   <span class="t-label">Confirmer avant une sortie d’urgence</span>
-                  <span class="t-caption">Toujours actif&nbsp;: une sortie ne doit jamais partir par accident.</span>
+                  <span class="t-caption">Après les 10&nbsp;s d’Échap, une confirmation est toujours demandée&nbsp;: une sortie ne part jamais par accident.</span>
                 </div>
-                <span style="display: flex; align-items: center; gap: 6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg><span class="switch on" style="opacity: 0.45"></span></span>
+                <span class="chip chip-neutral chip-sm">Toujours active</span>
               </div>
             </div>
           </section>
 
           <!-- Applications -->
-          <section class="panel" data-panel="applications">
-            <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px">
-              <div class="t-headline" style="font-size: 22px; line-height: 28px">Applications</div>
-              <div class="t-caption">Toute nouvelle application est bloquée d’office. Ce qui affaiblit (épargner, ignorer) vaut au cycle suivant&nbsp;; ce qui renforce vaut tout de suite.</div>
+          <section class="panel" role="tabpanel" id="panel-applications" data-panel="applications" aria-labelledby="tab-applications" tabindex="-1" hidden>
+            <p class="t-caption">Choisis ce que devient chaque application pendant la pause. Toute nouvelle application est bloquée d’office.</p>
+            <div class="apps-toolbar">
+              <label class="search">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+                <input id="app-search" type="search" placeholder="Rechercher une application" aria-label="Rechercher une application" autocomplete="off" spellcheck="false" />
+              </label>
+              <span id="app-count" class="t-caption hint num" aria-live="polite"></span>
             </div>
-            <div class="card" style="padding: 2px 6px; display: flex; flex-direction: column">
-              <div style="display: flex; align-items: center; gap: 12px; padding: 8px 12px">
-                <span class="t-micro" style="flex: 1; color: var(--ink-3)">APPLICATION</span>
-                <span class="t-micro" style="width: 236px; color: var(--ink-3)">STATUT PENDANT LA PAUSE</span>
+            <div class="card apps-card">
+              <div class="apps-head" aria-hidden="true">
+                <span class="t-micro">APPLICATION</span>
+                <span class="t-micro status-col">STATUT PENDANT LA PAUSE</span>
               </div>
               <div class="divider"></div>
-              <div id="app-list" role="list">
-                <div id="app-list-status" class="t-caption" style="padding: 12px; color: var(--ink-3)">Lecture des applications installées…</div>
+              <ul id="app-list" class="app-list" role="list" aria-label="Applications installées"></ul>
+              <div id="app-state" class="app-state" hidden>
+                <span id="app-state-text" class="t-caption"></span>
+                <button type="button" id="app-retry" class="btn btn-secondary btn-sm" hidden>Réessayer</button>
               </div>
-              <div class="divider" style="margin: 0 12px"></div>
-              <div class="rowitem" style="min-height: 40px; padding: 4px 12px">
-                <span class="appicon sm" style="background: linear-gradient(160deg, #9ba3b5, #6c7383)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 4.6v2.2M12 17.2v2.2M4.6 12h2.2M17.2 12h2.2M6.8 6.8l1.5 1.5M15.7 15.7l1.5 1.5M17.2 6.8l-1.5 1.5M8.3 15.7l-1.5 1.5"></path></svg></span>
-                <span class="t-label" style="flex: 1; white-space: nowrap">Réglages Système</span>
-                <span style="width: 236px"><span class="chip chip-neutral" style="height: 24px; font-size: 12px">Toujours épargnée</span></span>
+              <div class="divider"></div>
+              <div class="app-row">
+                <span class="appicon sm fallback"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 4.6v2.2M12 17.2v2.2M4.6 12h2.2M17.2 12h2.2M6.8 6.8l1.5 1.5M15.7 15.7l1.5 1.5M17.2 6.8l-1.5 1.5M8.3 15.7l-1.5 1.5"></path></svg></span>
+                <span class="t-label app-name">Réglages Système</span>
+                <span class="status-col"><span class="chip chip-neutral chip-sm">Toujours épargnée</span></span>
               </div>
             </div>
-            <div class="inset" style="padding: 10px 14px">
-              <span class="t-caption"><strong>Bloquée</strong> : voilée ou couverte pendant la pause. <strong>Épargnée</strong> : reste utilisable. <strong>Ignorée</strong> : ne fige pas le décompte de la pause. Épargner ou ignorer vaut au cycle suivant&nbsp;; bloquer vaut tout de suite.</span>
-            </div>
-            <div class="inset" style="padding: 10px 14px">
-              <span class="t-caption">Le voile fenêtre par fenêtre arrive avec la prochaine version native&nbsp;; tes choix sont déjà enregistrés et appliqués dès qu’il sera là.</span>
-            </div>
+            <p class="inset note t-caption"><strong>Bloquée</strong>&nbsp;: couverte pendant la pause. <strong>Épargnée</strong>&nbsp;: reste utilisable. <strong>Ignorée</strong>&nbsp;: l’utiliser ne fige pas le décompte de la pause.</p>
+            <p class="inset note t-caption">Aujourd’hui, le voile couvre l’écran entier&nbsp;; le voile fenêtre par fenêtre, qui appliquera ces statuts, est prévu. Tes choix sont enregistrés dès maintenant.</p>
           </section>
 
           <!-- Statistiques -->
-          <section class="panel" data-panel="statistiques">
-            <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px">
-              <div class="t-headline" style="font-size: 22px; line-height: 28px">Statistiques</div>
-              <div class="t-caption">30 derniers jours, de minuit à minuit. Visibles de toi seul&nbsp;— aucune statistique ne quitte cette machine.</div>
-            </div>
-            <div style="display: flex; gap: 12px">
-              <div class="card" style="flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center">
-                <span class="num" style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em">84&nbsp;%</span>
-                <span class="t-caption">Pauses servies</span>
-                <span class="t-caption" style="color: var(--ink-3)">81 sur 96 dues</span>
-              </div>
-              <div class="card" style="flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center">
-                <span class="num" style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em">96</span>
-                <span class="t-caption">Cycles</span>
-                <span class="t-caption" style="color: var(--ink-3)">4,4 par jour</span>
-              </div>
-              <div class="card" style="flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center">
-                <span class="num" style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em">3</span>
-                <span class="t-caption">Interrompues</span>
-                <span class="t-caption" style="color: var(--ink-3)">6&nbsp;min de dette</span>
-              </div>
-              <div class="card" style="flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center">
-                <span class="num" style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em">1</span>
-                <span class="t-caption">Urgence</span>
-                <span class="t-caption" style="color: var(--ink-3)">8&nbsp;min</span>
-              </div>
-            </div>
-            <div class="card" style="flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px">
-              <span class="t-label">Minutes de pause servies, par jour</span>
-              <div style="flex: 1; position: relative; display: flex">
-                <div style="width: 30px; flex: none; position: relative">
-                  <span class="t-micro num" style="position: absolute; top: -5px; color: var(--ink-3)">40</span>
-                  <span class="t-micro num" style="position: absolute; top: calc(50% - 7px); color: var(--ink-3)">20</span>
-                  <span class="t-micro num" style="position: absolute; bottom: -4px; color: var(--ink-3)">0</span>
+          <section class="panel" role="tabpanel" id="panel-statistiques" data-panel="statistiques" aria-labelledby="tab-statistiques" tabindex="-1" hidden>
+            <p class="t-caption">30 derniers jours, de minuit à minuit. Visibles de toi seul&nbsp;— aucune statistique ne quitte cette machine.</p>
+            <div id="stats-body" class="stack" hidden>
+                <div class="kpis">
+                  <div class="card kpi"><span id="kpi-served" class="t-headline num">—</span><span class="t-caption">Pauses servies</span><span id="kpi-served-sub" class="t-caption hint num"></span></div>
+                  <div class="card kpi"><span id="kpi-due" class="t-headline num">—</span><span class="t-caption">Pauses dues</span><span id="kpi-due-sub" class="t-caption hint num"></span></div>
+                  <div class="card kpi"><span id="kpi-interrupted" class="t-headline num">—</span><span class="t-caption">Interrompues</span><span id="kpi-interrupted-sub" class="t-caption hint num"></span></div>
+                  <div class="card kpi"><span id="kpi-emergency" class="t-headline num">—</span><span class="t-caption">Sorties d’urgence</span><span id="kpi-emergency-sub" class="t-caption hint num"></span></div>
                 </div>
-                <div style="flex: 1; position: relative">
-                  <div style="position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--outline)"></div>
-                  <div style="position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--outline)"></div>
-                  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--outline-2)"></div>
-                  <div style="position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 3px; padding: 0 2px">
-                    <div style="flex: 1; height: 75%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 85%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 0"></div>
-                    <div style="flex: 1; height: 0"></div>
-                    <div style="flex: 1; height: 50%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 70%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 80%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 65%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 75%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 0"></div>
-                    <div style="flex: 1; height: 0"></div>
-                    <div style="flex: 1; height: 45%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 55%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 85%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 75%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 70%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 0"></div>
-                    <div style="flex: 1; height: 0"></div>
-                    <div style="flex: 1; height: 45%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 75%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="position: relative; flex: 1; height: 90%; background: #0a6fdb; border-radius: 4px 4px 0 0; box-shadow: 0 0 0 2px #fbfcfe">
-                      <div class="glass-soft" style="position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); border-radius: 10px; padding: 8px 12px; white-space: nowrap; display: flex; flex-direction: column; gap: 1px; z-index: 2">
-                        <span class="t-micro" style="color: var(--ink-3)">MER. 19 AOÛT</span>
-                        <span class="t-label num">36&nbsp;min &middot; 4 pauses</span>
+                <div class="card group">
+                  <div class="row">
+                    <span class="t-label" id="chart-title">Minutes de pause servies, par jour</span>
+                    <span class="chart-legend t-caption hint" aria-hidden="true"><span class="legend-swatch"></span>Aujourd’hui</span>
+                  </div>
+                  <div class="chart">
+                    <div class="chart-y t-micro num" aria-hidden="true"><span id="tick-top"></span><span id="tick-mid"></span><span>0</span></div>
+                    <div id="chart-plot" class="chart-plot" role="group" aria-labelledby="chart-title">
+                      <div id="chart-tip" class="chart-tip" aria-hidden="true" hidden>
+                        <span id="chart-tip-date" class="t-micro hint"></span>
+                        <span id="chart-tip-value" class="t-label num"></span>
                       </div>
                     </div>
-                    <div style="flex: 1; height: 60%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 75%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 50%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 0"></div>
-                    <div style="flex: 1; height: 0"></div>
-                    <div style="flex: 1; height: 80%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 65%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 85%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
-                    <div style="flex: 1; height: 75%; background: #1287e0; border-radius: 4px 4px 0 0"></div>
+                    <div class="chart-x t-micro" aria-hidden="true"><span id="chart-first"></span><span id="chart-last"></span></div>
                   </div>
+                  <p id="chart-total" class="t-caption hint num"></p>
                 </div>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding-left: 30px">
-                <span class="t-micro" style="color: var(--ink-3)">30 JUIL.</span>
-                <span class="t-micro" style="color: var(--ink-3)">28 AOÛT</span>
-              </div>
-              <span class="t-caption" style="color: var(--ink-3); text-align: center">Les jours vides sont hors plage horaire ou jours inactifs.</span>
+            </div>
+            <div id="stats-empty" class="card empty" hidden>
+              <span class="empty-ico"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 19V12M12 19V5M19 19v-9"></path></svg></span>
+              <span class="t-title">Rien à montrer pour l’instant</span>
+              <span class="t-body">Tes statistiques apparaîtront après ta première pause.</span>
+            </div>
+            <div id="stats-error" class="card empty" role="alert" hidden>
+              <span id="stats-error-text" class="t-body"></span>
+              <button type="button" id="stats-retry" class="btn btn-secondary btn-sm">Réessayer</button>
             </div>
           </section>
 
           <!-- Permissions -->
-          <section class="panel" data-panel="permissions">
-            <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px">
-              <div class="t-headline" style="font-size: 22px; line-height: 28px">Permissions</div>
-              <div class="t-caption">macOS accorde et retire ces permissions quand tu veux&nbsp;; Breeze revérifie en continu et dit ce qu’il ne peut pas faire.</div>
-            </div>
-            <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px">
-              <div style="display: flex; align-items: flex-start; gap: 12px">
-                <span class="navico" style="background: #6d4fd4; width: 28px; height: 28px; border-radius: 8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="5" r="1.8"></circle><path d="M5 9l7 1.5L19 9M12 10.5V15l-3 5M12 15l3 5"></path></svg></span>
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
-                  <div style="display: flex; align-items: center; gap: 8px"><span class="t-label">Accessibilité</span><span id="ax-chip" class="chip chip-neutral" style="height: 24px; font-size: 12px">Vérification…</span></div>
-                  <span class="t-caption">Suit le cadre des fenêtres à voiler en Mode Simple. Jamais le contenu, jamais les titres, jamais le clavier.</span>
+          <section class="panel" role="tabpanel" id="panel-permissions" data-panel="permissions" aria-labelledby="tab-permissions" tabindex="-1" hidden>
+            <p class="t-caption">macOS accorde et retire cette permission quand tu veux&nbsp;; Breeze la revérifie chaque fois que tu reviens sur cette fenêtre.</p>
+            <div class="card group">
+              <div class="row row-top">
+                <span class="navico perm-ico ico-severity"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="5" r="1.8"></circle><path d="M5 9l7 1.5L19 9M12 10.5V15l-3 5M12 15l3 5"></path></svg></span>
+                <div class="row-text">
+                  <span class="row-inline"><span class="t-label">Accessibilité</span><span id="ax-chip" class="chip chip-neutral chip-sm" role="status">Vérification…</span></span>
+                  <span class="t-caption">Servira au voile fenêtre par fenêtre du Mode Simple&nbsp;: Breeze lira le cadre des fenêtres, jamais leur contenu, leurs titres ni le clavier.</span>
                 </div>
-                <span id="ax-request" class="btn btn-secondary btn-sm" role="button" tabindex="0">Ouvrir Réglages Système</span>
+                <button type="button" id="ax-request" class="btn btn-secondary btn-sm">Ouvrir Réglages Système</button>
               </div>
-              <div class="divider"></div>
-              <div style="display: flex; align-items: flex-start; gap: 12px">
-                <span class="navico" style="background: #d65c7a; width: 28px; height: 28px; border-radius: 8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FBFCFE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15Z"></path><path d="M10 20.5a2 2 0 0 0 4 0"></path></svg></span>
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
-                  <div style="display: flex; align-items: center; gap: 8px"><span class="t-label">Notifications</span><span class="chip chip-warn" style="height: 24px; font-size: 12px">Refusée</span></div>
-                  <span class="t-caption">Le préavis passe d’abord par la bannière Breeze&nbsp;; la notification macOS n’est qu’un repli quand la bannière ne peut pas se poser. Refusée&nbsp;: la bannière Breeze suffit.</span>
-                </div>
-                <span class="btn btn-primary btn-sm">Autoriser</span>
+              <p id="ax-wait" class="inset note t-caption" hidden>Active Breeze dans Réglages Système › Confidentialité et sécurité › Accessibilité, puis reviens ici&nbsp;: l’état se met à jour tout seul.</p>
+            </div>
+            <div class="card group">
+              <span class="t-label">Ce qui change selon la permission</span>
+              <div class="perm-table">
+                <span class="t-micro">PERMISSION</span><span class="t-micro">ACCORDÉE</span><span class="t-micro">REFUSÉE</span>
+                <span class="t-label">Accessibilité</span><span class="t-caption">Voile fenêtre par fenêtre (prévu)</span><span class="t-caption">Un seul voile plein écran en Mode Simple</span>
               </div>
             </div>
-            <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 8px">
-              <span class="t-label">Ce qui change sans elles</span>
-              <div style="display: flex; flex-direction: column">
-                <div style="display: flex; gap: 12px; padding: 6px 0"><span class="t-micro" style="width: 120px; color: var(--ink-3)">PERMISSION</span><span class="t-micro" style="flex: 1; color: var(--ink-3)">ACCORDÉE</span><span class="t-micro" style="flex: 1; color: var(--ink-3)">REFUSÉE</span></div>
-                <div class="divider"></div>
-                <div style="display: flex; gap: 12px; padding: 8px 0"><span class="t-label" style="width: 120px">Accessibilité</span><span class="t-caption" style="flex: 1">Un voile par fenêtre bloquée</span><span class="t-caption" style="flex: 1">Un seul voile plein écran en Mode Simple</span></div>
-                <div class="divider"></div>
-                <div style="display: flex; gap: 12px; padding: 8px 0"><span class="t-label" style="width: 120px">Notifications</span><span class="t-caption" style="flex: 1">Notification macOS en repli si la bannière ne peut se poser</span><span class="t-caption" style="flex: 1">Bannière Breeze seule</span></div>
-              </div>
-            </div>
-            <div class="inset" style="padding: 10px 14px"><span class="t-caption">Une permission retirée pendant une pause ne l’interrompt pas&nbsp;: Breeze bascule sur le comportement «&nbsp;refusée&nbsp;» et un badge signale la réparation dans la barre de menus.</span></div>
           </section>
 
           <!-- Aide -->
-          <section class="panel" data-panel="aide">
-            <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px">
-              <div class="t-headline" style="font-size: 22px; line-height: 28px">Aide</div>
-              <div class="t-caption">Tout est expliqué ici&nbsp;: l’aide est livrée avec l’application, aucune requête réseau pour la lire.</div>
+          <section class="panel" role="tabpanel" id="panel-aide" data-panel="aide" aria-labelledby="tab-aide" tabindex="-1" hidden>
+            <p class="t-caption">L’aide est livrée avec l’application&nbsp;: aucune requête réseau pour la lire.</p>
+            <div class="card faq">
+              <h2><button type="button" class="faq-btn" id="faq-cycle-btn" aria-expanded="false" aria-controls="faq-cycle">
+                <span class="row-text"><span class="t-label">Le cycle et le préavis</span><span class="t-caption">Travail, préavis, pause, retour.</span></span>
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+              </button></h2>
+              <div class="faq-panel" id="faq-cycle" role="region" aria-labelledby="faq-cycle-btn" hidden>
+                <p class="t-body">Breeze alterne travail et pause selon ton rythme. Une minute avant la pause, un préavis te laisse finir ta phrase. Puis la pause commence&nbsp;; à sa fin, un court retour te ramène au travail et un nouveau cycle démarre.</p>
+              </div>
+              <h2><button type="button" class="faq-btn" id="faq-suspend-btn" aria-expanded="false" aria-controls="faq-suspend">
+                <span class="row-text"><span class="t-label">Suspendre Breeze</span><span class="t-caption">15&nbsp;min, 1&nbsp;h ou jusqu’à demain.</span></span>
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+              </button></h2>
+              <div class="faq-panel" id="faq-suspend" role="region" aria-labelledby="faq-suspend-btn" hidden>
+                <p class="t-body">Depuis le panneau de la barre de menus, suspends le cycle pour 15&nbsp;min, 1&nbsp;h ou jusqu’à demain 6&nbsp;h. Tu peux reprendre à tout moment depuis le même panneau.</p>
+              </div>
+              <h2><button type="button" class="faq-btn" id="faq-severity-btn" aria-expanded="false" aria-controls="faq-severity">
+                <span class="row-text"><span class="t-label">Simple ou Hardcore</span><span class="t-caption">Ce que chaque mode couvre.</span></span>
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+              </button></h2>
+              <div class="faq-panel" id="faq-severity" role="region" aria-labelledby="faq-severity-btn" hidden>
+                <p class="t-body">Simple pose un voile translucide pendant la pause. Hardcore couvre chaque écran en entier, sans barre de menus ni Dock, avec la sortie d’urgence pour seule issue.</p>
+                <p class="t-body">Passer à Hardcore vaut tout de suite&nbsp;; revenir à Simple vaut au cycle suivant. Dès le préavis, la sévérité du cycle est figée.</p>
+              </div>
+              <h2><button type="button" class="faq-btn" id="faq-exit-btn" aria-expanded="false" aria-controls="faq-exit">
+                <span class="row-text"><span class="t-label">Sortir en urgence</span><span class="t-caption">Maintenir Échap 10&nbsp;s, confirmer, et ce que ça coûte.</span></span>
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+              </button></h2>
+              <div class="faq-panel" id="faq-exit" role="region" aria-labelledby="faq-exit-btn" hidden>
+                <p class="t-body">Pendant une pause Hardcore, maintiens Échap 10&nbsp;secondes d’affilée, puis confirme. La pause compte comme interrompue et crée une dette&nbsp;: les minutes non servies allongent les pauses suivantes.</p>
+              </div>
+              <h2><button type="button" class="faq-btn" id="faq-idle-btn" aria-expanded="false" aria-controls="faq-idle">
+                <span class="row-text"><span class="t-label">Quand tu t’absentes</span><span class="t-caption">Le décompte se fige tout seul.</span></span>
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+              </button></h2>
+              <div class="faq-panel" id="faq-idle" role="region" aria-labelledby="faq-idle-btn" hidden>
+                <p class="t-body">Après 3&nbsp;minutes sans clavier ni souris, le décompte du travail se fige. Il reprend dès que tu reviens&nbsp;: ton absence ne te rapproche pas de la pause.</p>
+              </div>
+              <h2><button type="button" class="faq-btn" id="faq-schedule-btn" aria-expanded="false" aria-controls="faq-schedule">
+                <span class="row-text"><span class="t-label">Plage horaire et jours actifs</span><span class="t-caption">Quand Breeze se met en veille.</span></span>
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+              </button></h2>
+              <div class="faq-panel" id="faq-schedule" role="region" aria-labelledby="faq-schedule-btn" hidden>
+                <p class="t-body">Hors de la plage horaire ou un jour non actif, Breeze reste en veille&nbsp;: aucun décompte. Une pause déjà commencée va à son terme. Au retour dans la plage, un nouveau cycle de travail démarre.</p>
+              </div>
             </div>
-            <div class="card" style="padding: 4px 14px; display: flex; flex-direction: column">
-              <div class="rowitem" style="min-height: 44px; padding: 6px 4px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span class="t-label">Le cycle et le préavis</span><span class="t-caption">Travail, préavis d’une minute, pause, puis le cycle suivant.</span></div>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
-              </div>
-              <div class="divider"></div>
-              <div class="rowitem" style="min-height: 44px; padding: 6px 4px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span class="t-label">Simple ou Hardcore</span><span class="t-caption">Ce que chaque mode bloque, et ce qu’il laisse passer.</span></div>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
-              </div>
-              <div class="divider"></div>
-              <div class="rowitem" style="min-height: 44px; padding: 6px 4px">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span class="t-label">Sortir en urgence</span><span class="t-caption">Maintenir Échap 10&nbsp;s, confirmer, et ce que ça coûte.</span></div>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#646B7E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
-              </div>
-            </div>
-            <div class="card" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 10px">
+            <div class="card group">
               <span class="t-label">Raccourcis</span>
-              <div style="display: flex; align-items: center; gap: 12px"><span class="t-caption" style="flex: 1; color: var(--ink)">Ouvrir le panneau</span><span style="display: flex; gap: 4px"><span class="kbd">⌥</span><span class="kbd">⌘</span><span class="kbd">B</span></span></div>
-              <div style="display: flex; align-items: center; gap: 12px"><span class="t-caption" style="flex: 1; color: var(--ink)">Sortie d’urgence, pendant une pause</span><span class="t-caption" style="color: var(--ink-3)">maintenir</span><span class="kbd" style="padding: 0 10px">esc</span><span class="t-caption" style="color: var(--ink-3)">10&nbsp;s</span></div>
+              <div class="row">
+                <span class="t-caption row-text">Ouvrir le panneau</span>
+                <span class="kbd-group js-shortcut" role="img" aria-label="Option Commande B"><span class="kbd">⌥</span><span class="kbd">⌘</span><span class="kbd">B</span></span>
+              </div>
+              <div class="row">
+                <span class="t-caption row-text">Sortie d’urgence, pendant une pause Hardcore</span>
+                <span class="t-caption hint">maintenir</span><span class="kbd">esc</span><span class="t-caption hint">10&nbsp;s</span>
+              </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--outline)">
-              <span class="btn btn-secondary btn-sm">Revoir l’accueil</span>
-              <span class="btn btn-secondary btn-sm">Signaler un problème&hellip;</span>
-              <span style="flex: 1"></span>
-              <span class="t-caption num" style="color: var(--ink-3)">Breeze 1.0 (12)</span>
+            <div class="help-foot">
+              <button type="button" id="reopen-onboarding" class="btn btn-secondary btn-sm">Revoir l’accueil</button>
+              <button type="button" id="report-issue" class="btn btn-secondary btn-sm">Signaler un problème&hellip;</button>
+              <span id="app-version" class="t-caption hint num">Breeze</span>
             </div>
           </section>
         </div>
-      </div>
+      </main>
     </div>
+
+    <dialog id="reset-dialog" class="dialog" aria-labelledby="reset-title" aria-describedby="reset-desc">
+      <div class="dialog-body">
+        <span class="dialog-ico"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"></path><path d="M4 4v4.5h4.5"></path></svg></span>
+        <h2 id="reset-title" class="t-title">Réinitialiser les réglages&nbsp;?</h2>
+        <p id="reset-desc" class="t-body">Revient à 50/10, tous les jours sans plage horaire, Mode Simple, sons et temps restant activés, toutes les applications bloquées. Les statistiques sont conservées.</p>
+        <div class="dialog-actions">
+          <button type="button" id="reset-cancel" class="btn btn-secondary">Annuler</button>
+          <button type="button" id="reset-confirm" class="btn btn-danger">Réinitialiser</button>
+        </div>
+      </div>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="settings.js"></script>
   </body>
 </html>

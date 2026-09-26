@@ -1,10 +1,8 @@
 use super::Cycle;
 use crate::clock::Instant;
 use crate::command_error::CommandError;
-use crate::cycle::absence::{absence_verdict, Absence, AbsenceVerdict};
 use crate::cycle::countdown::Countdown;
 use crate::cycle::state::CycleState;
-use crate::debt::Settlement;
 use crate::outcome::{BreakOutcome, InterruptionDoor};
 use crate::settings::{Rhythm, Severity};
 use core::time::Duration;
@@ -14,7 +12,13 @@ impl Cycle {
         if self.break_is_due() {
             return Err(CommandError::BreakDue);
         }
-        self.pending_rhythm = (rhythm != self.rhythm).then_some(rhythm);
+        // Même travail, même pause : seuls la plage ou les jours changent, rien n'attend.
+        if rhythm.work() == self.rhythm.work() && rhythm.pause() == self.rhythm.pause() {
+            self.rhythm = rhythm;
+            self.pending_rhythm = None;
+        } else {
+            self.pending_rhythm = Some(rhythm);
+        }
         Ok(())
     }
 
@@ -78,10 +82,11 @@ impl Cycle {
             return Err(CommandError::NotInterruptible);
         };
         let unserved = deadline.elapsed_since(now);
+        let planned = self.current_break_plan();
         if !self.enter_next_work(now) {
             return Err(CommandError::NotInterruptible);
         }
-        self.record_interruption(unserved, InterruptionDoor::HardcoreExitGesture);
+        self.record_interruption(planned, unserved, InterruptionDoor::HardcoreExitGesture);
         Ok(())
     }
 
@@ -95,67 +100,50 @@ impl Cycle {
             CycleState::BreakActive { deadline, .. } => deadline.elapsed_since(now),
             _ => return,
         };
+        let planned = self.current_break_plan();
         if self.enter_next_work(now) {
-            self.record_interruption(unserved, door);
+            self.record_interruption(planned, unserved, door);
         }
     }
 
-    pub(super) fn record_interruption(&mut self, unserved: Duration, door: InterruptionDoor) {
+    // Durée prévue de la pause en cours, allongement de dette compris : lue AVANT le
+    // passage au travail suivant, qui peut appliquer un rythme en attente.
+    fn current_break_plan(&self) -> Duration {
+        self.rhythm
+            .pause()
+            .as_duration()
+            .saturating_add(self.debt.absorbed())
+    }
+
+    fn record_interruption(
+        &mut self,
+        planned: Duration,
+        unserved: Duration,
+        door: InterruptionDoor,
+    ) {
         if door.charges_debt() {
             self.debt.credit(unserved);
         } else {
             self.debt.freeze();
         }
-        self.outcomes
-            .push(BreakOutcome::Interrupted { unserved, door });
+        self.outcomes.push(BreakOutcome::Interrupted {
+            planned,
+            unserved,
+            door,
+        });
     }
 
-    pub fn return_from_absence(&mut self, absence: Absence, now: Instant) -> AbsenceVerdict {
-        let verdict = absence_verdict(self.state, self.rhythm, absence);
-        match verdict {
-            AbsenceVerdict::Nothing => {}
-            AbsenceVerdict::CycleValidated => {
-                if self.enter_next_work(now) {
-                    self.outcomes.push(BreakOutcome::ValidatedByAbsence);
-                }
-            }
-            AbsenceVerdict::BreakServed => {
-                self.enter_returning(now, Settlement::Frozen);
-            }
-            AbsenceVerdict::BreakStartsAtWake => {
-                self.enter_break(now);
-            }
-            AbsenceVerdict::PhaseContinues { remaining } => self.reanchor(remaining, now),
+    // Fin du premier accueil : le cycle lancé avec les réglages d'usine repart de zéro
+    // avec ceux qui viennent d'être choisis. Jamais sur une pause due.
+    pub fn start_over(&mut self, now: Instant) -> Result<(), CommandError> {
+        if self.break_is_due() {
+            return Err(CommandError::BreakDue);
         }
-        verdict
+        self.enter_next_work(now);
+        Ok(())
     }
 
-    fn reanchor(&mut self, remaining: Duration, now: Instant) {
-        let Some(deadline) = now.checked_plus(remaining) else {
-            return;
-        };
-        self.state = match self.state {
-            CycleState::Working {
-                countdown: Countdown::Running { .. },
-            } => CycleState::Working {
-                countdown: Countdown::Running { deadline },
-            },
-            CycleState::Notice { .. } => CycleState::Notice { deadline },
-            CycleState::BreakActive { severity, mode, .. } => CycleState::BreakActive {
-                deadline,
-                severity,
-                mode,
-            },
-            CycleState::Returning { .. } => CycleState::Returning { deadline },
-            CycleState::Inactive
-            | CycleState::Suspended { .. }
-            | CycleState::Working {
-                countdown: Countdown::Frozen { .. } | Countdown::Due { .. },
-            } => self.state,
-        };
-    }
-
-    fn break_is_due(&self) -> bool {
+    pub fn break_is_due(&self) -> bool {
         matches!(
             self.state,
             CycleState::Working {

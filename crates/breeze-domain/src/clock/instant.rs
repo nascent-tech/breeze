@@ -18,6 +18,10 @@ impl Instant {
         Instant(self.0.saturating_add(elapsed))
     }
 
+    pub fn minus(self, elapsed: Duration) -> Self {
+        Instant(self.0.saturating_sub(elapsed))
+    }
+
     pub fn checked_plus(self, elapsed: Duration) -> Option<Instant> {
         self.0.checked_add(elapsed).map(Instant)
     }

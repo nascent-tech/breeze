@@ -4,6 +4,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 const ONBOARDING_DONE: &str = "onboarding_done";
 const UPDATE_CHECK: &str = "update_check";
+const SCHEDULE_START: &str = "schedule_start";
+const SCHEDULE_END: &str = "schedule_end";
 
 // Petit magasin clé→entier pour les drapeaux d'app (hors état du cycle).
 pub(crate) fn create_table(connection: &Connection) -> Result<(), PersistenceError> {
@@ -98,6 +100,51 @@ pub(crate) fn set_flag(
         .map_err(into_error)
 }
 
+fn number(connection: &Connection, key: &str) -> Result<Option<i64>, PersistenceError> {
+    connection
+        .query_row(
+            "SELECT value FROM meta WHERE key = ?1",
+            params![key],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(into_error)
+}
+
+pub(crate) fn remembered_schedule(
+    connection: &Connection,
+) -> Result<Option<(u16, u16)>, PersistenceError> {
+    let start = number(connection, SCHEDULE_START)?.and_then(|raw| u16::try_from(raw).ok());
+    let end = number(connection, SCHEDULE_END)?.and_then(|raw| u16::try_from(raw).ok());
+    Ok(start.zip(end))
+}
+
+pub(crate) fn remember_schedule(
+    connection: &Connection,
+    start: u16,
+    end: u16,
+) -> Result<(), PersistenceError> {
+    let upsert = "INSERT INTO meta (key, value) VALUES (?1, ?2)
+                  ON CONFLICT(key) DO UPDATE SET value = ?2";
+    let transaction = connection.unchecked_transaction().map_err(into_error)?;
+    transaction
+        .execute(upsert, params![SCHEDULE_START, i64::from(start)])
+        .map_err(into_error)?;
+    transaction
+        .execute(upsert, params![SCHEDULE_END, i64::from(end)])
+        .map_err(into_error)?;
+    transaction.commit().map_err(into_error)
+}
+
+// Réglages d'usine : tout drapeau oublié retombe sur son défaut ; l'accueil accompli
+// n'est pas une préférence et reste acquis.
+pub(crate) fn forget_preferences(connection: &Connection) -> Result<(), PersistenceError> {
+    connection
+        .execute("DELETE FROM meta WHERE key <> ?1", params![ONBOARDING_DONE])
+        .map(|_| ())
+        .map_err(into_error)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -106,6 +153,19 @@ mod tests {
         let connection = Connection::open_in_memory().unwrap();
         create_table(&connection).unwrap();
         connection
+    }
+
+    #[test]
+    fn schedule_bounds_are_remembered_and_forgotten_with_the_preferences() {
+        let connection = store();
+        assert_eq!(remembered_schedule(&connection).unwrap(), None);
+        remember_schedule(&connection, 8 * 60, 17 * 60).unwrap();
+        assert_eq!(
+            remembered_schedule(&connection).unwrap(),
+            Some((8 * 60, 17 * 60))
+        );
+        forget_preferences(&connection).unwrap();
+        assert_eq!(remembered_schedule(&connection).unwrap(), None);
     }
 
     #[test]

@@ -1,19 +1,25 @@
-use crate::{lock, refusal, save_state, AppState, FLAG_MENUBAR_TEXT, FLAG_SOUNDS};
-use breeze_domain::{ActiveDays, Minutes, Rhythm, Severity, TimeRange};
+use crate::dto::severity_name;
+use crate::startup::{default_rhythm, flag_or};
+use crate::{lock, persistence_failed, refusal, AppState, PANEL_SHORTCUT_LABEL};
+use crate::{FLAG_MENUBAR_TEXT, FLAG_SOUNDS};
+use breeze_domain::{ActiveDays, Rhythm, Severity, SparedApps, TimeRange};
+use breeze_ports::PersistedState;
 use serde::Serialize;
+use std::sync::atomic::Ordering;
+use std::sync::PoisonError;
 use tauri::State;
 use tauri_plugin_autostart::ManagerExt;
 
 const DEFAULT_START: u16 = 9 * 60;
 const DEFAULT_END: u16 = 18 * 60 + 30;
-const RESET_WORK: u16 = 50;
-const RESET_PAUSE: u16 = 10;
 
 #[derive(Serialize)]
 pub struct SettingsDto {
     pub work_minutes: u16,
     pub pause_minutes: u16,
     pub severity: &'static str,
+    pub chosen_severity: &'static str,
+    pub severity_pending: bool,
     pub active_days: u8,
     pub schedule_enabled: bool,
     pub schedule_start: u16,
@@ -22,48 +28,69 @@ pub struct SettingsDto {
     pub launch_at_login: bool,
     pub sounds: bool,
     pub menubar_text: bool,
+    pub shortcut: &'static str,
 }
 
-fn severity_label(severity: Severity) -> &'static str {
-    match severity {
-        Severity::Simple => "Simple",
-        Severity::Hardcore => "Hardcore",
+fn update_check_enabled(state: &AppState) -> bool {
+    state
+        .persistence
+        .is_update_check_enabled()
+        .unwrap_or_else(|error| {
+            eprintln!("breeze: could not read update-check flag: {}", error.0);
+            true
+        })
+}
+
+fn launch_at_login_enabled(app: &tauri::AppHandle) -> bool {
+    app.autolaunch().is_enabled().unwrap_or_else(|error| {
+        eprintln!("breeze: could not read launch-at-login: {error}");
+        false
+    })
+}
+
+// Plage coupée : on rend les dernières bornes saisies, pour la rallumer telle quelle.
+fn schedule_bounds(state: &AppState, active: Option<TimeRange>) -> (u16, u16) {
+    if let Some(range) = active {
+        return (range.start(), range.end());
+    }
+    match state.persistence.remembered_schedule() {
+        Ok(remembered) => remembered.unwrap_or((DEFAULT_START, DEFAULT_END)),
+        Err(error) => {
+            eprintln!("breeze: could not read remembered schedule: {}", error.0);
+            (DEFAULT_START, DEFAULT_END)
+        }
     }
 }
 
 #[tauri::command]
 pub fn get_settings(app: tauri::AppHandle, state: State<'_, AppState>) -> SettingsDto {
-    let (rhythm, severity) = {
+    let (rhythm, snapshot) = {
         let scheduler = lock(&state.scheduler);
-        (scheduler.configured_rhythm(), scheduler.chosen_severity())
+        (scheduler.configured_rhythm(), scheduler.snapshot())
     };
-    let schedule = rhythm.schedule();
-    let flag_or = |key: &str, default: bool| {
-        state
-            .persistence
-            .flag(key)
-            .ok()
-            .flatten()
-            .unwrap_or(default)
-    };
+    let (start, end) = schedule_bounds(&state, rhythm.schedule());
+    let chosen = severity_name(snapshot.chosen_severity);
     SettingsDto {
         work_minutes: rhythm.work().count(),
         pause_minutes: rhythm.pause().count(),
-        severity: severity_label(severity),
+        severity: chosen,
+        chosen_severity: chosen,
+        severity_pending: snapshot.chosen_severity != snapshot.severity,
         active_days: rhythm.active_days().mask(),
-        schedule_enabled: schedule.is_some(),
-        schedule_start: schedule.map_or(DEFAULT_START, TimeRange::start),
-        schedule_end: schedule.map_or(DEFAULT_END, TimeRange::end),
-        update_check: state.persistence.is_update_check_enabled().unwrap_or(true),
-        launch_at_login: app.autolaunch().is_enabled().unwrap_or(false),
-        sounds: flag_or(FLAG_SOUNDS, true),
-        menubar_text: flag_or(FLAG_MENUBAR_TEXT, true),
+        schedule_enabled: rhythm.schedule().is_some(),
+        schedule_start: start,
+        schedule_end: end,
+        update_check: update_check_enabled(&state),
+        launch_at_login: launch_at_login_enabled(&app),
+        sounds: flag_or(&state.persistence, FLAG_SOUNDS, true),
+        menubar_text: flag_or(&state.persistence, FLAG_MENUBAR_TEXT, true),
+        shortcut: PANEL_SHORTCUT_LABEL,
     }
 }
 
 // Lit le rythme configuré et applique le rythme reconstruit SOUS UN SEUL VERROU :
 // un réglage concurrent (fenêtre onboarding) ne peut pas écraser des champs périmés.
-fn rebuild_rhythm<F>(state: &State<'_, AppState>, build: F) -> Result<(), String>
+pub(crate) fn rebuild_rhythm<F>(state: &State<'_, AppState>, build: F) -> Result<(), String>
 where
     F: FnOnce(Rhythm) -> Result<Rhythm, String>,
 {
@@ -72,8 +99,7 @@ where
         let rhythm = build(scheduler.configured_rhythm())?;
         scheduler.change_rhythm(rhythm).map_err(refusal)?;
     }
-    save_state(&state.persistence, &state.scheduler, &state.clock);
-    Ok(())
+    state.persist()
 }
 
 #[tauri::command]
@@ -92,8 +118,15 @@ pub fn set_schedule(
     start: u16,
     end: u16,
 ) -> Result<(), String> {
+    let bounds = TimeRange::from_minutes(start, end);
+    if let Ok(range) = bounds {
+        state
+            .persistence
+            .remember_schedule(range.start(), range.end())
+            .map_err(persistence_failed("schedule bounds"))?;
+    }
     let schedule = if enabled {
-        Some(TimeRange::from_minutes(start, end).map_err(|_| "invalid-schedule".to_owned())?)
+        Some(bounds.map_err(|_| "invalid-schedule".to_owned())?)
     } else {
         None
     };
@@ -119,33 +152,51 @@ pub fn set_update_check(state: State<'_, AppState>, enabled: bool) -> Result<(),
         })
 }
 
+// Atomique vis-à-vis du cycle ET du disque : le refus « pause due » tombe avant toute
+// écriture ; l'état d'usine s'écrit en une transaction (état, statuts d'apps, drapeaux)
+// pendant que le scheduler reste verrouillé, pour qu'aucune pause ne devienne due entre la
+// vérification et l'application ; la mémoire ne change qu'une fois le disque d'accord.
+// Verrous pris dans l'ordre documenté : persist_lock → scheduler → spared.
 #[tauri::command]
 pub fn reset_settings(state: State<'_, AppState>) -> Result<(), String> {
-    let rhythm = Rhythm::new(
-        Minutes(RESET_WORK),
-        Minutes(RESET_PAUSE),
-        None,
-        ActiveDays::everyday(),
-    )
-    .map_err(|_| "invalid-rhythm".to_owned())?;
-    // La persistance qui peut échouer d'abord : si le disque refuse, l'état en mémoire
-    // (rythme, sévérité, apps) reste inchangé — pas de réinitialisation partielle.
-    let mut spared = state.spared.lock().unwrap_or_else(|e| e.into_inner());
-    if let Err(error) = state.persistence.replace_app_statuses(&[]) {
-        eprintln!("breeze: could not clear app statuses: {}", error.0);
-        return Err("persistence-failed".to_owned());
+    let _serialized = state
+        .persist_lock
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    let mut scheduler = lock(&state.scheduler);
+    if scheduler.break_is_due() {
+        return Err(refusal(breeze_domain::CommandError::BreakDue));
     }
-    *spared = breeze_domain::SparedApps::new();
-    {
-        let mut scheduler = lock(&state.scheduler);
-        scheduler.change_rhythm(rhythm).map_err(refusal)?;
-        let _ = scheduler.change_severity(Severity::Simple);
-    }
-    if let Err(error) = state.persistence.set_update_check(true) {
-        eprintln!("breeze: could not reset update-check flag: {}", error.0);
-    }
-    save_state(&state.persistence, &state.scheduler, &state.clock);
+    let mut spared = state.spared.lock().unwrap_or_else(PoisonError::into_inner);
+    let factory = PersistedState {
+        severity: Severity::Simple,
+        ..state.persisted_state(&scheduler)
+    };
+    let factory = with_rhythm(factory, default_rhythm());
+    state
+        .persistence
+        .reset_preferences(factory)
+        .map_err(persistence_failed("factory settings"))?;
+    *spared = SparedApps::new();
+    scheduler.change_rhythm(default_rhythm()).map_err(refusal)?;
+    scheduler
+        .change_severity(Severity::Simple)
+        .map_err(refusal)?;
+    state.sounds.store(true, Ordering::Relaxed);
+    state.menubar_text.store(true, Ordering::Relaxed);
     Ok(())
+}
+
+fn with_rhythm(state: PersistedState, rhythm: Rhythm) -> PersistedState {
+    let schedule = rhythm.schedule();
+    PersistedState {
+        work_minutes: rhythm.work().count(),
+        pause_minutes: rhythm.pause().count(),
+        active_days: rhythm.active_days().mask(),
+        schedule_start: schedule.map(TimeRange::start),
+        schedule_end: schedule.map(TimeRange::end),
+        ..state
+    }
 }
 
 #[tauri::command]
@@ -171,9 +222,7 @@ pub fn set_sounds(state: State<'_, AppState>, enabled: bool) -> Result<(), Strin
             eprintln!("breeze: could not persist sounds flag: {}", error.0);
             "persistence-failed".to_owned()
         })?;
-    state
-        .sounds
-        .store(enabled, std::sync::atomic::Ordering::Relaxed);
+    state.sounds.store(enabled, Ordering::Relaxed);
     Ok(())
 }
 
@@ -186,8 +235,6 @@ pub fn set_menubar_mode(state: State<'_, AppState>, text: bool) -> Result<(), St
             eprintln!("breeze: could not persist menubar mode: {}", error.0);
             "persistence-failed".to_owned()
         })?;
-    state
-        .menubar_text
-        .store(text, std::sync::atomic::Ordering::Relaxed);
+    state.menubar_text.store(text, Ordering::Relaxed);
     Ok(())
 }

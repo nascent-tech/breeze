@@ -120,7 +120,13 @@ a{color:var(--primary);text-decoration:none} a:hover{color:var(--primary-deep)}
 .mwin{position:absolute;background:#FBFCFE;border-radius:12px;box-shadow:0 22px 44px -18px rgba(28,33,48,.35),0 0 0 1px rgba(28,33,48,.06);overflow:hidden}
 .mwin-bar{height:34px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--outline);background:#FAFBFD}
 .traffic{display:flex;gap:8px}
-.traffic i{width:11px;height:11px;border-radius:999px;display:block}
+.traffic i{width:11px;height:11px;border-radius:999px;display:block;position:relative;cursor:pointer;transition:filter .15s ease}
+.traffic i:hover{filter:brightness(.92)}
+.traffic i:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.traffic i::after{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;line-height:1;color:rgba(0,0,0,.55);opacity:0;transition:opacity .15s ease}
+.traffic:hover .tr-r::after{content:"\00d7"}
+.traffic:hover .tr-y::after{content:"\2013"}
+.traffic:hover i::after{opacity:1}
 .tr-r{background:#FF5F57}.tr-y{background:#FEBC2E}.tr-g{background:#28C840}
 .skl{height:9px;border-radius:5px;background:rgba(28,33,48,.09)}
 .skl.deep{background:rgba(28,33,48,.15)}
@@ -164,20 +170,22 @@ a{color:var(--primary);text-decoration:none} a:hover{color:var(--primary-deep)}
 .checkbox { box-shadow: inset 0 0 0 1.5px var(--outline-control); }
 
 /* Boutons et actions accessibles construits en <button> : neutralise le style natif. */
-button.btn { font: inherit; }
+button { font: inherit; color: inherit; margin: 0; }
+button.btn, button.seg-item, button.navitem { font-family: inherit; }
 button.navitem,
-button.seg-item,
 button.rhythm-opt,
 button.sev-opt,
-button.rowitem,
-.day-toggle { background: none; border: 0; margin: 0; font: inherit; color: inherit; text-align: left; width: 100%; }
+button.rowitem { background: none; border: 0; margin: 0; color: inherit; text-align: left; width: 100%; }
+button.seg-item { border: 0; margin: 0; text-align: center; background: transparent; }
+button.seg-item.on { background: #FBFCFE; }
+.day-toggle { background: none; border: 0; margin: 0; padding: 0; font: inherit; color: inherit; }
 
 /* Jour actif : marque non chromatique en plus de la teinte (revue Fable §7 — l'état
    ne doit jamais reposer sur la seule couleur). */
 .day-toggle { cursor: default; }
 .day-toggle .chip { width: 38px; justify-content: center; box-shadow: inset 0 0 0 1.5px transparent; }
 .day-toggle[aria-pressed="true"] .chip { box-shadow: inset 0 0 0 1.5px var(--primary); }
-.day-toggle[aria-pressed="false"] .chip { color: var(--ink-3); text-decoration: line-through; }
+.day-toggle[aria-pressed="false"] .chip { color: var(--ink-3); }
 
 /* Repli sans transparence pour le verre (accessibilité : transparence réduite). */
 @media (prefers-reduced-transparency: reduce) {
@@ -187,4 +195,67 @@ button.rowitem,
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+}
+
+/* ============================================================
+   États d'interaction réels (pseudo-classes) — l'artefact ne les
+   montrait que par classes statiques (.hover/.pressed).
+   ============================================================ */
+html { -webkit-user-select: none; user-select: none; }
+input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; }
+img, svg { -webkit-user-drag: none; }
+
+.btn { transition: background-color .15s ease, box-shadow .15s ease, opacity .15s ease, transform .08s ease; }
+.btn:active { transform: scale(.98); }
+.btn-primary:hover { background: linear-gradient(180deg, #1580E4 0%, #0B65CC 100%); }
+.btn-primary:active { background: linear-gradient(180deg, #0F72CE 0%, #0857AE 100%); box-shadow: 0 4px 10px -4px rgba(10,111,219,.5), inset 0 1px 2px rgba(6,44,88,.3); }
+.btn-secondary:hover { background: rgba(28,33,48,.09); }
+.btn-secondary:active { background: rgba(28,33,48,.13); }
+.btn-ghost:hover { background: var(--primary-tint); }
+.btn-danger { background: var(--danger); color: #FBFCFE; box-shadow: 0 8px 18px -8px rgba(194,41,67,.55); }
+.btn-danger:hover { background: #AE2239; }
+.btn-danger:active { background: #97192F; }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .42; box-shadow: none; pointer-events: none; }
+
+.seg-item { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+.seg-item:not(.on):hover { color: var(--ink); background: rgba(255,255,255,.55); }
+.seg-item:disabled, .seg-item[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+
+/* Commutateur construit en <button role="switch"> : l'état vit dans aria-checked. */
+button.switch { border: 0; padding: 0; margin: 0; appearance: none; -webkit-appearance: none; }
+.switch { transition: background-color .18s ease; }
+.switch::after { transition: left .18s cubic-bezier(.2,.8,.2,1); }
+.switch[aria-checked="true"] { background: var(--primary); }
+.switch[aria-checked="true"]::after { left: 17px; }
+.switch:disabled { opacity: .45; }
+
+.navitem { transition: background-color .15s ease, color .15s ease; }
+.navitem:not(.on):hover { background: rgba(28,33,48,.055); color: var(--ink); }
+button.rowitem:hover, a.rowitem:hover { background: rgba(28,33,48,.045); }
+.chip-danger { background: var(--danger-tint); color: var(--danger); }
+
+/* Curseur natif (input range) aux couleurs de l'artefact. */
+input[type="range"].range { -webkit-appearance: none; appearance: none; width: 100%; height: 20px; background: transparent; margin: 0; --fill: 0%; }
+input[type="range"].range::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: linear-gradient(90deg, var(--primary) 0 var(--fill), rgba(28,33,48,.10) var(--fill) 100%); }
+input[type="range"].range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -7px; border-radius: 999px; background: #FBFCFE; box-shadow: 0 1px 4px rgba(28,33,48,.35), 0 0 0 .5px rgba(28,33,48,.08); transition: transform .12s ease; }
+input[type="range"].range:active::-webkit-slider-thumb { transform: scale(1.08); }
+input[type="range"].range:disabled { opacity: .45; }
+
+/* Champ d'heure natif habillé en puce. */
+input[type="time"].time-input { font: inherit; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); height: 32px; padding: 0 12px; border-radius: 10px; border: 0; background: rgba(28,33,48,.06); box-shadow: inset 0 0 0 1px var(--outline); }
+input[type="time"].time-input:hover { background: rgba(28,33,48,.09); }
+input[type="time"].time-input:disabled { opacity: .45; }
+
+/* Région de glisser-déplacer d'une fenêtre sans cadre (data-tauri-drag-region). */
+[data-tauri-drag-region] { cursor: default; }
+
+/* Message passager (retour d'une action ou d'un refus). */
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 12px); width: max-content; max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 12px; background: rgba(28,33,48,.92); color: #FBFCFE; font-size: 12.5px; font-weight: 500; line-height: 17px; box-shadow: 0 12px 28px -12px rgba(28,33,48,.5); opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 100; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.error { background: var(--danger); }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
 }

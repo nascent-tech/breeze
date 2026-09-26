@@ -283,7 +283,10 @@ fn a_break_served_by_absence_credits_it_once_and_enters_returning() {
     let outcome = cycle.return_from_absence(absence(at(3060), 700), at(10_000));
 
     assert_eq!(outcome, AbsenceVerdict::BreakServed);
-    assert_eq!(cycle.outcomes(), &[BreakOutcome::Served]);
+    assert_eq!(
+        cycle.outcomes(),
+        &[BreakOutcome::Served { planned: secs(600) }]
+    );
     match cycle.state() {
         CycleState::Returning { deadline } => {
             assert_eq!(deadline, at(10_000).plus(RETURN_HOLD));
@@ -299,7 +302,10 @@ fn a_return_finishes_at_wake_without_a_second_credit() {
     cycle.tick(at(3060));
     cycle.tick(at(3660));
     assert!(matches!(cycle.state(), CycleState::Returning { .. }));
-    assert_eq!(cycle.outcomes(), &[BreakOutcome::Served]);
+    assert_eq!(
+        cycle.outcomes(),
+        &[BreakOutcome::Served { planned: secs(600) }]
+    );
 
     let outcome = cycle.return_from_absence(absence(at(3660), 1), at(10_000));
 
@@ -309,7 +315,10 @@ fn a_return_finishes_at_wake_without_a_second_credit() {
             remaining: RETURN_HOLD
         }
     );
-    assert_eq!(cycle.outcomes(), &[BreakOutcome::Served]);
+    assert_eq!(
+        cycle.outcomes(),
+        &[BreakOutcome::Served { planned: secs(600) }]
+    );
     match cycle.state() {
         CycleState::Returning { deadline } => {
             assert_eq!(deadline, at(10_000).plus(RETURN_HOLD));
