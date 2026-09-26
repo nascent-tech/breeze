@@ -1,4 +1,5 @@
 use crate::icon::render_icns_to_png;
+use crate::mac_safety_list::SAFETY_BUNDLE_PATHS;
 use breeze_domain::AppId;
 use breeze_ports::{AppEnumerationError, InstalledApp, InstalledAppsPort};
 use std::collections::hash_map::DefaultHasher;
@@ -88,6 +89,13 @@ fn scan_all() -> Vec<InstalledApp> {
     let mut found: BTreeMap<AppId, InstalledApp> = BTreeMap::new();
     for root in roots() {
         collect_root(&root, &mut found);
+    }
+    // Les applications de la liste de sécurité rangées hors des dossiers parcourus
+    // (Finder, Trousseau d'accès…) figurent aussi au catalogue, verrouillées.
+    for bundle in SAFETY_BUNDLE_PATHS {
+        if let Some(app) = read_bundle(Path::new(bundle)) {
+            found.entry(app.id.clone()).or_insert(app);
+        }
     }
     let mut apps: Vec<InstalledApp> = found.into_values().collect();
     apps.sort_by_key(|app| app.name.to_lowercase());

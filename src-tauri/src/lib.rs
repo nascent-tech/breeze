@@ -13,10 +13,9 @@ mod tray;
 mod windows;
 
 use breeze_app::Scheduler;
-use breeze_domain::{CommandError, InterruptionDoor, SparedApps, TimeRange};
+use breeze_domain::{CommandError, InterruptionDoor, TimeRange};
 use breeze_ports::{
-    AccessibilityPermissionPort, ClockPort, InstalledAppsPort, PersistedState, PersistenceError,
-    PersistencePort,
+    ClockPort, InstalledAppsPort, PersistedState, PersistenceError, PersistencePort,
 };
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -32,12 +31,12 @@ const PANEL_SHORTCUT: &str = "Alt+Cmd+B";
 type Persistence = Arc<dyn PersistencePort + Send + Sync>;
 type Clock = Arc<dyn ClockPort + Send + Sync>;
 type InstalledApps = Arc<dyn InstalledAppsPort>;
-type Accessibility = Arc<dyn AccessibilityPermissionPort>;
 type Toggle = Arc<AtomicBool>;
 
-// Ordre des verrous, toujours : persist_lock → scheduler → spared. Aucun chemin ne prend
-// le scheduler puis persist_lock (le scheduler n'est tenu que le temps d'une lecture ou
-// d'une commande, jamais pendant l'appel à `save_state`).
+// Ordre des verrous, toujours : persist_lock → scheduler. Aucun chemin ne prend le
+// scheduler puis persist_lock (le scheduler n'est tenu que le temps d'une lecture ou d'une
+// commande, jamais pendant l'appel à `save_state`). Les statuts d'applications vivent dans
+// le cycle, sous le verrou du scheduler.
 pub(crate) struct AppState {
     pub(crate) scheduler: Arc<Mutex<Scheduler>>,
     // Sérialise lecture + écriture de l'état : deux sauvegardes concurrentes ne peuvent
@@ -47,8 +46,6 @@ pub(crate) struct AppState {
     pub(crate) clock: Clock,
     pub(crate) persistence: Persistence,
     pub(crate) installed_apps: InstalledApps,
-    pub(crate) accessibility: Accessibility,
-    pub(crate) spared: Arc<Mutex<SparedApps>>,
     pub(crate) sounds: Toggle,
     pub(crate) menubar_text: Toggle,
 }
@@ -59,6 +56,7 @@ pub(crate) fn refusal(error: CommandError) -> String {
         CommandError::NotSuspendable => "not-suspendable",
         CommandError::NotSuspended => "not-suspended",
         CommandError::NotInterruptible => "not-interruptible",
+        CommandError::LockedApp => "locked-app",
     }
     .to_owned()
 }
@@ -144,6 +142,11 @@ fn register_panel_shortcut(app: &tauri::App) {
 
 pub fn run() {
     tauri::Builder::default()
+        // Enregistré en premier : une seconde ouverture ne démarre pas un second cycle,
+        // elle montre le panneau de l'instance déjà lancée.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            panel::show_panel(app, panel::tray_rect(app));
+        }))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
@@ -174,8 +177,6 @@ pub fn run() {
             apps::list_installed_apps,
             apps::set_app_status,
             apps::set_spared_apps,
-            apps::request_accessibility,
-            apps::accessibility_status,
             windows::open_settings,
             windows::finish_onboarding,
             windows::reopen_onboarding,

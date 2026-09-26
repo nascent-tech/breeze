@@ -1,14 +1,15 @@
+mod app_statuses;
 mod commands;
+mod freezing;
 mod transitions;
 mod wake;
 
 use crate::clock::Instant;
-use crate::constants::IDLE_FREEZE;
 use crate::cycle::countdown::Countdown;
 use crate::cycle::state::CycleState;
 use crate::debt::PostureDebt;
 use crate::outcome::BreakOutcome;
-use crate::settings::{Rhythm, Severity};
+use crate::settings::{AppStatuses, Rhythm, Severity};
 
 #[derive(Clone, Debug)]
 pub struct Cycle {
@@ -20,6 +21,13 @@ pub struct Cycle {
     last_activity: Instant,
     outcomes: Vec<BreakOutcome>,
     debt: PostureDebt,
+    apps: AppStatuses,
+    // Relevé de la capacité « cadres observables », tenu pour le premier instant d'une pause.
+    frames_observable: bool,
+    // Le gel d'inactivité tient tant qu'aucune saisie fraîche n'arrive.
+    idle: bool,
+    // Une application Ignorée (effective) est au premier plan.
+    ignored_in_front: bool,
 }
 
 impl Cycle {
@@ -36,6 +44,10 @@ impl Cycle {
             last_activity: now,
             outcomes: Vec::new(),
             debt: PostureDebt::none(),
+            apps: AppStatuses::default(),
+            frames_observable: false,
+            idle: false,
+            ignored_in_front: false,
         }
     }
 
@@ -88,42 +100,5 @@ impl Cycle {
 
     pub fn outcomes(&self) -> &[BreakOutcome] {
         &self.outcomes
-    }
-
-    pub fn observe_activity(&mut self, at: Instant) {
-        self.last_activity = at;
-        let CycleState::Working {
-            countdown: Countdown::Frozen { remaining },
-        } = self.state
-        else {
-            return;
-        };
-        let Some(deadline) = at.checked_plus(remaining) else {
-            return;
-        };
-        self.state = CycleState::Working {
-            countdown: Countdown::Running { deadline },
-        };
-    }
-
-    pub fn freeze_if_idle(&mut self, now: Instant) {
-        let CycleState::Working {
-            countdown: Countdown::Running { deadline },
-        } = self.state
-        else {
-            return;
-        };
-        if now.has_reached(deadline) {
-            return;
-        }
-        let freeze_at = self.last_activity.plus(IDLE_FREEZE);
-        if now < freeze_at {
-            return;
-        }
-        self.state = CycleState::Working {
-            countdown: Countdown::Frozen {
-                remaining: deadline.elapsed_since(freeze_at),
-            },
-        };
     }
 }

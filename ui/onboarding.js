@@ -5,16 +5,13 @@
 
 const invoke = window.__TAURI__?.core?.invoke;
 const NBSP = " ";
-const ACCESS_POLL_MS = 1500;
-const SEVERITY_STEP = 2;
-
 const el = (id) => document.getElementById(id);
 const steps = Array.from(document.querySelectorAll(".step"));
 let current = 0;
 
 // Valeurs de l'hôte au chargement (défauts du premier lancement tant qu'elles ne sont pas lues).
 const initial = { work: 50, pause: 10, severity: "Simple" };
-const choice = { work: 50, pause: 10, severity: "Simple", accessibilityGranted: false };
+const choice = { work: 50, pause: 10, severity: "Simple" };
 // Statut épargné affiché, et seulement les bascules faites pendant l'accueil.
 const spared = new Map();
 const touched = new Map();
@@ -24,8 +21,6 @@ function show(index) {
   current = Math.max(0, Math.min(index, steps.length - 1));
   steps.forEach((step, i) => step.classList.toggle("on", i === current));
   if (current === steps.length - 1) syncSummary();
-  if (current === SEVERITY_STEP) syncAccessAsk();
-  else stopAccessPolling();
   const heading = steps[current].querySelector("h1");
   if (heading) {
     heading.setAttribute("tabindex", "-1");
@@ -49,7 +44,7 @@ function syncSummary() {
   el("plan-pause-desc").textContent =
     choice.severity === "Hardcore"
       ? "Chaque écran est couvert jusqu’à la fin, puis un nouveau cycle démarre."
-      : "Un voile couvre l’écran jusqu’à la fin, puis un nouveau cycle démarre.";
+      : "Chaque fenêtre bloquée est voilée jusqu’à la fin, puis un nouveau cycle démarre.";
 }
 
 document.querySelectorAll("[data-next]").forEach((btn) => btn.addEventListener("click", () => show(current + 1)));
@@ -109,7 +104,6 @@ wireRadioGroup(el("rhythm-group"), (opt) => {
 
 wireRadioGroup(el("sev-group"), (opt) => {
   choice.severity = opt.dataset.sev;
-  syncAccessAsk();
 });
 
 function selectRhythm(work, pause) {
@@ -142,74 +136,10 @@ async function loadSettings() {
     initial.severity = choice.severity = settings.chosen_severity || settings.severity;
     selectRhythm(choice.work, choice.pause);
     selectSeverity(choice.severity);
-    syncAccessAsk();
   } catch (_error) {
     // Premier lancement sans lecture des réglages : les défauts affichés sont ceux de l'hôte.
   }
 }
-
-// L'Accessibilité n'est demandée qu'en Mode Simple (brief §8.7), et seulement
-// sondée pendant que l'étape Sévérité est affichée.
-let accessRequested = false;
-let accessPollTimer = null;
-
-function syncAccessAsk() {
-  const showAsk = choice.severity === "Simple";
-  el("access-ask").hidden = !showAsk;
-  if (showAsk && current === SEVERITY_STEP && !choice.accessibilityGranted) startAccessPolling();
-  else stopAccessPolling();
-}
-
-function renderAccessState(status) {
-  const granted = status === "Granted";
-  choice.accessibilityGranted = granted;
-  el("access-granted-chip").hidden = !granted;
-  el("access-grant").hidden = granted || accessRequested;
-  el("access-open-settings").hidden = granted || !accessRequested;
-  if (granted) stopAccessPolling();
-}
-
-async function pollAccessStatus() {
-  if (!invoke) return;
-  try {
-    renderAccessState(await invoke("accessibility_status"));
-  } catch (err) {
-    stopAccessPolling();
-    el("access-desc").textContent = "État de l’Accessibilité illisible pour l’instant. Tu pourras l’accorder depuis les Réglages.";
-    console.error("onboarding: accessibility_status", err);
-  }
-}
-
-function startAccessPolling() {
-  if (accessPollTimer !== null) return;
-  pollAccessStatus();
-  accessPollTimer = setInterval(pollAccessStatus, ACCESS_POLL_MS);
-}
-
-function stopAccessPolling() {
-  if (accessPollTimer === null) return;
-  clearInterval(accessPollTimer);
-  accessPollTimer = null;
-}
-
-async function requestAccess() {
-  if (!invoke) return;
-  accessRequested = true;
-  try {
-    if (await invoke("request_accessibility")) {
-      renderAccessState("Granted");
-      return;
-    }
-  } catch (err) {
-    el("access-desc").textContent = "macOS n’a pas pu ouvrir la demande. Réessaie, ou accorde-la plus tard depuis les Réglages.";
-    console.error("onboarding: request_accessibility", err);
-  }
-  await pollAccessStatus();
-  if (!choice.accessibilityGranted) startAccessPolling();
-}
-
-el("access-grant").addEventListener("click", requestAccess);
-el("access-open-settings").addEventListener("click", requestAccess);
 
 // Épargne d'applications : liste des VRAIES apps installées, chacune un commutateur.
 // Noms via textContent, icônes via img.src=data: (jamais innerHTML).
@@ -218,6 +148,7 @@ function normalize(text) {
 }
 
 function statusLabel(app, isSpared) {
+  if (app.locked) return "Toujours épargnée";
   if (isSpared) return "Épargnée";
   return app.status === "Ignored" && !touched.has(app.bundle_id) ? "Ignorée" : "Bloquée";
 }
@@ -240,9 +171,11 @@ function appIcon(app) {
 }
 
 function paintAppRow(row, app) {
-  const isSpared = Boolean(spared.get(app.bundle_id));
+  const isSpared = app.locked || Boolean(spared.get(app.bundle_id));
   row.setAttribute("aria-checked", String(isSpared));
-  row.querySelector(".switch").classList.toggle("on", isSpared);
+  const toggle = row.querySelector(".switch");
+  toggle.classList.toggle("on", isSpared);
+  toggle.classList.toggle("locked", Boolean(app.locked));
   const status = row.querySelector(".app-status");
   status.textContent = statusLabel(app, isSpared);
   status.classList.toggle("is-spared", isSpared);
@@ -253,6 +186,7 @@ function appRow(app) {
   row.type = "button";
   row.className = "rowitem app-row";
   row.setAttribute("role", "switch");
+  if (app.locked) row.disabled = true;
 
   const name = document.createElement("span");
   name.className = "t-label app-name";
@@ -268,20 +202,26 @@ function appRow(app) {
 
   row.append(appIcon(app), name, status, toggle);
   paintAppRow(row, app);
-  row.addEventListener("click", () => {
-    const next = !spared.get(app.bundle_id);
-    spared.set(app.bundle_id, next);
-    // Revenir à l'état d'origine annule la bascule : une app Ignorée le reste.
-    if (next === (app.status === "Spared")) touched.delete(app.bundle_id);
-    else touched.set(app.bundle_id, next);
-    paintAppRow(row, app);
-    updateAppCounter();
-  });
+  if (!app.locked) {
+    row.addEventListener("click", () => {
+      const next = !spared.get(app.bundle_id);
+      spared.set(app.bundle_id, next);
+      // Revenir à l'état d'origine annule la bascule : une app Ignorée le reste.
+      if (next === (app.status === "Spared")) touched.delete(app.bundle_id);
+      else touched.set(app.bundle_id, next);
+      paintAppRow(row, app);
+      updateAppCounter();
+    });
+  }
   return row;
 }
 
 function updateAppCounter() {
   el("app-counter").textContent = pluralizeApp(sparedCount());
+}
+
+function updateLockedFallback() {
+  el("ob-locked-fallback").hidden = allApps.some((app) => app.locked);
 }
 
 function listMessage(className, text) {
@@ -344,15 +284,21 @@ function renderAppError() {
 async function loadApps() {
   if (!invoke) {
     el("ob-app-list").replaceChildren(listMessage("app-empty", `Aperçu${NBSP}: la liste réelle s’affiche dans l’application.`));
+    updateLockedFallback();
     return;
   }
   renderAppSkeletons();
   try {
     allApps = await invoke("list_installed_apps");
     allApps.forEach((app) => {
+      if (app.locked) {
+        spared.set(app.bundle_id, true);
+        return;
+      }
       if (!touched.has(app.bundle_id)) spared.set(app.bundle_id, app.status === "Spared");
     });
     renderAppList(el("app-search").value);
+    updateLockedFallback();
     updateAppCounter();
   } catch (err) {
     console.error("onboarding: list_installed_apps", err);

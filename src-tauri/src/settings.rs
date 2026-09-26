@@ -2,7 +2,7 @@ use crate::dto::severity_name;
 use crate::startup::{default_rhythm, flag_or};
 use crate::{lock, persistence_failed, refusal, AppState, PANEL_SHORTCUT_LABEL};
 use crate::{FLAG_MENUBAR_TEXT, FLAG_SOUNDS};
-use breeze_domain::{ActiveDays, Rhythm, Severity, SparedApps, TimeRange};
+use breeze_domain::{ActiveDays, Rhythm, Severity, TimeRange};
 use breeze_ports::PersistedState;
 use serde::Serialize;
 use std::sync::atomic::Ordering;
@@ -156,7 +156,7 @@ pub fn set_update_check(state: State<'_, AppState>, enabled: bool) -> Result<(),
 // écriture ; l'état d'usine s'écrit en une transaction (état, statuts d'apps, drapeaux)
 // pendant que le scheduler reste verrouillé, pour qu'aucune pause ne devienne due entre la
 // vérification et l'application ; la mémoire ne change qu'une fois le disque d'accord.
-// Verrous pris dans l'ordre documenté : persist_lock → scheduler → spared.
+// Verrous pris dans l'ordre documenté : persist_lock → scheduler.
 #[tauri::command]
 pub fn reset_settings(state: State<'_, AppState>) -> Result<(), String> {
     let _serialized = state
@@ -167,7 +167,6 @@ pub fn reset_settings(state: State<'_, AppState>) -> Result<(), String> {
     if scheduler.break_is_due() {
         return Err(refusal(breeze_domain::CommandError::BreakDue));
     }
-    let mut spared = state.spared.lock().unwrap_or_else(PoisonError::into_inner);
     let factory = PersistedState {
         severity: Severity::Simple,
         ..state.persisted_state(&scheduler)
@@ -177,7 +176,7 @@ pub fn reset_settings(state: State<'_, AppState>) -> Result<(), String> {
         .persistence
         .reset_preferences(factory)
         .map_err(persistence_failed("factory settings"))?;
-    *spared = SparedApps::new();
+    scheduler.reset_app_statuses();
     scheduler.change_rhythm(default_rhythm()).map_err(refusal)?;
     scheduler
         .change_severity(Severity::Simple)

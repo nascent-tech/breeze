@@ -4,4 +4,6 @@ pub enum CommandError {
     NotSuspendable,
     NotSuspended,
     NotInterruptible,
+    // Application de la liste de sécurité (§10.6) : son statut n'est pas éditable.
+    LockedApp,
 }

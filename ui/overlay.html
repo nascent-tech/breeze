@@ -159,6 +159,72 @@
       #confirm .btn-cancel:hover {
         background: #edeff3;
       }
+      /* Voile d'une fenêtre bloquée (Mode Simple nominal) : le voile remplit la fenêtre
+         qu'il couvre, la carte se resserre sur le décompte. Ni anneau, ni suggestion,
+         ni geste : la sortie Échap n'existe qu'en Hardcore (§8.5). */
+      html[data-kind="window"],
+      html[data-kind="window"] body {
+        background: transparent;
+      }
+      html[data-kind="window"] body {
+        background: rgba(251, 252, 254, 0.86);
+        border-radius: 12px;
+        overflow: hidden;
+        padding: 12px;
+        box-sizing: border-box;
+      }
+      html[data-kind="window"] #card {
+        width: auto;
+        max-width: 280px;
+        padding: 20px 28px;
+        border-radius: 22px;
+        gap: 6px;
+      }
+      html[data-kind="window"] .ring-wrap svg {
+        display: none;
+      }
+      html[data-kind="window"] .ring-center {
+        position: static;
+      }
+      html[data-kind="window"] #countdown {
+        font-size: 44px;
+      }
+      html[data-kind="window"] #ring-sub,
+      html[data-kind="window"] #suggestion,
+      html[data-kind="window"] #exit,
+      html[data-kind="window"] #confirm {
+        display: none;
+      }
+      html[data-kind="window"] #hint {
+        display: block;
+        text-align: center;
+      }
+      html[data-kind="window"][data-phase="Returning"] #hint {
+        display: none;
+      }
+      /* Petite fenêtre : le décompte seul, sans carte. */
+      @media (max-width: 320px), (max-height: 200px) {
+        html[data-kind="window"] body {
+          padding: 4px;
+        }
+        html[data-kind="window"] #card {
+          background: none;
+          border: 0;
+          box-shadow: none;
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
+          padding: 0;
+        }
+        html[data-kind="window"] #phase-title,
+        html[data-kind="window"] #phase-subtitle,
+        html[data-kind="window"] #resume-at,
+        html[data-kind="window"] #hint {
+          display: none !important;
+        }
+        html[data-kind="window"] #countdown {
+          font-size: clamp(18px, 14vmin, 36px);
+        }
+      }
       @media (prefers-reduced-motion: reduce) {
         *,
         *::before,

@@ -345,12 +345,6 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Enables the accessibility_status command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-accessibility-status",
-          "markdownDescription": "Enables the accessibility_status command without any pre-configured scope."
-        },
-        {
           "description": "Enables the finish_onboarding command without any pre-configured scope.",
           "type": "string",
           "const": "allow-finish-onboarding",
@@ -421,12 +415,6 @@
           "type": "string",
           "const": "allow-reopen-onboarding",
           "markdownDescription": "Enables the reopen_onboarding command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the request_accessibility command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-request-accessibility",
-          "markdownDescription": "Enables the request_accessibility command without any pre-configured scope."
         },
         {
           "description": "Enables the reset_settings command without any pre-configured scope.",
@@ -507,12 +495,6 @@
           "markdownDescription": "Enables the suspend command without any pre-configured scope."
         },
         {
-          "description": "Denies the accessibility_status command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-accessibility-status",
-          "markdownDescription": "Denies the accessibility_status command without any pre-configured scope."
-        },
-        {
           "description": "Denies the finish_onboarding command without any pre-configured scope.",
           "type": "string",
           "const": "deny-finish-onboarding",
@@ -583,12 +565,6 @@
           "type": "string",
           "const": "deny-reopen-onboarding",
           "markdownDescription": "Denies the reopen_onboarding command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the request_accessibility command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-request-accessibility",
-          "markdownDescription": "Denies the request_accessibility command without any pre-configured scope."
         },
         {
           "description": "Denies the reset_settings command without any pre-configured scope.",
