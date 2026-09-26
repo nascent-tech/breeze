@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Breeze — pistes visuelles</title>
+<style>
+  :root {
+    --page: #E9EAEC;
+    --page-ink: #1E2024;
+    --page-ink-2: #5A5F68;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--page); color: var(--page-ink); }
+  body {
+    margin: 0;
+    font: 15px/1.5 -apple-system, "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .nav {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; gap: 4px; padding: 10px 24px;
+    background: rgba(233, 234, 236, .92);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(30, 32, 36, .08);
+  }
+  .nav a {
+    color: var(--page-ink-2); text-decoration: none; font-weight: 600; font-size: 13px;
+    padding: 6px 12px; border-radius: 8px;
+  }
+  .nav a:hover { background: rgba(30, 32, 36, .06); color: var(--page-ink); }
+  .dir { padding: 48px 24px 64px; max-width: 1320px; margin: 0 auto; }
+  .dir + .dir { border-top: 1px solid rgba(30, 32, 36, .1); }
+  .dir h2 { margin: 0; font-size: 26px; line-height: 1.2; letter-spacing: -.01em; }
+  .dir .why { margin: 8px 0 28px; max-width: 70ch; color: var(--page-ink-2); }
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px; align-items: start; }
+  @media (max-width: 980px) { .stage { grid-template-columns: 1fr; } .panel { justify-self: center; } }
+  .cap { margin: 10px 0 0; font-size: 12px; color: var(--page-ink-2); }
+
+  .screen {
+    position: relative; container-type: inline-size;
+    aspect-ratio: 16 / 10; width: 100%; overflow: hidden;
+    border-radius: 12px;
+    box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .45), 0 0 0 1px rgba(0, 0, 0, .08);
+  }
+  .panel {
+    width: 320px; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 24px 48px -20px rgba(0, 0, 0, .35), 0 0 0 1px rgba(0, 0, 0, .1);
+  }
+  button { font: inherit; color: inherit; cursor: default; }
+
+  /* =========================================================
+     A — PASSAGE À NIVEAU
+     ========================================================= */
+  .pn {
+    --ballast: #1E2024; --ballast-2: #2A2D33; --rail: #8B9099;
+    --enamel: #F6F6F4; --enamel-2: #E6E7E9;
+    --signal: #E0301E; --amber: #F2A900; --ink: #1E2024;
+    font-family: "DIN Alternate", "DIN Condensed", "Helvetica Neue", sans-serif;
+  }
+  .pn.screen { background: var(--ballast); color: var(--enamel); }
+  .pn .lamps {
+    position: absolute; top: 25cqw; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 2.4cqw; padding: 1cqw 1.8cqw;
+    background: #0F1012; border-radius: 99px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 10px 24px -10px rgba(0, 0, 0, .8);
+  }
+  .pn .lamp {
+    position: relative; width: 3.6cqw; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle at 38% 34%, #5a2420 0%, #2b1311 60%, #1b0c0b 100%);
+    box-shadow: inset 0 0 0 .35cqw #23262B;
+  }
+  .pn .lamp::before {
+    content: ""; position: absolute; left: -.6cqw; right: -.6cqw; top: -.9cqw; height: 3cqw;
+    border-radius: 3cqw 3cqw 0 0; background: #0F1012; z-index: -1;
+  }
+  .pn .lamp.on {
+    background: radial-gradient(circle at 38% 34%, #FFB7A8 0%, #FF4A30 26%, #E0301E 55%, #8E1A10 100%);
+    box-shadow: inset 0 0 0 .35cqw #23262B, 0 0 3cqw .6cqw rgba(224, 48, 30, .45);
+  }
+  .pn .count {
+    position: absolute; top: 31cqw; left: 0; right: 0; text-align: center;
+    font-family: "DIN Condensed", "DIN Alternate", sans-serif; font-weight: 700;
+    font-size: 17cqw; line-height: 1; letter-spacing: -.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .pn .post {
+    position: absolute; left: 9cqw; top: 20cqw; bottom: 0; width: 2.2cqw;
+    background: linear-gradient(90deg, #C9CCD1, #9CA1A9); border-radius: .4cqw .4cqw 0 0;
+  }
+  .pn .barrier {
+    position: absolute; left: 10.1cqw; top: 19.4cqw; width: 82cqw; height: 2.4cqw;
+    transform-origin: 0 50%; transform: rotate(var(--lift, -12deg));
+    transition: transform 1s cubic-bezier(.16, 1, .3, 1);
+    border-radius: 1.2cqw;
+    background: repeating-linear-gradient(90deg, var(--signal) 0 8cqw, var(--enamel) 8cqw 16cqw);
+    box-shadow: 0 1.4cqw 2cqw -1cqw rgba(0, 0, 0, .7), inset 0 -.3cqw 0 rgba(0, 0, 0, .18);
+  }
+  .pn .barrier::before {
+    content: ""; position: absolute; left: -4cqw; top: -.6cqw; width: 5cqw; height: 3.6cqw;
+    border-radius: .6cqw; background: #2A2D33; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+  }
+  .pn .pivot {
+    position: absolute; left: 9.2cqw; top: 18.6cqw; width: 4cqw; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #D8DBE0, #7E848D); z-index: 2;
+    box-shadow: 0 .4cqw 1cqw rgba(0, 0, 0, .6);
+  }
+  .pn .plate {
+    position: absolute; left: 50%; bottom: 5.2cqw; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 2.4cqw;
+    padding: 1.2cqw 2.6cqw; border-radius: 1.4cqw;
+    background: var(--enamel); color: var(--ink);
+    box-shadow: inset 0 0 0 .45cqw var(--signal), 0 1cqw 2cqw -1cqw rgba(0, 0, 0, .8);
+  }
+  .pn .plate b { font-size: 2.6cqw; line-height: 1; letter-spacing: .02em; }
+  .pn .plate span { font-size: 1.7cqw; color: #4A4F57; letter-spacing: .04em; text-transform: uppercase; }
+  .pn .exit {
+    position: absolute; right: 3cqw; bottom: 2.2cqw; font-size: 1.2cqw; letter-spacing: .08em;
+    text-transform: uppercase; color: #8B9099;
+  }
+  .pn .exit kbd {
+    font: inherit; padding: .2cqw .6cqw; border-radius: .4cqw; border: 1px solid #4A4F57; color: #C9CCD1;
+  }
+  @keyframes pn-alt { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+  .pn .lamp .glow {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: radial-gradient(circle at 38% 34%, #FFB7A8 0%, #FF4A30 26%, #E0301E 55%, #8E1A10 100%);
+    box-shadow: 0 0 3cqw .6cqw rgba(224, 48, 30, .45);
+    animation: pn-alt 1.6s steps(1) infinite;
+  }
+  .pn .lamp + .lamp .glow { animation-delay: .8s; }
+  @media (prefers-reduced-motion: reduce) { .pn .lamp .glow { animation: none; } .pn .lamp + .lamp .glow { opacity: 0; } }
+
+  .pn.panel { background: var(--enamel); color: var(--ink); }
+  .pn .p-head {
+    display: flex; align-items: center; gap: 12px; padding: 16px 16px 14px;
+    background: var(--ballast); color: var(--enamel);
+  }
+  .pn .mini-lamps { display: flex; gap: 5px; padding: 5px 7px; background: #0F1012; border-radius: 99px; }
+  .pn .mini-lamps i { width: 10px; height: 10px; border-radius: 50%; background: #3a1714; box-shadow: inset 0 0 0 1.5px #23262B; }
+  .pn .mini-lamps.annonce i:first-child { background: var(--amber); box-shadow: 0 0 8px rgba(242, 169, 0, .6); }
+  .pn .state { font-family: "DIN Condensed", sans-serif; font-weight: 700; font-size: 20px; letter-spacing: .08em; line-height: 1; }
+  .pn .next { margin-left: auto; text-align: right; line-height: 1.1; }
+  .pn .next b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; }
+  .pn .next span { font-size: 11px; color: var(--rail); letter-spacing: .06em; text-transform: uppercase; }
+  .pn .track { position: relative; height: 26px; margin: 0 16px; }
+  .pn .track::before {
+    content: ""; position: absolute; left: 0; right: 0; top: 12px; height: 3px;
+    background: repeating-linear-gradient(90deg, #C9CCD1 0 6px, transparent 6px 9px);
+  }
+  .pn .track .done { position: absolute; left: 0; top: 12px; height: 3px; width: 24%; background: var(--ink); }
+  .pn .track .gate {
+    position: absolute; right: 0; top: 5px; width: 34px; height: 6px; border-radius: 3px;
+    background: repeating-linear-gradient(90deg, var(--signal) 0 7px, #fff 7px 14px);
+    box-shadow: 0 0 0 1px rgba(30, 32, 36, .25);
+  }
+  .pn .rows { padding: 6px 16px 12px; }
+  .pn .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--enamel-2); }
+  .pn .row > span:not(.today) { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #4A4F57; }
+  .pn .seg { display: flex; gap: 3px; padding: 3px; border-radius: 8px; background: var(--enamel-2); }
+  .pn .seg button {
+    border: 0; background: transparent; padding: 5px 9px; border-radius: 6px;
+    font-size: 14px; line-height: 1; font-variant-numeric: tabular-nums; color: #4A4F57;
+  }
+  .pn .seg button[aria-pressed="true"] { background: var(--ink); color: var(--enamel); }
+  .pn .today { font-size: 13px; color: #4A4F57; font-family: -apple-system, sans-serif; letter-spacing: 0; text-transform: none; }
+  .pn .foot { display: flex; justify-content: space-between; padding: 12px 16px; background: var(--enamel-2); font-size: 13px; }
+  .pn .foot a { color: var(--ink); text-decoration: none; }
+  .pn .foot a.quit { color: #B3261A; }
+
+  /* =========================================================
+     B — HORLOGE DE GARE
+     ========================================================= */
+  .hg { --white: #FFFFFF; --black: #111111; --red: #E30613; --grey: #D9DBDE; font-family: "Helvetica Neue", Helvetica, sans-serif; }
+  .hg.screen { background: #F3F3F1; color: var(--black); display: grid; place-items: center; }
+  .hg .dial {
+    position: absolute; left: 50%; top: 42%; width: 38cqw; aspect-ratio: 1; transform: translate(-50%, -50%);
+    border-radius: 50%; background: var(--white);
+    box-shadow: 0 0 0 1.4cqw #1A1A1A, 0 0 0 1.8cqw #5B5E63, 0 3cqw 5cqw -2cqw rgba(0, 0, 0, .45);
+  }
+  .hg .sweep {
+    position: absolute; inset: 7%; border-radius: 50%;
+    background: conic-gradient(rgba(227, 6, 19, .14) 0 var(--left, 277deg), transparent 0);
+  }
+  .hg .tick { position: absolute; left: 50%; top: 3%; width: .7cqw; height: 3.4cqw; margin-left: -.35cqw; background: var(--black); transform-origin: 50% 17.4cqw; }
+  .hg .tick.m { width: .3cqw; height: 1.2cqw; margin-left: -.15cqw; transform-origin: 50% 18cqw; top: 1.5%; }
+  .hg .hand { position: absolute; left: 50%; bottom: 50%; transform-origin: 50% 100%; background: var(--black); }
+  .hg .hand.h { width: 1.4cqw; height: 10cqw; margin-left: -.7cqw; transform: rotate(-30deg); }
+  .hg .hand.mm { width: 1cqw; height: 15.5cqw; margin-left: -.5cqw; transform: rotate(0deg); }
+  .hg .hand.s { width: .35cqw; height: 14cqw; margin-left: -.175cqw; background: var(--red); transform: rotate(var(--sec, 100deg)); transition: transform .25s cubic-bezier(.5, 1.8, .6, 1); }
+  .hg .hand.s::after { content: ""; position: absolute; top: -1.8cqw; left: 50%; width: 4cqw; aspect-ratio: 1; margin-left: -2cqw; border-radius: 50%; background: var(--red); }
+  .hg .readout { position: absolute; left: 0; right: 0; bottom: 2.4cqw; text-align: center; }
+  .hg .readout b { display: block; font-size: 4.2cqw; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .hg .readout span { font-size: 1.6cqw; color: #55585E; }
+  .hg.panel { background: var(--white); color: var(--black); }
+  .hg .p-top { display: flex; align-items: center; gap: 16px; padding: 18px 16px; }
+  .hg .mini { position: relative; width: 64px; height: 64px; border-radius: 50%; border: 3px solid var(--black); }
+  .hg .mini::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: conic-gradient(rgba(227, 6, 19, .9) 0 88deg, var(--grey) 0 360deg); -webkit-mask: radial-gradient(circle, transparent 55%, #000 56%); mask: radial-gradient(circle, transparent 55%, #000 56%); }
+  .hg .p-top b { display: block; font-size: 28px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .hg .p-top span { font-size: 13px; color: #55585E; }
+  .hg .rows { border-top: 1px solid var(--grey); }
+  .hg .row { display: flex; justify-content: space-between; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--grey); font-size: 14px; }
+  .hg .seg { display: flex; border: 1.5px solid var(--black); border-radius: 6px; overflow: hidden; }
+  .hg .seg button { border: 0; background: transparent; padding: 4px 9px; font-size: 13px; }
+  .hg .seg button + button { border-left: 1.5px solid var(--black); }
+  .hg .seg button[aria-pressed="true"] { background: var(--black); color: var(--white); }
+  .hg .foot { display: flex; justify-content: space-between; padding: 12px 16px; font-size: 13px; }
+  .hg .foot a { color: var(--black); text-decoration: none; }
+  .hg .foot a.quit { color: var(--red); }
+
+  /* =========================================================
+     C — SIGNALÉTIQUE D'AÉROPORT
+     ========================================================= */
+  .ap { --yellow: #FFD100; --black: #111111; --white: #FFFFFF; --grey: #3A3A3A; font-family: "Avenir Next", Avenir, "Helvetica Neue", sans-serif; }
+  .ap.screen { background: #161616; color: var(--white); }
+  .ap .band {
+    position: absolute; left: 0; right: 0; top: 34%; height: 24cqw;
+    display: flex; align-items: center; gap: 3cqw; padding: 0 5cqw;
+    background: var(--yellow); color: var(--black);
+    box-shadow: 0 2cqw 4cqw -2cqw rgba(0, 0, 0, .8);
+  }
+  .ap .pict { width: 14cqw; aspect-ratio: 1; flex: none; background: var(--black); border-radius: .6cqw; display: grid; place-items: center; }
+  .ap .pict svg { width: 70%; height: 70%; }
+  .ap .msg { flex: 1; line-height: 1.05; }
+  .ap .msg b { display: block; font-size: 6.4cqw; font-weight: 700; letter-spacing: -.01em; }
+  .ap .msg span { font-size: 2.4cqw; font-weight: 500; }
+  .ap .big { font-size: 13cqw; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .ap .strip { position: absolute; left: 5cqw; right: 5cqw; bottom: 6cqw; display: flex; justify-content: space-between; font-size: 1.8cqw; color: #BDBDBD; font-weight: 500; }
+  .ap .strip b { color: var(--yellow); font-weight: 600; }
+  .ap.panel { background: var(--white); color: var(--black); }
+  .ap .p-band { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--yellow); }
+  .ap .p-band .pict { width: 44px; border-radius: 4px; }
+  .ap .p-band b { display: block; font-size: 30px; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ap .p-band span { font-size: 13px; font-weight: 600; }
+  .ap .row { display: flex; justify-content: space-between; align-items: center; padding: 11px 16px; border-bottom: 1px solid #EAEAEA; font-size: 14px; font-weight: 600; }
+  .ap .seg { display: flex; gap: 4px; }
+  .ap .seg button { border: 0; background: #F0F0F0; padding: 5px 9px; border-radius: 4px; font-size: 13px; font-weight: 600; }
+  .ap .seg button[aria-pressed="true"] { background: var(--black); color: var(--yellow); }
+  .ap .foot { display: flex; justify-content: space-between; padding: 12px 16px; font-size: 13px; font-weight: 600; }
+  .ap .foot a { color: var(--black); text-decoration: none; }
+  .ap .foot a.quit { color: #B00020; }
+
+  /* =========================================================
+     D — UTILITAIRE NATIF (standard de la catégorie)
+     ========================================================= */
+  .nt { font-family: -apple-system, "SF Pro Text", sans-serif; }
+  .nt.screen { background: radial-gradient(80% 90% at 20% 10%, #6C8FB8, transparent), radial-gradient(70% 80% at 90% 90%, #8F7BB0, transparent), #3D4A5E; color: #fff; }
+  .nt .veil { position: absolute; inset: 0; -webkit-backdrop-filter: blur(40px); backdrop-filter: blur(40px); background: rgba(20, 22, 28, .38); display: grid; place-content: center; text-align: center; gap: 1cqw; }
+  .nt .veil b { font-size: 14cqw; font-weight: 300; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .nt .veil span { font-size: 2cqw; opacity: .8; }
+  .nt .veil small { position: absolute; bottom: 3cqw; left: 0; right: 0; font-size: 1.3cqw; opacity: .55; }
+  .nt.panel { background: rgba(246, 246, 248, .96); color: #1D1D1F; padding: 12px; }
+  .nt .hero { text-align: center; padding: 8px 0 14px; }
+  .nt .hero b { font-size: 34px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .nt .hero span { display: block; font-size: 12px; color: #6E6E73; }
+  .nt .group { background: #fff; border-radius: 10px; margin-bottom: 8px; }
+  .nt .row { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; font-size: 13px; }
+  .nt .row + .row { border-top: 1px solid #EDEDF0; }
+  .nt .seg { display: flex; background: #E8E8ED; border-radius: 7px; padding: 2px; }
+  .nt .seg button { border: 0; background: transparent; padding: 3px 8px; border-radius: 5px; font-size: 12px; }
+  .nt .seg button[aria-pressed="true"] { background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .15); }
+  .nt .foot { display: flex; justify-content: space-between; padding: 4px 4px 0; font-size: 13px; }
+  .nt .foot a { color: #007AFF; text-decoration: none; }
+</style>
+</head>
+<body>
+<nav class="nav" aria-label="Pistes">
+  <a href="#pn">A · Passage à niveau</a>
+  <a href="#hg">B · Horloge de gare</a>
+  <a href="#ap">C · Signalétique d'aéroport</a>
+  <a href="#nt">D · Utilitaire natif</a>
+</nav>
+
+<section class="dir" id="pn">
+  <h2>A · Passage à niveau</h2>
+  <p class="why">La pause est une barrière qui descend à l'heure : on attend, elle se relève, il n'y a pas de bouton. Les feux alternent, les chiffres sont ceux de la signalisation, et la barrière remonte pendant que la pause s'écoule. Dans le panneau, le travail est une voie qui avance vers la barrière. Le rouge ne sert qu'à l'état « fermé ».</p>
+  <div class="stage">
+    <div>
+      <div class="screen pn" data-live="pn">
+        <div class="lamps" aria-hidden="true"><div class="lamp"><span class="glow"></span></div><div class="lamp"><span class="glow"></span></div></div>
+        <div class="count" data-count>07:42</div>
+        <div class="post"></div>
+        <div class="barrier" data-barrier></div>
+        <div class="pivot"></div>
+        <div class="plate"><span>Relevage</span><b>15:01</b></div>
+        <div class="exit">Hardcore · maintiens <kbd>Échap</kbd> 10 s pour sortir</div>
+      </div>
+      <p class="cap">Overlay de pause (Hardcore), en direct : la barrière se relève seconde après seconde.</p>
+    </div>
+    <div class="panel pn">
+      <div class="p-head">
+        <div class="mini-lamps" aria-hidden="true"><i></i><i></i></div>
+        <div class="state">OUVERT</div>
+        <div class="next"><b>38 min</b><span>fermeture 14:51</span></div>
+      </div>
+      <div class="track" aria-hidden="true"><div class="done"></div><div class="gate"></div></div>
+      <div class="rows">
+        <div class="row"><span>Suspendre</span><div class="seg"><button>15 min</button><button>1 h</button><button>Demain 6 h</button></div></div>
+        <div class="row"><span>Sévérité</span><div class="seg"><button aria-pressed="true">Simple</button><button>Hardcore</button></div></div>
+        <div class="row"><span>Rythme</span><div class="seg"><button>25/5</button><button aria-pressed="true">50/10</button><button>90/15</button></div></div>
+        <div class="row"><span>Aujourd'hui</span><span class="today">3 pauses servies · dette 6 min</span></div>
+      </div>
+      <div class="foot"><a href="#">Réglages…</a><a class="quit" href="#">Quitter Breeze</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="dir" id="hg">
+  <h2>B · Horloge de gare</h2>
+  <p class="why">La pause tombe comme la minute d'une horloge de quai : l'aiguille s'arrête net, puis saute. Le secteur rouge du cadran, c'est ce qu'il reste de pause. Émail blanc, noir plein, un seul rouge. Direction plus familière.</p>
+  <div class="stage">
+    <div>
+      <div class="screen hg" data-live="hg">
+        <div class="dial" data-dial>
+          <div class="sweep"></div>
+          <div class="hand h"></div><div class="hand mm"></div><div class="hand s"></div>
+        </div>
+        <div class="readout"><b data-count>07:42</b><span>Pause jusqu'à 15:01 · lève-toi</span></div>
+      </div>
+      <p class="cap">Overlay de pause : le secteur rouge se vide, la trotteuse saute à chaque seconde.</p>
+    </div>
+    <div class="panel hg">
+      <div class="p-top"><div class="mini" aria-hidden="true"></div><div><b>38 min</b><span>avant la pause de 14:51</span></div></div>
+      <div class="rows">
+        <div class="row">Suspendre<div class="seg"><button>15 min</button><button>1 h</button><button>Demain</button></div></div>
+        <div class="row">Sévérité<div class="seg"><button aria-pressed="true">Simple</button><button>Hardcore</button></div></div>
+        <div class="row">Rythme<div class="seg"><button>25/5</button><button aria-pressed="true">50/10</button><button>90/15</button></div></div>
+        <div class="row">Aujourd'hui<span>3 pauses · dette 6 min</span></div>
+      </div>
+      <div class="foot"><a href="#">Réglages…</a><a class="quit" href="#">Quitter Breeze</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="dir" id="ap">
+  <h2>C · Signalétique d'aéroport</h2>
+  <p class="why">Chaque écran répond à une seule question, en chiffres monumentaux sur un bandeau jaune suspendu. Le pictogramme dit quoi faire : se lever et marcher. Le jaune ne sert qu'à l'orientation.</p>
+  <div class="stage">
+    <div>
+      <div class="screen ap" data-live="ap">
+        <div class="band">
+          <div class="pict"><svg viewBox="0 0 48 48" aria-hidden="true"><g fill="#fff"><circle cx="27" cy="7" r="4.2"/><path d="M22.6 13.4c1.3-.8 2.9-1 4.3-.5l2.2.8c1.3.5 2.3 1.5 2.9 2.8l2.3 5 5 2.3c1 .5 1.4 1.6 1 2.6-.5 1-1.6 1.4-2.6 1l-5.6-2.6c-.5-.2-.9-.6-1.1-1.1l-1.2-2.6-2 8.2 4.6 4.8c.4.4.6.8.7 1.3l1.6 9.1c.2 1.1-.5 2.1-1.6 2.3-1.1.2-2.1-.5-2.3-1.6l-1.5-8.5-5.4-5.3-2.1 6.8c-.2.5-.5 1-1 1.3l-6.9 4.4c-.9.6-2.2.3-2.8-.6-.6-.9-.3-2.2.6-2.8l6.3-4 4.1-17.3-2.5 1.4-2.3 5.6c-.4 1-1.6 1.5-2.6 1.1-1-.4-1.5-1.6-1.1-2.6l2.6-6.2c.2-.4.5-.8.9-1z"/></g></svg></div>
+          <div class="msg"><b>Pause</b><span>Lève-toi, marche un peu</span></div>
+          <div class="big" data-count>07:42</div>
+        </div>
+        <div class="strip"><span>Reprise <b>15:01</b></span><span>Hardcore · maintiens Échap 10 s pour sortir</span></div>
+      </div>
+      <p class="cap">Overlay de pause : un seul bandeau et une seule consigne.</p>
+    </div>
+    <div class="panel ap">
+      <div class="p-band"><div class="pict"><svg viewBox="0 0 48 48" aria-hidden="true"><g fill="#fff"><circle cx="24" cy="24" r="14" fill="none" stroke="#fff" stroke-width="4"/><path d="M22 14h4v11l7 4-2 3.4-9-5.2z"/></g></svg></div><div><b>38 min</b><span>Prochaine pause 14:51</span></div></div>
+      <div class="row">Suspendre<div class="seg"><button>15 min</button><button>1 h</button><button>Demain</button></div></div>
+      <div class="row">Sévérité<div class="seg"><button aria-pressed="true">Simple</button><button>Hardcore</button></div></div>
+      <div class="row">Rythme<div class="seg"><button>25/5</button><button aria-pressed="true">50/10</button><button>90/15</button></div></div>
+      <div class="row">Aujourd'hui<span>3 pauses · dette 6 min</span></div>
+      <div class="foot"><a href="#">Réglages…</a><a class="quit" href="#">Quitter Breeze</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="dir" id="nt">
+  <h2>D · Utilitaire natif (le standard de la catégorie)</h2>
+  <p class="why">Ce que font les concurrents : conventions macOS, flou système, police système. C'est propre, et impossible à distinguer d'un autre utilitaire. On le garde ici comme point de comparaison.</p>
+  <div class="stage">
+    <div>
+      <div class="screen nt" data-live="nt">
+        <div class="veil"><b data-count>07:42</b><span>Pause jusqu'à 15:01</span><small>Maintiens Échap 10 s pour sortir</small></div>
+      </div>
+      <p class="cap">Overlay de pause : fond d'écran flouté, grand décompte fin.</p>
+    </div>
+    <div class="panel nt">
+      <div class="hero"><b>38:12</b><span>avant la prochaine pause</span></div>
+      <div class="group">
+        <div class="row">Suspendre<div class="seg"><button>15 min</button><button>1 h</button><button>Demain</button></div></div>
+      </div>
+      <div class="group">
+        <div class="row">Sévérité<div class="seg"><button aria-pressed="true">Simple</button><button>Hardcore</button></div></div>
+        <div class="row">Rythme<div class="seg"><button>25/5</button><button aria-pressed="true">50/10</button><button>90/15</button></div></div>
+      </div>
+      <div class="group"><div class="row">Aujourd'hui<span>3 pauses · dette 6 min</span></div></div>
+      <div class="foot"><a href="#">Réglages…</a><a href="#">Quitter</a></div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const total = 600;
+  let remaining = 462;
+  const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  function render() {
+    const elapsed = (total - remaining) / total;
+    document.querySelectorAll("[data-count]").forEach((el) => { el.textContent = fmt(remaining); });
+    document.querySelectorAll("[data-barrier]").forEach((el) => { el.style.setProperty("--lift", `${-(elapsed * 78)}deg`); });
+    document.querySelectorAll("[data-dial]").forEach((el) => {
+      el.style.setProperty("--left", `${(remaining / total) * 360}deg`);
+      el.style.setProperty("--sec", `${((total - remaining) % 60) * 6}deg`);
+    });
+  }
+  document.querySelectorAll("[data-dial]").forEach((dial) => {
+    for (let i = 0; i < 60; i++) {
+      const t = document.createElement("div");
+      t.className = i % 5 === 0 ? "tick" : "tick m";
+      t.style.transform = `rotate(${i * 6}deg)`;
+      dial.prepend(t);
+    }
+  });
+  render();
+  setInterval(() => { remaining = remaining > 0 ? remaining - 1 : total; render(); }, 1000);
+</script>
+</body>
+</html>
